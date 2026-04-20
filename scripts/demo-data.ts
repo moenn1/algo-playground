@@ -81,6 +81,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "window", "no-solution"]
   },
   {
+    key: "dp-reference-overlap",
+    algorithmId: "longest-common-subsequence",
+    presetId: "dynamic-programming.reference-overlap",
+    recordedAt: "2026-04-20T09:07:55.000Z",
+    tags: ["seeded-demo", "dynamic-programming", "reference-overlap"]
+  },
+  {
+    key: "dp-no-overlap",
+    algorithmId: "longest-common-subsequence",
+    presetId: "dynamic-programming.no-overlap",
+    recordedAt: "2026-04-20T09:07:57.000Z",
+    tags: ["seeded-demo", "dynamic-programming", "no-overlap"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

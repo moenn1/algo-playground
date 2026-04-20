@@ -565,6 +565,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 lanes / target 7"
     });
 
+    const dynamicProgrammingPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/dynamic-programming.reference-overlap/resolve",
+      payload: {
+        algorithmId: "longest-common-subsequence"
+      }
+    });
+
+    expect(dynamicProgrammingPreset.statusCode).toBe(200);
+    expect(dynamicProgrammingPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "dynamic-programming.reference-overlap"
+      },
+      algorithm: {
+        id: "longest-common-subsequence",
+        domain: "dynamic-programming"
+      },
+      footprint: "7 x 7 table"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -636,6 +657,32 @@ describe("TraceDeck API foundation", () => {
         target: 15
       },
       footprint: "6 lanes / target 15"
+    });
+
+    const validateDynamicProgrammingInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "longest-common-subsequence",
+        payload: {
+          left: "BANANA",
+          right: "ATANA"
+        }
+      }
+    });
+
+    expect(validateDynamicProgrammingInput.statusCode).toBe(200);
+    expect(validateDynamicProgrammingInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "longest-common-subsequence",
+        domain: "dynamic-programming"
+      },
+      input: {
+        left: "BANANA",
+        right: "ATANA"
+      },
+      footprint: "6 x 5 table"
     });
   });
 

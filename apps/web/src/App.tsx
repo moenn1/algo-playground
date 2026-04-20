@@ -1,10 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import {
+  buildRouteHref,
+  isRouteActive,
+  navigationSurfaces,
+  parseHashRoute,
+  type AppRoute
+} from "./appRoutes.js";
 import {
   GraphStage,
   SearchStage,
   SortingStage
 } from "./components/ReplayVisualizations.js";
+import {
+  fetchPersistedRunDetail,
+  fetchProductData,
+  hydratePersistedRun,
+  type PersistedAlgorithmRecord,
+  type PersistedComparisonMetric,
+  type PersistedComparisonRecord,
+  type PersistedRunSummary,
+  type ProductDataPayload,
+  type PersistenceMetadata
+} from "./productData.js";
 import {
   algorithms,
   buildComparisonRuns,
@@ -15,21 +33,16 @@ import {
   getAlgorithmById,
   getTraceStepPaths,
   type AccentTone,
+  type DynamicProgrammingRun,
   type GraphRun,
+  type ReplayAlgorithm,
   type ReplayRun,
   type SearchRun,
   type SortingRun,
   type WindowRun
 } from "./replay.js";
 
-type FoundationResponse = {
-  product: string;
-  priorities: string[];
-  services: Array<{
-    name: string;
-    role: string;
-  }>;
-};
+type FoundationResponse = ProductDataPayload["foundation"];
 
 const playbackProfiles = {
   slow: { label: "0.75x", intervalMs: 1250 },
@@ -38,17 +51,77 @@ const playbackProfiles = {
 } as const;
 
 type PlaybackSpeed = keyof typeof playbackProfiles;
-type ViewMode = "single" | "compare";
+type DataStatus = "loading" | "ready" | "offline";
+type StoryboardStop = {
+  key: string;
+  stepIndex: number;
+  progressLabel: string;
+  title: string;
+  detail: string;
+};
+type RunSource = {
+  label: string;
+  detail: string;
+};
 
 const defaultAlgorithm = algorithms[0];
 const defaultComparisonAlgorithm = comparisonAlgorithms[0];
 
 if (!defaultAlgorithm || !defaultComparisonAlgorithm) {
-  throw new Error("TraceDeck requires seeded algorithms to render the replay shell.");
+  throw new Error("TraceDeck requires seeded algorithms to render the replay workspace.");
 }
 
 const assuredDefaultAlgorithm = defaultAlgorithm;
 const assuredDefaultComparisonAlgorithm = defaultComparisonAlgorithm;
+
+const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
+  sorting: "Sorting systems",
+  search: "Search systems",
+  window: "Window systems",
+  "dynamic-programming": "Dynamic-programming systems",
+  graph: "Graph systems"
+};
+
+const domainReference: Record<
+  ReplayAlgorithm["domain"],
+  {
+    lens: string;
+    flow: string;
+    metrics: string;
+    checkpoints: string;
+  }
+> = {
+  sorting: {
+    lens: "Expose how array state moves through scan windows, pivot locks, swaps, and settled lanes.",
+    flow: "Sorting traces stay array-first so every checkpoint can rehydrate the exact lane ordering.",
+    metrics: "Sorting comparisons center on `comparisons` and `writes` so cross-run rankings stay stable.",
+    checkpoints: "Checkpoint windows focus on local passes while storyboard stops highlight the broader journey."
+  },
+  search: {
+    lens: "Focus on interval collapse, midpoint probes, and the exact moment a target is found or ruled out.",
+    flow: "Search playback uses full snapshots of `low`, `high`, `mid`, and eliminated lanes for deterministic jumps.",
+    metrics: "Recorded `probes` and `comparisons` capture search work without reconstructing the decision tree in the UI.",
+    checkpoints: "Checkpoint cards frame the active interval so long traces still stay readable on mobile."
+  },
+  window: {
+    lens: "Track expansions, candidate hits, contractions, and shortest-window updates without hiding intermediate state.",
+    flow: "Window traces carry active bounds, current sum, and best-hit metadata directly in the recorded snapshot.",
+    metrics: "Window metrics emphasize `expansions`, `shrinks`, and `bestUpdates` for replay and history surfaces.",
+    checkpoints: "Storyboard stops call out the moments when the window first qualifies and when a better hit lands."
+  },
+  "dynamic-programming": {
+    lens: "Surface table fill order, recurrence dependencies, and traceback recovery without reconstructing cells in the browser.",
+    flow: "DP playback records the full table, current cell, predecessor dependencies, and recovered sequence in every snapshot.",
+    metrics: "DP metrics track `cellsComputed`, `matches`, and `tracebackSteps` so recurrence work stays comparable across future table-driven algorithms.",
+    checkpoints: "Checkpoint stops separate table fill from traceback so large grids still stay readable in replay."
+  },
+  graph: {
+    lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
+    flow: "Graph playback is shared between BFS and Dijkstra so queue order and weighted frontier order stay deterministic.",
+    metrics: "Graph runs surface settled-node progress and route completion through the trace envelope instead of browser-only state.",
+    checkpoints: "Checkpoint windows anchor around frontier shifts so graph playback stays navigable even with larger traces."
+  }
+};
 
 function isSortingRun(run: ReplayRun): run is SortingRun {
   return run.algorithm.domain === "sorting";
@@ -66,13 +139,50 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
 }
 
-type StoryboardStop = {
-  key: string;
-  stepIndex: number;
-  progressLabel: string;
-  title: string;
-  detail: string;
-};
+function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
+  return run.algorithm.domain === "dynamic-programming";
+}
+
+function formatGridCoordinate(cell: number[]): string | null {
+  if (cell.length !== 2) {
+    return null;
+  }
+
+  return `[${cell[0]}, ${cell[1]}]`;
+}
+
+function hasGridCoordinate(cells: number[][], row: number, column: number): boolean {
+  return cells.some((cell) => cell[0] === row && cell[1] === column);
+}
+
+function useHashRoute() {
+  const [route, setRoute] = useState<AppRoute>(() => parseHashRoute(window.location.hash));
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRoute(parseHashRoute(window.location.hash));
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  function navigate(nextRoute: AppRoute) {
+    const nextHash = buildRouteHref(nextRoute);
+
+    if (window.location.hash === nextHash) {
+      setRoute(parseHashRoute(nextHash));
+      return;
+    }
+
+    window.location.hash = nextHash;
+  }
+
+  return { route, navigate };
+}
 
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
@@ -95,6 +205,7 @@ function buildCheckpointWindow(totalSteps: number, currentStepIndex: number): nu
 
   for (let offset = -2; offset <= 2; offset += 1) {
     const candidate = currentStepIndex + offset;
+
     if (candidate >= 0 && candidate < totalSteps) {
       anchorIndices.add(candidate);
     }
@@ -260,12 +371,31 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `Active sum ${step.state.activeSum} across lanes ${step.state.left}-${step.state.right}`;
     }
 
-    return `Target ${step.state.target} not reached`;
+    return "Target not reached";
+  }
+
+  if (isDynamicProgrammingRun(run)) {
+    const step = getRunStep(run, stepIndex);
+    const activeCoordinate = formatGridCoordinate(step.state.activeCell);
+
+    if (step.state.resultSequence.length > 0) {
+      return `LCS "${step.state.resultSequence}" · length ${step.state.resultLength ?? step.state.resultSequence.length}`;
+    }
+
+    if (activeCoordinate) {
+      return `Cell ${activeCoordinate} = ${step.state.currentValue ?? 0}`;
+    }
+
+    if (step.state.resultLength !== null) {
+      return `Table complete · length ${step.state.resultLength}`;
+    }
+
+    return `Seed ${step.state.left.length + 1} x ${step.state.right.length + 1} matrix`;
   }
 
   const step = getRunStep(run, stepIndex);
 
-  if (step.state.path.length > 0) {
+  if (Array.isArray(step.state.path) && step.state.path.length > 0) {
     return truncateText(step.state.path.join(" -> "), 56);
   }
 
@@ -274,6 +404,36 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   }
 
   return "Route pending";
+}
+
+function formatTimestamp(timestamp: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(timestamp));
+}
+
+function formatMetricValue(value: number | null): string {
+  if (value === null) {
+    return "n/a";
+  }
+
+  if (Number.isInteger(value)) {
+    return value.toString();
+  }
+
+  return value.toFixed(2);
+}
+
+function formatMetricDelta(metric: PersistedComparisonMetric): string {
+  if (metric.delta === null) {
+    return "No delta";
+  }
+
+  const sign = metric.delta > 0 ? "+" : "";
+  return `${sign}${formatMetricValue(metric.delta)}`;
 }
 
 function buildSingleStoryboard(run: ReplayRun, currentStepIndex: number): StoryboardStop[] {
@@ -311,6 +471,30 @@ function buildComparisonStoryboard(
       detail: truncateText(mappedSummaries.join(" · "), 88)
     };
   });
+}
+
+function getRunSourceFallback(run: ReplayRun): RunSource {
+  return {
+    label: "Editor trace",
+    detail: `Replay rebuilt from the current ${run.algorithm.badge.toLowerCase()} input editor.`
+  };
+}
+
+function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
+  switch (algorithm.domain) {
+    case "sorting":
+      return "Comparisons and writes";
+    case "search":
+      return "Probes and comparisons";
+    case "window":
+      return "Expansions, shrinks, and best updates";
+    case "dynamic-programming":
+      return "Cells, matches, and traceback steps";
+    case "graph":
+      return "Settled progress and recovered route";
+    default:
+      return "Deterministic replay metrics";
+  }
 }
 
 function StoryboardRail({
@@ -376,7 +560,26 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             return "Window waiting for first hit";
           })()
-      : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
+        : isDynamicProgrammingRun(run)
+          ? (() => {
+              const dynamicProgrammingStep = getRunStep(run, stepIndex);
+              const activeCoordinate = formatGridCoordinate(dynamicProgrammingStep.state.activeCell);
+
+              if (dynamicProgrammingStep.state.resultSequence.length > 0) {
+                return `Recovered "${dynamicProgrammingStep.state.resultSequence}"`;
+              }
+
+              if (dynamicProgrammingStep.state.resultLength !== null) {
+                return `LCS length ${dynamicProgrammingStep.state.resultLength}`;
+              }
+
+              if (activeCoordinate) {
+                return `Inspecting cell ${activeCoordinate}`;
+              }
+
+              return `${dynamicProgrammingStep.state.left.length} by ${dynamicProgrammingStep.state.right.length} character grid`;
+            })()
+        : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
   return (
     <section className="focus-strip" aria-label="Active frame briefing">
@@ -493,6 +696,134 @@ function WindowStage({ run, stepIndex }: { run: WindowRun; stepIndex: number }) 
   );
 }
 
+function DynamicProgrammingStage({
+  run,
+  stepIndex
+}: {
+  run: DynamicProgrammingRun;
+  stepIndex: number;
+}) {
+  const step = getRunStep(run, stepIndex);
+  const activeCoordinate = formatGridCoordinate(step.state.activeCell);
+  const resultLabel =
+    step.state.resultSequence.length > 0
+      ? `"${step.state.resultSequence}" · length ${step.state.resultLength ?? step.state.resultSequence.length}`
+      : step.state.resultLength !== null
+        ? `Length ${step.state.resultLength}`
+        : "Pending";
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} table</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="dp-stage">
+        <div className="dp-banner">
+          <span>
+            Left {step.state.left.length} chars · Right {step.state.right.length} chars
+          </span>
+          <strong>
+            {activeCoordinate
+              ? `Cell ${activeCoordinate} = ${step.state.currentValue ?? 0}`
+              : step.state.resultSequence.length > 0
+                ? `Recovered LCS ${resultLabel}`
+                : step.state.resultLength !== null
+                  ? `Completed table with LCS length ${step.state.resultLength}`
+                  : "Boundary conditions seeded for row-major table fill"}
+          </strong>
+          <p>
+            {step.state.tracebackPath.length > 0
+              ? `${step.state.tracebackPath.length} traceback cells are recorded in the recovery path.`
+              : step.state.dependencyCells.length > 0
+                ? `${step.state.dependencyCells.length} predecessor ${
+                    step.state.dependencyCells.length === 1 ? "cell" : "cells"
+                  } inform the current recurrence.`
+                : "The zero row and zero column remain fixed so every later frame can be restored directly."}
+          </p>
+        </div>
+        <div className="dp-table-shell">
+          <table className="dp-table">
+            <thead>
+              <tr>
+                <th className="dp-cell dp-cell-header" scope="col">
+                  Row
+                </th>
+                {["Ø", ...step.state.right.split("")].map((label, columnIndex) => (
+                  <th className="dp-cell dp-cell-header" key={`dp-col-${columnIndex}`} scope="col">
+                    {label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {step.state.table.map((rowValues, rowIndex) => (
+                <tr key={`dp-row-${rowIndex}`}>
+                  <th className="dp-cell dp-cell-header" scope="row">
+                    {rowIndex === 0 ? "Ø" : step.state.left[rowIndex - 1]}
+                  </th>
+                  {rowValues.map((value, columnIndex) => {
+                    const isActive =
+                      step.state.activeCell[0] === rowIndex &&
+                      step.state.activeCell[1] === columnIndex;
+                    const isDependency = hasGridCoordinate(
+                      step.state.dependencyCells,
+                      rowIndex,
+                      columnIndex
+                    );
+                    const isTrace = hasGridCoordinate(
+                      step.state.tracebackPath,
+                      rowIndex,
+                      columnIndex
+                    );
+                    const isMatchCell =
+                      rowIndex > 0 &&
+                      columnIndex > 0 &&
+                      step.state.left[rowIndex - 1] === step.state.right[columnIndex - 1] &&
+                      (isTrace || (isActive && step.state.matching));
+                    const className = [
+                      "dp-cell",
+                      isActive ? "dp-cell-active" : "",
+                      isDependency ? "dp-cell-dependency" : "",
+                      isTrace ? "dp-cell-trace" : "",
+                      isMatchCell ? "dp-cell-match" : ""
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return (
+                      <td className={className} key={`dp-value-${rowIndex}-${columnIndex}`}>
+                        {value}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Active cell</span>
+          <strong>{activeCoordinate ?? "None"}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Current value</span>
+          <strong>{step.state.currentValue !== null ? step.state.currentValue : "Waiting"}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Result</span>
+          <strong>{resultLabel}</strong>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function renderMetricCards(run: ReplayRun, stepIndex: number) {
   const step = getRunStep(run, stepIndex);
 
@@ -515,6 +846,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
 
   if (isWindowRun(run)) {
     return <WindowStage run={run} stepIndex={stepIndex} />;
+  }
+
+  if (isDynamicProgrammingRun(run)) {
+    return <DynamicProgrammingStage run={run} stepIndex={stepIndex} />;
   }
 
   return <GraphStage run={run} stepIndex={stepIndex} />;
@@ -616,15 +951,55 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
     );
   }
 
-  return (
-    <div className="number-grid">
-      {getRunStep(run, stepIndex).state.array.map((value, index) => (
-        <span className="number-pill" key={`${value}-${index}`}>
-          {value}
-        </span>
-      ))}
-    </div>
-  );
+  if (isDynamicProgrammingRun(run)) {
+    const step = getRunStep(run, stepIndex);
+    const activeCoordinate = formatGridCoordinate(step.state.activeCell);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Active cell</span>
+            <strong>{activeCoordinate ?? "None"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Current value</span>
+            <strong>{step.state.currentValue !== null ? step.state.currentValue : "Waiting"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Result length</span>
+            <strong>{step.state.resultLength !== null ? step.state.resultLength : "Pending"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Sequence</span>
+            <strong>{step.state.resultSequence || "Pending"}</strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          <span className="number-pill">Left: {step.state.left}</span>
+          <span className="number-pill">Right: {step.state.right}</span>
+          <span className="number-pill">Traceback cells: {step.state.tracebackPath.length}</span>
+          <span className="number-pill">
+            Dependencies: {step.state.dependencyCells.length}
+          </span>
+        </div>
+      </>
+    );
+  }
+
+  if (isSortingRun(run)) {
+    return (
+      <div className="number-grid">
+        {getRunStep(run, stepIndex).state.array.map((value, index) => (
+          <span className="number-pill" key={`${value}-${index}`}>
+            {value}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function ComparisonWorkspace({
@@ -777,9 +1152,20 @@ function ComparisonWorkspace({
             <article className="trend-card" key={metric.key}>
               <div className="trend-card-header">
                 <strong>{metric.label}</strong>
-                <span>{metric.direction === "lower-is-better" ? "Lower is better" : metric.direction === "higher-is-better" ? "Higher is better" : "Track side by side"}</span>
+                <span>
+                  {metric.direction === "lower-is-better"
+                    ? "Lower is better"
+                    : metric.direction === "higher-is-better"
+                      ? "Higher is better"
+                      : "Track side by side"}
+                </span>
               </div>
-              <svg className="trend-chart" viewBox="0 0 240 110" role="img" aria-label={`${metric.label} trend`}>
+              <svg
+                aria-label={`${metric.label} trend`}
+                className="trend-chart"
+                role="img"
+                viewBox="0 0 240 110"
+              >
                 <line className="trend-baseline" x1="0" y1="104" x2="240" y2="104" />
                 {runs.map((run) => {
                   const values = Array.from({ length: stepCount }, (_, index) => {
@@ -821,10 +1207,1404 @@ function ComparisonWorkspace({
   );
 }
 
+function ProductNav({
+  route,
+  status,
+  foundation
+}: {
+  route: AppRoute;
+  status: DataStatus;
+  foundation: FoundationResponse | null;
+}) {
+  return (
+    <header className="product-nav panel">
+      <div className="product-nav-brand">
+        <a className="product-wordmark" href={buildRouteHref({ page: "overview" })}>
+          <span className="product-wordmark-mark">TraceDeck</span>
+          <strong>{foundation?.product ?? "Algorithm Replay"}</strong>
+        </a>
+        <p className="product-nav-copy">
+          Deterministic algorithm playback split across overview, replay, library, history, and
+          comparison surfaces.
+        </p>
+      </div>
+      <nav aria-label="Primary" className="product-nav-links">
+        {navigationSurfaces.map((surface) => (
+          <a
+            className={`product-nav-link ${isRouteActive(route, surface.page) ? "product-nav-link-active" : ""}`}
+            href={buildRouteHref(
+              surface.page === "playground"
+                ? { page: "playground", algorithmId: assuredDefaultAlgorithm.id }
+                : { page: surface.page }
+            )}
+            key={surface.page}
+          >
+            <span>{surface.label}</span>
+            <strong>{surface.title}</strong>
+          </a>
+        ))}
+      </nav>
+      <div className="product-nav-status">
+        <span className={`status-chip status-chip--${status}`}>
+          {status === "ready"
+            ? "API connected"
+            : status === "offline"
+              ? "API offline"
+              : "Loading"}
+        </span>
+        <span className="status-chip status-chip--accent">
+          {route.page === "algorithm-detail" ? "Reference page" : route.page}
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function PageBanner({
+  eyebrow,
+  title,
+  copy,
+  accent = "gold",
+  actions,
+  stats
+}: {
+  eyebrow: string;
+  title: string;
+  copy: string;
+  accent?: "gold" | "ember" | "teal";
+  actions?: ReactNode;
+  stats: Array<{
+    label: string;
+    value: string;
+    detail: string;
+  }>;
+}) {
+  return (
+    <section className={`page-banner panel page-banner-${accent}`}>
+      <div className="page-banner-copy">
+        <p className="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p className="hero-copy">{copy}</p>
+        {actions ? <div className="page-banner-actions">{actions}</div> : null}
+      </div>
+      <div className="page-banner-stats">
+        {stats.map((stat) => (
+          <article className="hero-stat-card" key={stat.label}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+            <p>{stat.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TransportPanel({
+  mode,
+  isPlaying,
+  speedId,
+  primaryValue,
+  secondaryValue,
+  onSpeedSelect,
+  onStart,
+  onBack,
+  onTogglePlay,
+  onForward,
+  onEnd
+}: {
+  mode: "single" | "compare";
+  isPlaying: boolean;
+  speedId: PlaybackSpeed;
+  primaryValue: string;
+  secondaryValue: string;
+  onSpeedSelect: (speedId: PlaybackSpeed) => void;
+  onStart: () => void;
+  onBack: () => void;
+  onTogglePlay: () => void;
+  onForward: () => void;
+  onEnd: () => void;
+}) {
+  return (
+    <section className={`panel transport-panel ${isPlaying ? "transport-panel-live" : ""}`}>
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Transport</p>
+          <h3>{mode === "compare" ? "Synchronized controls" : "Replay controls"}</h3>
+        </div>
+        <p className="panel-copy">
+          {mode === "compare"
+            ? "Shared transport keeps each run on one progress line while preserving its own trace density."
+            : "The replay surface stays snapshot-driven, so stepping and scrubbing always land on recorded state."}
+        </p>
+      </div>
+
+      <div className="transport-row">
+        <button className="transport-button" onClick={onStart} type="button">
+          Start
+        </button>
+        <button className="transport-button" onClick={onBack} type="button">
+          Step Back
+        </button>
+        <button
+          aria-pressed={isPlaying}
+          className={`transport-button transport-button-primary ${
+            isPlaying ? "transport-button-live" : ""
+          }`}
+          onClick={onTogglePlay}
+          type="button"
+        >
+          {isPlaying ? "Pause" : "Play"}
+        </button>
+        <button className="transport-button" onClick={onForward} type="button">
+          Step Forward
+        </button>
+        <button className="transport-button" onClick={onEnd} type="button">
+          End
+        </button>
+      </div>
+
+      <div className="speed-row">
+        {(
+          Object.entries(playbackProfiles) as Array<
+            [PlaybackSpeed, (typeof playbackProfiles)[PlaybackSpeed]]
+          >
+        ).map(([profileId, profile]) => (
+          <button
+            className={`segmented ${profileId === speedId ? "segmented-active" : ""}`}
+            key={profileId}
+            onClick={() => {
+              onSpeedSelect(profileId);
+            }}
+            type="button"
+          >
+            {profile.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="transport-summary">
+        <div className="metric-inline">
+          <span>{mode === "compare" ? "Sync progress" : "Current frame"}</span>
+          <strong>{primaryValue}</strong>
+        </div>
+        <div className="metric-inline">
+          <span>Playback profile</span>
+          <strong>{playbackProfiles[speedId].label}</strong>
+        </div>
+        <div className="metric-inline">
+          <span>{mode === "compare" ? "Deck size" : "Input footprint"}</span>
+          <strong>{secondaryValue}</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TimelinePanel({
+  mode,
+  currentStepIndex,
+  activeStepCount,
+  syncProgress,
+  summary,
+  detail,
+  storyboardStops,
+  checkpointWindow,
+  onSelectStep,
+  renderCheckpoint
+}: {
+  mode: "single" | "compare";
+  currentStepIndex: number;
+  activeStepCount: number;
+  syncProgress: number;
+  summary: string;
+  detail: string;
+  storyboardStops: StoryboardStop[];
+  checkpointWindow: number[];
+  onSelectStep: (stepIndex: number) => void;
+  renderCheckpoint: (stepIndex: number) => ReactNode;
+}) {
+  return (
+    <section className="panel timeline-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Timeline</p>
+          <h3>
+            {mode === "compare"
+              ? "Scrub the synchronized progress line"
+              : "Scrub to any deterministic checkpoint"}
+          </h3>
+        </div>
+        <p className="panel-copy">
+          {mode === "compare"
+            ? `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
+            : `Frame ${currentStepIndex + 1} of ${activeStepCount}`}
+        </p>
+      </div>
+      <div className="timeline-progress-shell">
+        <div className="timeline-progress-bar">
+          <span style={{ width: `${syncProgress}%` }} />
+        </div>
+        <div className="timeline-progress-copy">
+          <strong>{summary}</strong>
+          <span>{detail}</span>
+        </div>
+      </div>
+      <input
+        aria-label="Replay timeline"
+        className="timeline-range"
+        max={activeStepCount - 1}
+        min={0}
+        onChange={(event) => {
+          onSelectStep(Number(event.target.value));
+        }}
+        onInput={(event) => {
+          onSelectStep(Number((event.target as HTMLInputElement).value));
+        }}
+        type="range"
+        value={currentStepIndex}
+      />
+      <div className="timeline-labels">
+        <span>{mode === "compare" ? "Lift-off" : "Seed"}</span>
+        <span>{mode === "compare" ? `${syncProgress}% synced` : summary}</span>
+        <span>Done</span>
+      </div>
+      <StoryboardRail activeStepIndex={currentStepIndex} onSelect={onSelectStep} stops={storyboardStops} />
+      <div className="checkpoint-row">{checkpointWindow.map((stepIndex) => renderCheckpoint(stepIndex))}</div>
+    </section>
+  );
+}
+
+function OverviewPage({
+  foundation,
+  status,
+  persistence,
+  persistedAlgorithms,
+  recentRuns,
+  recentComparisons,
+  onLoadSavedRun
+}: {
+  foundation: FoundationResponse | null;
+  status: DataStatus;
+  persistence: PersistenceMetadata | null;
+  persistedAlgorithms: PersistedAlgorithmRecord[];
+  recentRuns: PersistedRunSummary[];
+  recentComparisons: PersistedComparisonRecord[];
+  onLoadSavedRun: (runId: string) => void;
+}) {
+  const heroStats = [
+    {
+      label: "Pages",
+      value: `${navigationSurfaces.length}`,
+      detail: "Overview, replay, library, history, and compare now stand apart."
+    },
+    {
+      label: "Algorithms",
+      value: `${algorithms.length}`,
+      detail:
+        "Sorting, search, window, dynamic-programming, and graph domains share the same trace contract."
+    },
+    {
+      label: "Saved runs",
+      value: `${persistence?.counts.runs ?? 0}`,
+      detail: "Persisted playback can now be browsed away from the replay workspace."
+    },
+    {
+      label: "Comparisons",
+      value: `${persistence?.counts.comparisons ?? 0}`,
+      detail: "Dedicated comparison space keeps side-by-side analysis out of the main replay page."
+    }
+  ];
+
+  return (
+    <>
+      <section className="hero-band hero-band-overview">
+        <div>
+          <p className="eyebrow">TraceDeck</p>
+          <h1>Deterministic algorithm playback now lives in distinct product surfaces.</h1>
+          <p className="hero-copy">
+            The experience is split into a landing overview, a dedicated replay playground, an
+            algorithm library with reference pages, and separated history and comparison surfaces.
+            The result is a navigable product shell instead of one vertically compressed studio.
+          </p>
+        </div>
+        <div className="hero-command">
+          <div className="hero-command-panel">
+            <div className="panel-heading hero-command-header">
+              <div>
+                <p className="eyebrow">Product Layout</p>
+                <h2>Five surface model</h2>
+              </div>
+              <span className="phase-badge">{status === "ready" ? "Ready" : "Offline-safe"}</span>
+            </div>
+            <p className="hero-copy hero-command-copy">
+              Navigation now separates overview, reference, live replay, saved activity, and
+              synchronized comparison work so each surface can breathe on desktop and mobile.
+            </p>
+            <div className="hero-meter">
+              <div className="hero-meter-bar">
+                <span style={{ width: "100%" }} />
+              </div>
+              <div className="hero-meter-labels">
+                <span>Landing</span>
+                <span>Replay + Reference</span>
+                <span>History + Compare</span>
+              </div>
+            </div>
+          </div>
+          <div className="hero-stat-grid">
+            {heroStats.map((stat) => (
+              <article className="hero-stat-card" key={stat.label}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+                <p>{stat.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+        {foundation?.priorities.length ? (
+          <div className="priority-row">
+            {foundation.priorities.map((priority) => (
+              <span className="priority-pill" key={priority}>
+                {priority}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div className="hero-status">
+          <div className="status-row">
+            <span className={`status-chip status-chip--${status}`}>
+              {status === "ready"
+                ? "API connected"
+                : status === "offline"
+                  ? "API offline"
+                  : "Loading foundation"}
+            </span>
+            <span className="status-chip status-chip--accent">
+              {foundation?.product ?? "TraceDeck"} overview
+            </span>
+          </div>
+          <div className="status-row">
+            <span className="status-chip">
+              {persistedAlgorithms.length} tracked algorithms in persistence
+            </span>
+            <span className="status-chip">{recentRuns.length} recent runs on deck</span>
+            <span className="status-chip">Contract-driven replay</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="surface-grid">
+        {navigationSurfaces.map((surface) => (
+          <a
+            className="surface-card panel"
+            href={buildRouteHref(
+              surface.page === "playground"
+                ? { page: "playground", algorithmId: assuredDefaultAlgorithm.id }
+                : { page: surface.page }
+            )}
+            key={surface.page}
+          >
+            <p className="eyebrow">{surface.label}</p>
+            <h2>{surface.title}</h2>
+            <p>{surface.description}</p>
+          </a>
+        ))}
+      </section>
+
+      <section className="overview-grid">
+        <article className="panel overview-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Library Preview</p>
+              <h2>Algorithms by domain</h2>
+            </div>
+          </div>
+          <div className="overview-domain-grid">
+            {(["sorting", "search", "window", "dynamic-programming", "graph"] as const).map(
+              (domain) => (
+                <article className="overview-domain-card" key={domain}>
+                  <span>{domainLabels[domain]}</span>
+                  <strong>
+                    {algorithms.filter((algorithm) => algorithm.domain === domain).length} surfaces
+                  </strong>
+                  <p>{domainReference[domain].lens}</p>
+                </article>
+              )
+            )}
+          </div>
+        </article>
+
+        <article className="panel overview-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Recent Activity</p>
+              <h2>Saved runs and comparisons</h2>
+            </div>
+          </div>
+          <div className="activity-preview-grid">
+            {recentRuns.slice(0, 3).map((run) => (
+              <button
+                className="activity-card"
+                key={run.id}
+                onClick={() => {
+                  onLoadSavedRun(run.id);
+                }}
+                type="button"
+              >
+                <span>{run.algorithmLabel}</span>
+                <strong>{run.stepCount} frames</strong>
+                <p>{formatTimestamp(run.recordedAt)}</p>
+              </button>
+            ))}
+            {recentComparisons.slice(0, 2).map((comparison) => (
+              <a className="activity-card" href={buildRouteHref({ page: "history" })} key={comparison.id}>
+                <span>{comparison.label ?? "Saved comparison"}</span>
+                <strong>
+                  {comparison.baseRun.algorithmLabel} vs {comparison.candidateRun.algorithmLabel}
+                </strong>
+                <p>{comparison.metrics.length} tracked metrics</p>
+              </a>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      {foundation?.services.length ? (
+        <section className="panel summary-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Product Focus</p>
+              <h3>Execution seams visible across the product shell</h3>
+            </div>
+          </div>
+          <div className="summary-grid">
+            {foundation.services.map((service) => (
+              <article className="summary-card" key={service.name}>
+                <p className="card-kicker">{service.name}</p>
+                <h3>{service.role}</h3>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function LibraryPage({
+  persistedAlgorithms,
+  onOpenPlayground
+}: {
+  persistedAlgorithms: PersistedAlgorithmRecord[];
+  onOpenPlayground: (algorithmId: string) => void;
+}) {
+  const statsByAlgorithmId = new Map(
+    persistedAlgorithms.map((algorithm) => [algorithm.id, algorithm] as const)
+  );
+
+  return (
+    <>
+      <PageBanner
+        accent="teal"
+        actions={
+          <>
+            <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
+              Open comparison studio
+            </a>
+            <a className="segmented segmented-active" href={buildRouteHref({ page: "history" })}>
+              Review saved runs
+            </a>
+          </>
+        }
+        copy="Browse the algorithm catalog by domain, open reference pages for input and replay guidance, and jump directly into the dedicated playground from the same shelf."
+        eyebrow="Algorithm Library"
+        stats={[
+          {
+            label: "Catalog size",
+            value: `${algorithms.length}`,
+            detail: "Reference pages exist for every replayable algorithm."
+          },
+          {
+            label: "Persisted coverage",
+            value: `${persistedAlgorithms.length}`,
+            detail: "Saved runs feed real usage signals back into the library."
+          },
+          {
+            label: "Shared contract",
+            value: "1 trace model",
+            detail: "Reference, replay, history, and compare read the same deterministic envelopes."
+          }
+        ]}
+        title="Algorithm reference lives on its own surface."
+      />
+
+      <div className="library-sections">
+        {(["sorting", "search", "window", "dynamic-programming", "graph"] as const).map(
+          (domain) => {
+            const domainAlgorithms = algorithms.filter(
+              (algorithm) => algorithm.domain === domain
+            );
+
+            return (
+              <section className="panel library-panel" key={domain}>
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">{domainLabels[domain]}</p>
+                    <h2>{domainReference[domain].lens}</h2>
+                  </div>
+                  <p className="panel-copy">{domainReference[domain].flow}</p>
+                </div>
+                <div className="library-grid">
+                  {domainAlgorithms.map((algorithm) => {
+                    const persistedRecord = statsByAlgorithmId.get(algorithm.id);
+
+                    return (
+                      <article className="library-card" key={algorithm.id}>
+                        <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
+                          {algorithm.badge}
+                        </span>
+                        <h3>{algorithm.name}</h3>
+                        <p>{algorithm.description}</p>
+                        <div className="library-card-meta">
+                          <span>{algorithm.inputLabel}</span>
+                          <strong>{persistedRecord?.runCount ?? 0} saved runs</strong>
+                        </div>
+                        <div className="library-card-actions">
+                          <a
+                            className="segmented"
+                            href={buildRouteHref({
+                              page: "algorithm-detail",
+                              algorithmId: algorithm.id
+                            })}
+                          >
+                            Reference
+                          </a>
+                          <button
+                            className="launch-button"
+                            onClick={() => {
+                              onOpenPlayground(algorithm.id);
+                            }}
+                            type="button"
+                          >
+                            Open playground
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          }
+        )}
+      </div>
+    </>
+  );
+}
+
+function AlgorithmDetailPage({
+  algorithm,
+  persistedAlgorithms,
+  onOpenPlayground
+}: {
+  algorithm: ReplayAlgorithm;
+  persistedAlgorithms: PersistedAlgorithmRecord[];
+  onOpenPlayground: (algorithmId: string) => void;
+}) {
+  const persistedRecord = persistedAlgorithms.find((entry) => entry.id === algorithm.id);
+  const reference = domainReference[algorithm.domain];
+
+  return (
+    <>
+      <PageBanner
+        accent={algorithm.accent}
+        actions={
+          <>
+            <button
+              className="launch-button"
+              onClick={() => {
+                onOpenPlayground(algorithm.id);
+              }}
+              type="button"
+            >
+              Open in playground
+            </button>
+            <a className="segmented" href={buildRouteHref({ page: "library" })}>
+              Back to library
+            </a>
+            {algorithm.domain === "sorting" ? (
+              <a className="segmented segmented-active" href={buildRouteHref({ page: "compare" })}>
+                Compare sorting runs
+              </a>
+            ) : null}
+          </>
+        }
+        copy={`${algorithm.description} This reference page captures the input contract, replay focus, and metric language that the dedicated playground, history, and comparison surfaces depend on.`}
+        eyebrow={`${algorithm.badge} Reference`}
+        stats={[
+          {
+            label: "Default input",
+            value: algorithm.inputLabel,
+            detail: algorithm.inputHint
+          },
+          {
+            label: "Replay lens",
+            value: getAlgorithmMetricsLabel(algorithm),
+            detail: reference.metrics
+          },
+          {
+            label: "Saved activity",
+            value: `${persistedRecord?.runCount ?? 0}`,
+            detail: persistedRecord?.lastRunAt
+              ? `Most recent saved run ${formatTimestamp(persistedRecord.lastRunAt)}`
+              : "No persisted runs recorded yet"
+          }
+        ]}
+        title={algorithm.name}
+      />
+
+      <section className="detail-layout">
+        <article className="panel detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Reference Brief</p>
+              <h2>What this replay surface needs to reveal</h2>
+            </div>
+          </div>
+          <div className="detail-copy-grid">
+            <article className="detail-note">
+              <span>Input contract</span>
+              <strong>{algorithm.inputHint}</strong>
+              <p>{reference.flow}</p>
+            </article>
+            <article className="detail-note">
+              <span>Checkpoint model</span>
+              <strong>{reference.checkpoints}</strong>
+              <p>{reference.metrics}</p>
+            </article>
+            <article className="detail-note">
+              <span>Surface expectation</span>
+              <strong>{reference.lens}</strong>
+              <p>Replay, saved-run, and comparison surfaces should all read from the same snapshots.</p>
+            </article>
+          </div>
+        </article>
+
+        <article className="panel detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Seed Input</p>
+              <h2>Default reference payload</h2>
+            </div>
+          </div>
+          <pre className="detail-code-block">
+            <code>{algorithm.defaultInput}</code>
+          </pre>
+        </article>
+      </section>
+    </>
+  );
+}
+
+function PlaygroundPage({
+  foundation,
+  status,
+  run,
+  runSource,
+  selectedAlgorithm,
+  selectedAlgorithmId,
+  singleInputText,
+  singleError,
+  currentStepIndex,
+  isPlaying,
+  speedId,
+  onInputChange,
+  onSelectAlgorithm,
+  onLaunchRun,
+  onSpeedSelect,
+  onStart,
+  onBack,
+  onTogglePlay,
+  onForward,
+  onEnd,
+  onSelectStep
+}: {
+  foundation: FoundationResponse | null;
+  status: DataStatus;
+  run: ReplayRun;
+  runSource: RunSource;
+  selectedAlgorithm: ReplayAlgorithm;
+  selectedAlgorithmId: string;
+  singleInputText: string;
+  singleError: string;
+  currentStepIndex: number;
+  isPlaying: boolean;
+  speedId: PlaybackSpeed;
+  onInputChange: (value: string) => void;
+  onSelectAlgorithm: (algorithmId: string) => void;
+  onLaunchRun: () => void;
+  onSpeedSelect: (speedId: PlaybackSpeed) => void;
+  onStart: () => void;
+  onBack: () => void;
+  onTogglePlay: () => void;
+  onForward: () => void;
+  onEnd: () => void;
+  onSelectStep: (stepIndex: number) => void;
+}) {
+  const currentStep = getRunStep(run, currentStepIndex);
+  const syncProgress =
+    run.trace.steps.length <= 1
+      ? 100
+      : Math.round((currentStepIndex / (run.trace.steps.length - 1)) * 100);
+  const checkpointWindow = buildCheckpointWindow(run.trace.steps.length, currentStepIndex);
+  const storyboardStops = buildSingleStoryboard(run, currentStepIndex);
+
+  return (
+    <>
+      <PageBanner
+        accent="gold"
+        actions={
+          <>
+            <a
+              className="segmented"
+              href={buildRouteHref({
+                page: "algorithm-detail",
+                algorithmId: selectedAlgorithm.id
+              })}
+            >
+              Open reference page
+            </a>
+            <a className="segmented segmented-active" href={buildRouteHref({ page: "history" })}>
+              Review saved runs
+            </a>
+            {selectedAlgorithm.domain === "sorting" ? (
+              <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
+                Compare sorting runs
+              </a>
+            ) : null}
+          </>
+        }
+        copy="The dedicated playground keeps algorithm selection, input editing, transport, timeline scrubbing, and step inspection on one route instead of sharing vertical space with the rest of the product."
+        eyebrow="Replay Playground"
+        stats={[
+          {
+            label: "Algorithm",
+            value: run.algorithm.name,
+            detail: run.algorithm.description
+          },
+          {
+            label: "Input footprint",
+            value: describeInputFootprint(run),
+            detail: selectedAlgorithm.inputHint
+          },
+          {
+            label: "Run source",
+            value: runSource.label,
+            detail: runSource.detail
+          }
+        ]}
+        title="Single-run replay has its own workspace."
+      />
+
+      <div className="workspace-grid">
+        <aside className="sidebar panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Scenario</p>
+              <h2>Choose an algorithm</h2>
+            </div>
+            <p className="panel-copy">
+              The selected algorithm owns its input format and trace builder so playback stays
+              domain-aware.
+            </p>
+          </div>
+          <div className="status-row">
+            <span className={`status-chip status-chip--${status}`}>
+              {status === "ready" ? "API connected" : status === "offline" ? "Offline" : "Loading"}
+            </span>
+            <span className="status-chip">{foundation?.product ?? "TraceDeck"} replay</span>
+          </div>
+          <div className="algorithm-list">
+            {algorithms.map((algorithm) => (
+              <button
+                className={`algorithm-card ${
+                  algorithm.id === selectedAlgorithmId ? "algorithm-card-active" : ""
+                }`}
+                key={algorithm.id}
+                onClick={() => {
+                  onSelectAlgorithm(algorithm.id);
+                }}
+                type="button"
+              >
+                <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
+                  {algorithm.badge}
+                </span>
+                <strong>{algorithm.name}</strong>
+                <p>{algorithm.description}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="panel-stack">
+            <div className="sidebar-note">
+              <span>Loaded source</span>
+              <strong>{runSource.label}</strong>
+              <p>{runSource.detail}</p>
+            </div>
+            <a
+              className="segmented"
+              href={buildRouteHref({
+                page: "algorithm-detail",
+                algorithmId: selectedAlgorithm.id
+              })}
+            >
+              Read reference notes
+            </a>
+          </div>
+
+          <label className="input-label" htmlFor="single-input-editor">
+            {selectedAlgorithm.inputLabel}
+          </label>
+          <p className="input-hint">{selectedAlgorithm.inputHint}</p>
+          <textarea
+            className="input-editor"
+            id="single-input-editor"
+            onChange={(event) => {
+              onInputChange(event.target.value);
+            }}
+            spellCheck={false}
+            value={singleInputText}
+          />
+          {singleError ? (
+            <div className="error-banner">{singleError}</div>
+          ) : (
+            <div className="note-banner">
+              Launch rebuilds the trace from the editor content and resets the replay cursor.
+            </div>
+          )}
+          <button className="launch-button" onClick={onLaunchRun} type="button">
+            Launch Run
+          </button>
+        </aside>
+
+        <div className="main-column">
+          <section className="panel stage-panel">
+            <SingleReplayBriefing run={run} stepIndex={currentStepIndex} />
+            <div className="stage-layout">
+              <div className="visual-panel">{renderSingleStage(run, currentStepIndex)}</div>
+              <div className="inspector-column">
+                <section className="panel inspector-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Step Narrative</p>
+                      <h3>{currentStep.phase}</h3>
+                    </div>
+                    <span className="phase-badge">Frame {currentStep.index + 1}</span>
+                  </div>
+                  <p className="step-detail">{currentStep.explanation.summary}</p>
+                  {currentStep.explanation.details ? (
+                    <p className="step-detail">{currentStep.explanation.details}</p>
+                  ) : null}
+                  {currentStep.explanation.tags?.length ? (
+                    <div className="tag-row">
+                      {currentStep.explanation.tags.map((tag) => (
+                        <span className="number-pill" key={tag}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <ul className="change-list">
+                    {currentStep.highlights.map((highlight) => (
+                      <li key={highlight.key}>
+                        {formatHighlightLabel(highlight.label, highlight.key)}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="metric-grid">{renderMetricCards(run, currentStepIndex)}</div>
+                </section>
+
+                <section className="panel state-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">Changed Paths</p>
+                      <h3>Recorded deltas</h3>
+                    </div>
+                  </div>
+                  <div className="number-grid">
+                    {getTraceStepPaths(currentStep).map((path) => (
+                      <span className="number-pill" key={path}>
+                        {path}
+                      </span>
+                    ))}
+                  </div>
+                  {renderStateSnapshot(run, currentStep.index)}
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <TransportPanel
+            isPlaying={isPlaying}
+            mode="single"
+            onBack={onBack}
+            onEnd={onEnd}
+            onForward={onForward}
+            onSpeedSelect={onSpeedSelect}
+            onStart={onStart}
+            onTogglePlay={onTogglePlay}
+            primaryValue={currentStep.phase}
+            secondaryValue={describeInputFootprint(run)}
+            speedId={speedId}
+          />
+
+          <TimelinePanel
+            activeStepCount={run.trace.steps.length}
+            checkpointWindow={checkpointWindow}
+            currentStepIndex={currentStepIndex}
+            detail={describeRunSnapshot(run, currentStep.index)}
+            mode="single"
+            onSelectStep={onSelectStep}
+            renderCheckpoint={(stepIndex) => {
+              const step = getRunStep(run, stepIndex);
+
+              return (
+                <button
+                  className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
+                  key={step.key}
+                  onClick={() => {
+                    onSelectStep(stepIndex);
+                  }}
+                  type="button"
+                >
+                  <span className="checkpoint-index">{step.index + 1}</span>
+                  <strong>{step.phase}</strong>
+                  <span>{step.explanation.summary}</span>
+                </button>
+              );
+            }}
+            storyboardStops={storyboardStops}
+            summary={currentStep.explanation.summary}
+            syncProgress={syncProgress}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ComparePage({
+  compareInputText,
+  compareError,
+  comparisonRuns,
+  currentStepIndex,
+  isPlaying,
+  speedId,
+  recentComparisons,
+  onInputChange,
+  onLaunchComparison,
+  onSpeedSelect,
+  onStart,
+  onBack,
+  onTogglePlay,
+  onForward,
+  onEnd,
+  onSelectStep
+}: {
+  compareInputText: string;
+  compareError: string;
+  comparisonRuns: SortingRun[];
+  currentStepIndex: number;
+  isPlaying: boolean;
+  speedId: PlaybackSpeed;
+  recentComparisons: PersistedComparisonRecord[];
+  onInputChange: (value: string) => void;
+  onLaunchComparison: () => void;
+  onSpeedSelect: (speedId: PlaybackSpeed) => void;
+  onStart: () => void;
+  onBack: () => void;
+  onTogglePlay: () => void;
+  onForward: () => void;
+  onEnd: () => void;
+  onSelectStep: (stepIndex: number) => void;
+}) {
+  const activeStepCount = Math.max(...comparisonRuns.map((comparisonRun) => comparisonRun.trace.steps.length));
+  const syncProgress =
+    activeStepCount <= 1 ? 100 : Math.round((currentStepIndex / (activeStepCount - 1)) * 100);
+  const compareLaneSignals = comparisonRuns.map((comparisonRun) => {
+    const syncedIndex = getSyncedStepIndex(
+      comparisonRun.trace.steps.length,
+      currentStepIndex,
+      activeStepCount
+    );
+    const syncedStep = getRunStep(comparisonRun, syncedIndex);
+
+    return `${comparisonRun.algorithm.name.split(" ")[0]}: ${syncedStep.phase}`;
+  });
+  const checkpointWindow = buildCheckpointWindow(activeStepCount, currentStepIndex);
+  const storyboardStops = buildComparisonStoryboard(
+    comparisonRuns,
+    currentStepIndex,
+    activeStepCount
+  );
+
+  return (
+    <>
+      <PageBanner
+        accent="ember"
+        actions={
+          <>
+            <a className="segmented" href={buildRouteHref({ page: "history" })}>
+              Review saved comparisons
+            </a>
+            <a className="segmented segmented-active" href={buildRouteHref({ page: "playground" })}>
+              Return to single replay
+            </a>
+          </>
+        }
+        copy="Comparison has its own route so synchronized stage cards, metric leaders, and trend charts no longer compete with the single-run playground for space."
+        eyebrow="Comparison Studio"
+        stats={[
+          {
+            label: "Algorithms",
+            value: `${comparisonRuns.length}`,
+            detail: comparisonRuns.map((run) => run.algorithm.name.split(" ")[0]).join(" / ")
+          },
+          {
+            label: "Shared input",
+            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
+            detail: "Every sorting lane replays the same normalized array."
+          },
+          {
+            label: "Saved comparisons",
+            value: `${recentComparisons.length}`,
+            detail: "History previews persist without forcing the comparison deck onto the landing page."
+          }
+        ]}
+        title="Synchronized sorting analysis stands on its own surface."
+      />
+
+      <div className="workspace-grid">
+        <aside className="sidebar panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Comparison Deck</p>
+              <h2>Build a shared-input matchup</h2>
+            </div>
+            <p className="panel-copy">
+              The comparison deck regenerates every sorting trace from the same array and keeps
+              playback aligned by normalized progress.
+            </p>
+          </div>
+          <div className="algorithm-list">
+            {comparisonAlgorithms.map((algorithm) => (
+              <article className="algorithm-card algorithm-card-static" key={algorithm.id}>
+                <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
+                  {algorithm.badge}
+                </span>
+                <strong>{algorithm.name}</strong>
+                <p>{algorithm.description}</p>
+              </article>
+            ))}
+          </div>
+          <div className="sidebar-note">
+            <span>Live sync</span>
+            <strong>{syncProgress}% aligned</strong>
+            <p>{compareLaneSignals.join(" · ")}</p>
+          </div>
+          <label className="input-label" htmlFor="compare-input-editor">
+            Shared Array Input
+          </label>
+          <p className="input-hint">
+            One seeded array feeds every comparison lane so metrics stay directly comparable.
+          </p>
+          <textarea
+            className="input-editor"
+            id="compare-input-editor"
+            onChange={(event) => {
+              onInputChange(event.target.value);
+            }}
+            spellCheck={false}
+            value={compareInputText}
+          />
+          {compareError ? (
+            <div className="error-banner">{compareError}</div>
+          ) : (
+            <div className="note-banner">
+              Build deck regenerates every trace from the same array and resets the synchronized
+              transport line.
+            </div>
+          )}
+          <button className="launch-button" onClick={onLaunchComparison} type="button">
+            Build Deck
+          </button>
+        </aside>
+
+        <div className="main-column">
+          <ComparisonWorkspace
+            currentStepIndex={currentStepIndex}
+            runs={comparisonRuns}
+            stepCount={activeStepCount}
+          />
+
+          <TransportPanel
+            isPlaying={isPlaying}
+            mode="compare"
+            onBack={onBack}
+            onEnd={onEnd}
+            onForward={onForward}
+            onSpeedSelect={onSpeedSelect}
+            onStart={onStart}
+            onTogglePlay={onTogglePlay}
+            primaryValue={`${syncProgress}%`}
+            secondaryValue={`${comparisonRuns.length} algorithms`}
+            speedId={speedId}
+          />
+
+          <TimelinePanel
+            activeStepCount={activeStepCount}
+            checkpointWindow={checkpointWindow}
+            currentStepIndex={currentStepIndex}
+            detail={compareLaneSignals.join(" · ")}
+            mode="compare"
+            onSelectStep={onSelectStep}
+            renderCheckpoint={(stepIndex) => {
+              const phaseSummary = comparisonRuns.map((comparisonRun) => {
+                const syncedIndex = getSyncedStepIndex(
+                  comparisonRun.trace.steps.length,
+                  stepIndex,
+                  activeStepCount
+                );
+                return getRunStep(comparisonRun, syncedIndex).phase;
+              });
+
+              return (
+                <button
+                  className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
+                  key={`compare-${stepIndex}`}
+                  onClick={() => {
+                    onSelectStep(stepIndex);
+                  }}
+                  type="button"
+                >
+                  <span className="checkpoint-index">
+                    {Math.round((stepIndex / Math.max(1, activeStepCount - 1)) * 100)}%
+                  </span>
+                  <strong>{phaseSummary.join(" / ")}</strong>
+                  <span>Synchronized frame {stepIndex + 1}</span>
+                </button>
+              );
+            }}
+            storyboardStops={storyboardStops}
+            summary={`${syncProgress}% synchronized`}
+            syncProgress={syncProgress}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function HistoryPage({
+  status,
+  persistence,
+  recentRuns,
+  recentComparisons,
+  loadingSavedRunId,
+  onRefresh,
+  onLoadSavedRun
+}: {
+  status: DataStatus;
+  persistence: PersistenceMetadata | null;
+  recentRuns: PersistedRunSummary[];
+  recentComparisons: PersistedComparisonRecord[];
+  loadingSavedRunId: string | null;
+  onRefresh: () => void;
+  onLoadSavedRun: (runId: string) => void;
+}) {
+  return (
+    <>
+      <PageBanner
+        accent="ember"
+        actions={
+          <>
+            <button className="segmented" onClick={onRefresh} type="button">
+              Refresh saved activity
+            </button>
+            <a className="segmented segmented-active" href={buildRouteHref({ page: "compare" })}>
+              Open comparison studio
+            </a>
+          </>
+        }
+        copy="Saved runs and saved comparisons now live on a separate surface so operators can inspect persistence output without collapsing back into the live playground."
+        eyebrow="History"
+        stats={[
+          {
+            label: "Runs",
+            value: `${persistence?.counts.runs ?? 0}`,
+            detail: "Recent replay records are listed as lightweight summaries until a user opens one."
+          },
+          {
+            label: "Comparisons",
+            value: `${persistence?.counts.comparisons ?? 0}`,
+            detail: "Saved matchups remain browseable without hydrating the comparison deck."
+          },
+          {
+            label: "Storage schema",
+            value: `${persistence?.storageSchemaVersion ?? "-"}`,
+            detail: persistence?.dataFile ?? "Persistence metadata unavailable"
+          }
+        ]}
+        title="Saved activity has a dedicated browse surface."
+      />
+
+      {status === "offline" ? (
+        <section className="panel summary-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Persistence Offline</p>
+              <h3>The API is unavailable, so saved activity cannot be listed right now.</h3>
+            </div>
+          </div>
+          <p className="panel-copy">
+            Bring the API back up and use the refresh control to repopulate saved runs and
+            comparison summaries.
+          </p>
+        </section>
+      ) : null}
+
+      <div className="history-layout">
+        <section className="panel history-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Saved Runs</p>
+              <h2>Replay-ready history</h2>
+            </div>
+            <p className="panel-copy">
+              Run cards stay summary-first and only hydrate full trace payloads when you resume a
+              replay.
+            </p>
+          </div>
+          <div className="history-grid">
+            {recentRuns.length > 0 ? (
+              recentRuns.map((run) => (
+                <article className="history-card" key={run.id}>
+                  <div className="history-card-header">
+                    <div>
+                      <span className="card-kicker">{run.algorithmDomain}</span>
+                      <h3>{run.algorithmLabel}</h3>
+                    </div>
+                    <span className="phase-badge">{run.stepCount} frames</span>
+                  </div>
+                  <p className="history-card-meta">
+                    Recorded {formatTimestamp(run.recordedAt)} · digest {truncateText(run.inputDigest, 16)}
+                  </p>
+                  <div className="compare-pill-row">
+                    {Object.entries(run.finalMetrics)
+                      .slice(0, 3)
+                      .map(([metricKey, value]) => (
+                        <span className="number-pill" key={`${run.id}-${metricKey}`}>
+                          {metricKey}: {value}
+                        </span>
+                      ))}
+                  </div>
+                  <div className="history-card-actions">
+                    <button
+                      className="launch-button"
+                      disabled={loadingSavedRunId === run.id}
+                      onClick={() => {
+                        onLoadSavedRun(run.id);
+                      }}
+                      type="button"
+                    >
+                      {loadingSavedRunId === run.id ? "Loading replay..." : "Resume replay"}
+                    </button>
+                    <a
+                      className="segmented"
+                      href={buildRouteHref({
+                        page: "algorithm-detail",
+                        algorithmId: run.algorithmId
+                      })}
+                    >
+                      Reference page
+                    </a>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">
+                <strong>No saved runs yet.</strong>
+                <p>Launch a replay or start the demo stack to seed persisted history.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="panel history-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Saved Comparisons</p>
+              <h2>Recent matchup records</h2>
+            </div>
+            <p className="panel-copy">
+              Comparison records stay compact and metric-led, which keeps history pages responsive
+              even when the underlying trace payloads are large.
+            </p>
+          </div>
+          <div className="history-grid">
+            {recentComparisons.length > 0 ? (
+              recentComparisons.map((comparison) => (
+                <article className="history-card" key={comparison.id}>
+                  <div className="history-card-header">
+                    <div>
+                      <span className="card-kicker">{comparison.label ?? "Saved comparison"}</span>
+                      <h3>
+                        {comparison.baseRun.algorithmLabel} vs {comparison.candidateRun.algorithmLabel}
+                      </h3>
+                    </div>
+                    <span className="phase-badge">{comparison.metrics.length} metrics</span>
+                  </div>
+                  <p className="history-card-meta">Saved {formatTimestamp(comparison.createdAt)}</p>
+                  <div className="history-metric-list">
+                    {comparison.metrics.slice(0, 4).map((metric) => (
+                      <div className="history-metric-row" key={`${comparison.id}-${metric.key}`}>
+                        <span>{metric.label}</span>
+                        <strong>
+                          {formatMetricValue(metric.baseValue)} / {formatMetricValue(metric.candidateValue)}
+                        </strong>
+                        <span>{formatMetricDelta(metric)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="history-card-actions">
+                    <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
+                      Open compare surface
+                    </a>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty-state">
+                <strong>No saved comparisons yet.</strong>
+                <p>Build persisted comparisons through the API or demo seed to populate this surface.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
 export default function App() {
+  const { route, navigate } = useHashRoute();
   const [foundation, setFoundation] = useState<FoundationResponse | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "offline">("loading");
-  const [viewMode, setViewMode] = useState<ViewMode>("single");
+  const [status, setStatus] = useState<DataStatus>("loading");
+  const [persistence, setPersistence] = useState<PersistenceMetadata | null>(null);
+  const [persistedAlgorithms, setPersistedAlgorithms] = useState<PersistedAlgorithmRecord[]>([]);
+  const [recentRuns, setRecentRuns] = useState<PersistedRunSummary[]>([]);
+  const [recentComparisons, setRecentComparisons] = useState<PersistedComparisonRecord[]>([]);
   const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<string>(assuredDefaultAlgorithm.id);
   const [singleInputText, setSingleInputText] = useState<string>(assuredDefaultAlgorithm.defaultInput);
   const [compareInputText, setCompareInputText] = useState<string>(
@@ -841,40 +2621,52 @@ export default function App() {
   const [speedId, setSpeedId] = useState<PlaybackSpeed>("normal");
   const [singleError, setSingleError] = useState<string>("");
   const [compareError, setCompareError] = useState<string>("");
+  const [loadingSavedRunId, setLoadingSavedRunId] = useState<string | null>(null);
+  const [runSource, setRunSource] = useState<RunSource>(() =>
+    getRunSourceFallback(buildRun(assuredDefaultAlgorithm.id, assuredDefaultAlgorithm.defaultInput))
+  );
+
+  const selectedAlgorithm = getAlgorithmById(selectedAlgorithmId);
+
+  async function refreshProductData() {
+    setStatus("loading");
+
+    try {
+      const payload = await fetchProductData();
+      setFoundation(payload.foundation);
+      setPersistence(payload.persistence);
+      setPersistedAlgorithms(payload.algorithms);
+      setRecentRuns(payload.runs);
+      setRecentComparisons(payload.comparisons);
+      setStatus("ready");
+    } catch {
+      setStatus("offline");
+    }
+  }
 
   useEffect(() => {
-    let active = true;
-
-    async function loadFoundation() {
-      try {
-        const response = await fetch("/api/foundation");
-
-        if (!response.ok) {
-          throw new Error("Unable to load foundation metadata.");
-        }
-
-        const payload = (await response.json()) as FoundationResponse;
-
-        if (active) {
-          setFoundation(payload);
-          setStatus("ready");
-        }
-      } catch {
-        if (active) {
-          setStatus("offline");
-        }
-      }
-    }
-
-    void loadFoundation();
-
-    return () => {
-      active = false;
-    };
+    void refreshProductData();
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [route]);
+
+  useEffect(() => {
+    if (route.page !== "playground" || !route.algorithmId) {
+      return;
+    }
+
+    if (route.algorithmId === selectedAlgorithmId) {
+      return;
+    }
+
+    const nextAlgorithm = getAlgorithmById(route.algorithmId);
+    launchRun(nextAlgorithm.id, nextAlgorithm.defaultInput);
+  }, [route, selectedAlgorithmId]);
+
   const activeStepCount =
-    viewMode === "compare"
+    route.page === "compare"
       ? Math.max(...comparisonRuns.map((comparisonRun) => comparisonRun.trace.steps.length))
       : run.trace.steps.length;
 
@@ -910,109 +2702,16 @@ export default function App() {
     };
   }, [activeStepCount, currentStepIndex, isPlaying, speedId]);
 
-  const selectedAlgorithm = getAlgorithmById(selectedAlgorithmId);
-  const currentStep =
-    viewMode === "single"
-      ? getRunStep(run, currentStepIndex)
-      : null;
-  const checkpointWindow = buildCheckpointWindow(activeStepCount, currentStepIndex);
-  const syncProgress =
-    activeStepCount <= 1 ? 100 : Math.round((currentStepIndex / (activeStepCount - 1)) * 100);
-  const storyboardStops =
-    viewMode === "compare"
-      ? buildComparisonStoryboard(comparisonRuns, currentStepIndex, activeStepCount)
-      : buildSingleStoryboard(run, currentStepIndex);
-  const compareLaneSignals =
-    viewMode === "compare"
-      ? comparisonRuns.map((comparisonRun) => {
-          const syncedIndex = getSyncedStepIndex(
-            comparisonRun.trace.steps.length,
-            currentStepIndex,
-            activeStepCount
-          );
-          const syncedStep = getRunStep(comparisonRun, syncedIndex);
-
-          return `${comparisonRun.algorithm.name.split(" ")[0]}: ${syncedStep.phase}`;
-        })
-      : [];
-  const compareMatchupLabel = comparisonRuns
-    .map((comparisonRun) => comparisonRun.algorithm.name.split(" ")[0])
-    .join(" / ");
-  const heroHeadline =
-    viewMode === "compare" ? "Comparison command center" : `${run.algorithm.name} under replay lens`;
-  const heroNarrative =
-    viewMode === "compare"
-      ? `Shared transport keeps ${comparisonRuns.length} deterministic runs on one progress line while every lane preserves its own checkpoint density. ${compareLaneSignals.join(" · ")}`
-      : currentStep?.explanation.summary ?? run.trace.steps[0]!.explanation.summary;
-  const heroStats =
-    viewMode === "compare"
-      ? [
-          {
-            label: "Matchup",
-            value: compareMatchupLabel,
-            detail: `${comparisonRuns.length} algorithms on one seeded array`
-          },
-          {
-            label: "Shared input",
-            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
-            detail: "Every metric reads from the same normalized payload"
-          },
-          {
-            label: "Sync progress",
-            value: `${syncProgress}%`,
-            detail: `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
-          },
-          {
-            label: "Playback profile",
-            value: playbackProfiles[speedId].label,
-            detail: isPlaying ? "Transport rolling" : "Transport paused"
-          }
-        ]
-      : [
-          {
-            label: "Active algorithm",
-            value: run.algorithm.name,
-            detail: run.algorithm.description
-          },
-          {
-            label: "Input footprint",
-            value: describeInputFootprint(run),
-            detail: selectedAlgorithm.inputHint
-          },
-          {
-            label: "Current frame",
-            value: currentStep ? `${currentStep.index + 1} / ${run.trace.summary.stepCount}` : "0 / 0",
-            detail: currentStep?.phase ?? "Awaiting trace"
-          },
-          {
-            label: "Playback profile",
-            value: playbackProfiles[speedId].label,
-            detail: isPlaying ? "Transport rolling" : "Transport paused"
-          }
-        ];
-  const platformPriorities = foundation?.priorities ?? [];
-  const timelineSnapshotDetail =
-    viewMode === "compare"
-      ? compareLaneSignals.join(" · ")
-      : currentStep
-        ? describeRunSnapshot(run, currentStep.index)
-        : "";
-
-  function resetPlayback(nextMode: ViewMode) {
-    setViewMode(nextMode);
-    setCurrentStepIndex(0);
-    setIsPlaying(false);
-  }
-
   function launchRun(algorithmId: string, nextInputText: string) {
     try {
       const nextRun = buildRun(algorithmId, nextInputText);
       setRun(nextRun);
       setSingleInputText(nextRun.normalizedInputText);
-      setSelectedAlgorithmId(algorithmId);
+      setSelectedAlgorithmId(nextRun.algorithm.id);
       setCurrentStepIndex(0);
       setIsPlaying(false);
       setSingleError("");
+      setRunSource(getRunSourceFallback(nextRun));
     } catch (launchError) {
       setIsPlaying(false);
       setSingleError(
@@ -1021,6 +2720,12 @@ export default function App() {
           : "Unable to build the requested trace."
       );
     }
+  }
+
+  function openAlgorithmPlayground(algorithmId: string) {
+    const nextAlgorithm = getAlgorithmById(algorithmId);
+    launchRun(nextAlgorithm.id, nextAlgorithm.defaultInput);
+    navigate({ page: "playground", algorithmId: nextAlgorithm.id });
   }
 
   function launchComparison(nextInputText: string) {
@@ -1041,557 +2746,175 @@ export default function App() {
     }
   }
 
+  async function loadSavedRun(runId: string) {
+    setLoadingSavedRunId(runId);
+
+    try {
+      const detail = await fetchPersistedRunDetail(runId);
+      const hydratedRun = hydratePersistedRun(detail);
+      setRun(hydratedRun);
+      setSelectedAlgorithmId(hydratedRun.algorithm.id);
+      setSingleInputText(hydratedRun.normalizedInputText);
+      setCurrentStepIndex(0);
+      setIsPlaying(false);
+      setSingleError("");
+      setRunSource({
+        label: "Saved run",
+        detail: `${detail.algorithmLabel} recorded ${formatTimestamp(detail.recordedAt)} with ${detail.stepCount} frames.`
+      });
+      navigate({ page: "playground", algorithmId: hydratedRun.algorithm.id });
+    } catch (error) {
+      setSingleError(
+        error instanceof Error ? error.message : "Unable to load the selected saved run."
+      );
+      navigate({ page: "history" });
+    } finally {
+      setLoadingSavedRunId(null);
+    }
+  }
+
+  function selectStep(stepIndex: number) {
+    setIsPlaying(false);
+    setCurrentStepIndex(stepIndex);
+  }
+
+  function resetPlaybackToStart() {
+    setIsPlaying(false);
+    setCurrentStepIndex(0);
+  }
+
+  function togglePlay() {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    if (currentStepIndex >= activeStepCount - 1) {
+      setCurrentStepIndex(0);
+    }
+
+    setIsPlaying(true);
+  }
+
   return (
-    <main className={`shell ${isPlaying ? "shell-playing" : ""}`}>
-      <section className="hero-band">
-        <div>
-          <p className="eyebrow">TraceDeck</p>
-          <h1>Replay and comparison studio for deterministic algorithm traces.</h1>
-          <p className="hero-copy">
-            The shell keeps replay, step inspection, and algorithm comparison on top of the same
-            checkpointed trace model so every scrub lands on recorded state instead of reconstructed
-            mutations.
-          </p>
-        </div>
-        <div className="hero-command">
-          <div className="hero-command-panel">
-            <div className="panel-heading hero-command-header">
-              <div>
-                <p className="eyebrow">Live Workspace</p>
-                <h2>{heroHeadline}</h2>
-              </div>
-              <span className="phase-badge">
-                {viewMode === "compare"
-                  ? `${syncProgress}% synchronized`
-                  : currentStep
-                    ? `Frame ${currentStep.index + 1}`
-                    : "Frame 1"}
-              </span>
-            </div>
-            <p className="hero-copy hero-command-copy">{heroNarrative}</p>
-            <div className="hero-meter">
-              <div className="hero-meter-bar">
-                <span style={{ width: `${syncProgress}%` }} />
-              </div>
-              <div className="hero-meter-labels">
-                <span>{viewMode === "compare" ? "Lift-off" : "Seed"}</span>
-                <span>{viewMode === "compare" ? `${syncProgress}% synced` : currentStep?.phase}</span>
-                <span>Done</span>
-              </div>
-            </div>
-          </div>
-          <div className="hero-stat-grid">
-            {heroStats.map((stat) => (
-              <article className="hero-stat-card" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <p>{stat.detail}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-        {platformPriorities.length > 0 ? (
-          <div className="priority-row">
-            {platformPriorities.map((priority) => (
-              <span className="priority-pill" key={priority}>
-                {priority}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="hero-status">
-          <div className="status-row">
-            <span className={`status-chip status-chip--${status}`}>
-              {status === "ready"
-                ? "API connected"
-                : status === "offline"
-                  ? "API offline"
-                  : "Loading foundation"}
-            </span>
-            <span className="status-chip status-chip--accent">
-              {foundation?.product ?? "TraceDeck"} {viewMode === "compare" ? "comparison" : "replay"}
-            </span>
-          </div>
-          <div className="status-row">
-            <span className="status-chip">
-              {viewMode === "compare"
-                ? comparisonRuns.map((comparisonRun) => comparisonRun.algorithm.name).join(" vs ")
-                : run.algorithm.name}
-            </span>
-            <span className="status-chip">
-              {viewMode === "compare"
-                ? `Sync ${syncProgress}%`
-                : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`}
-            </span>
-            <span className="status-chip">Contract-driven replay</span>
-          </div>
-          <div className="view-switch">
-            <button
-              className={`segmented ${viewMode === "single" ? "segmented-active" : ""}`}
-              onClick={() => {
-                resetPlayback("single");
-              }}
-              type="button"
-            >
-              Single Replay
-            </button>
-            <button
-              className={`segmented ${viewMode === "compare" ? "segmented-active" : ""}`}
-              onClick={() => {
-                resetPlayback("compare");
-              }}
-              type="button"
-            >
-              Compare Runs
-            </button>
-          </div>
-        </div>
-      </section>
+    <main className={`shell product-shell ${isPlaying ? "shell-playing" : ""}`}>
+      <ProductNav foundation={foundation} route={route} status={status} />
 
-      <div className="workspace-grid">
-        <aside className="sidebar panel">
-          {viewMode === "single" ? (
-            <>
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Scenario</p>
-                  <h2>Choose an algorithm</h2>
-                </div>
-                <p className="panel-copy">
-                  Seeded trace builders exercise replay and inspection surfaces before persistence
-                  services hydrate saved runs.
-                </p>
-              </div>
-              <div className="algorithm-list">
-                {algorithms.map((algorithm) => (
-                  <button
-                    className={`algorithm-card ${
-                      algorithm.id === selectedAlgorithmId ? "algorithm-card-active" : ""
-                    }`}
-                    key={algorithm.id}
-                    onClick={() => launchRun(algorithm.id, algorithm.defaultInput)}
-                    type="button"
-                  >
-                    <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
-                      {algorithm.badge}
-                    </span>
-                    <strong>{algorithm.name}</strong>
-                    <p>{algorithm.description}</p>
-                  </button>
-                ))}
-              </div>
+      {route.page === "overview" ? (
+        <OverviewPage
+          foundation={foundation}
+          onLoadSavedRun={loadSavedRun}
+          persistence={persistence}
+          persistedAlgorithms={persistedAlgorithms}
+          recentComparisons={recentComparisons}
+          recentRuns={recentRuns}
+          status={status}
+        />
+      ) : null}
 
-              <label className="input-label" htmlFor="single-input-editor">
-                {selectedAlgorithm.inputLabel}
-              </label>
-              <p className="input-hint">{selectedAlgorithm.inputHint}</p>
-              <textarea
-                className="input-editor"
-                id="single-input-editor"
-                onChange={(event) => {
-                  setSingleInputText(event.target.value);
-                }}
-                spellCheck={false}
-                value={singleInputText}
-              />
-              {singleError ? (
-                <div className="error-banner">{singleError}</div>
-              ) : (
-                <div className="note-banner">
-                  Launch rebuilds the trace from the editor content and resets the replay cursor.
-                </div>
-              )}
-              <button
-                className="launch-button"
-                onClick={() => launchRun(selectedAlgorithmId, singleInputText)}
-                type="button"
-              >
-                Launch Run
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Comparison Deck</p>
-                  <h2>Build a shared-input matchup</h2>
-                </div>
-                <p className="panel-copy">
-                  The comparison deck replays multiple sorting algorithms against the same array and
-                  keeps playback synchronized through normalized progress.
-                </p>
-              </div>
-              <div className="algorithm-list">
-                {comparisonAlgorithms.map((algorithm) => (
-                  <article className="algorithm-card algorithm-card-static" key={algorithm.id}>
-                    <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
-                      {algorithm.badge}
-                    </span>
-                    <strong>{algorithm.name}</strong>
-                    <p>{algorithm.description}</p>
-                  </article>
-                ))}
-              </div>
-              <label className="input-label" htmlFor="compare-input-editor">
-                Shared Array Input
-              </label>
-              <p className="input-hint">
-                One seeded array feeds every comparison lane so metrics stay directly comparable.
-              </p>
-              <textarea
-                className="input-editor"
-                id="compare-input-editor"
-                onChange={(event) => {
-                  setCompareInputText(event.target.value);
-                }}
-                spellCheck={false}
-                value={compareInputText}
-              />
-              {compareError ? (
-                <div className="error-banner">{compareError}</div>
-              ) : (
-                <div className="note-banner">
-                  Build deck regenerates every trace from the same array and resets the synchronized
-                  transport line.
-                </div>
-              )}
-              <button
-                className="launch-button"
-                onClick={() => launchComparison(compareInputText)}
-                type="button"
-              >
-                Build Deck
-              </button>
-            </>
-          )}
-        </aside>
+      {route.page === "library" ? (
+        <LibraryPage
+          onOpenPlayground={openAlgorithmPlayground}
+          persistedAlgorithms={persistedAlgorithms}
+        />
+      ) : null}
 
-        <div className="main-column">
-          {viewMode === "single" && currentStep ? (
-            <>
-              <section className="panel stage-panel">
-                <SingleReplayBriefing
-                  run={run}
-                  stepIndex={Math.min(currentStepIndex, run.trace.steps.length - 1)}
-                />
-                <div className="stage-layout">
-                  <div className="visual-panel">
-                    {renderSingleStage(
-                      run,
-                      Math.min(currentStepIndex, run.trace.steps.length - 1)
-                    )}
-                  </div>
+      {route.page === "algorithm-detail" ? (
+        <AlgorithmDetailPage
+          algorithm={getAlgorithmById(route.algorithmId)}
+          onOpenPlayground={openAlgorithmPlayground}
+          persistedAlgorithms={persistedAlgorithms}
+        />
+      ) : null}
 
-                  <div className="inspector-column">
-                    <section className="panel inspector-panel">
-                      <div className="panel-heading">
-                        <div>
-                          <p className="eyebrow">Step Narrative</p>
-                          <h3>{currentStep.phase}</h3>
-                        </div>
-                        <span className="phase-badge">Frame {currentStep.index + 1}</span>
-                      </div>
-                      <p className="step-detail">{currentStep.explanation.summary}</p>
-                      {currentStep.explanation.details ? (
-                        <p className="step-detail">{currentStep.explanation.details}</p>
-                      ) : null}
-                      {currentStep.explanation.tags?.length ? (
-                        <div className="tag-row">
-                          {currentStep.explanation.tags.map((tag) => (
-                            <span className="number-pill" key={tag}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      <ul className="change-list">
-                        {currentStep.highlights.map((highlight) => (
-                          <li key={highlight.key}>
-                            {formatHighlightLabel(highlight.label, highlight.key)}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="metric-grid">
-                        {renderMetricCards(
-                          run,
-                          Math.min(currentStepIndex, run.trace.steps.length - 1)
-                        )}
-                      </div>
-                    </section>
+      {route.page === "playground" ? (
+        <PlaygroundPage
+          currentStepIndex={currentStepIndex}
+          foundation={foundation}
+          isPlaying={isPlaying}
+          onBack={() => {
+            setIsPlaying(false);
+            setCurrentStepIndex((stepIndex) => Math.max(0, stepIndex - 1));
+          }}
+          onEnd={() => {
+            setIsPlaying(false);
+            setCurrentStepIndex(run.trace.steps.length - 1);
+          }}
+          onForward={() => {
+            setIsPlaying(false);
+            setCurrentStepIndex((stepIndex) => Math.min(run.trace.steps.length - 1, stepIndex + 1));
+          }}
+          onInputChange={setSingleInputText}
+          onLaunchRun={() => {
+            launchRun(selectedAlgorithmId, singleInputText);
+          }}
+          onSelectAlgorithm={openAlgorithmPlayground}
+          onSelectStep={selectStep}
+          onSpeedSelect={setSpeedId}
+          onStart={resetPlaybackToStart}
+          onTogglePlay={togglePlay}
+          run={run}
+          runSource={runSource}
+          selectedAlgorithm={selectedAlgorithm}
+          selectedAlgorithmId={selectedAlgorithmId}
+          singleError={singleError}
+          singleInputText={singleInputText}
+          speedId={speedId}
+          status={status}
+        />
+      ) : null}
 
-                    <section className="panel state-panel">
-                      <div className="panel-heading">
-                        <div>
-                          <p className="eyebrow">Changed Paths</p>
-                          <h3>Recorded deltas</h3>
-                        </div>
-                      </div>
-                      <div className="number-grid">
-                        {getTraceStepPaths(currentStep).map((path) => (
-                          <span className="number-pill" key={path}>
-                            {path}
-                          </span>
-                        ))}
-                      </div>
-                      {renderStateSnapshot(run, currentStep.index)}
-                    </section>
-                  </div>
-                </div>
-              </section>
-            </>
-          ) : (
-            <ComparisonWorkspace
-              currentStepIndex={currentStepIndex}
-              runs={comparisonRuns}
-              stepCount={activeStepCount}
-            />
-          )}
+      {route.page === "compare" ? (
+        <ComparePage
+          compareError={compareError}
+          compareInputText={compareInputText}
+          comparisonRuns={comparisonRuns}
+          currentStepIndex={currentStepIndex}
+          isPlaying={isPlaying}
+          onBack={() => {
+            setIsPlaying(false);
+            setCurrentStepIndex((stepIndex) => Math.max(0, stepIndex - 1));
+          }}
+          onEnd={() => {
+            const lastIndex = Math.max(
+              ...comparisonRuns.map((comparisonRun) => comparisonRun.trace.steps.length - 1)
+            );
+            setIsPlaying(false);
+            setCurrentStepIndex(lastIndex);
+          }}
+          onForward={() => {
+            const lastIndex = Math.max(
+              ...comparisonRuns.map((comparisonRun) => comparisonRun.trace.steps.length - 1)
+            );
+            setIsPlaying(false);
+            setCurrentStepIndex((stepIndex) => Math.min(lastIndex, stepIndex + 1));
+          }}
+          onInputChange={setCompareInputText}
+          onLaunchComparison={() => {
+            launchComparison(compareInputText);
+          }}
+          onSelectStep={selectStep}
+          onSpeedSelect={setSpeedId}
+          onStart={resetPlaybackToStart}
+          onTogglePlay={togglePlay}
+          recentComparisons={recentComparisons}
+          speedId={speedId}
+        />
+      ) : null}
 
-          <section className={`panel transport-panel ${isPlaying ? "transport-panel-live" : ""}`}>
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Transport</p>
-                <h3>{viewMode === "compare" ? "Synchronized controls" : "Replay controls"}</h3>
-              </div>
-              <p className="panel-copy">
-                {viewMode === "compare"
-                  ? "Shared transport keeps each run on the same progress line while preserving its own trace density."
-                  : "Large traces use checkpointed scrubbing instead of rendering a DOM marker for every frame."}
-              </p>
-            </div>
-
-            <div className="transport-row">
-              <button
-                className="transport-button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setCurrentStepIndex(0);
-                }}
-                type="button"
-              >
-                Start
-              </button>
-              <button
-                className="transport-button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setCurrentStepIndex((stepIndex) => Math.max(0, stepIndex - 1));
-                }}
-                type="button"
-              >
-                Step Back
-              </button>
-              <button
-                className={`transport-button transport-button-primary ${
-                  isPlaying ? "transport-button-live" : ""
-                }`}
-                aria-pressed={isPlaying}
-                onClick={() => {
-                  if (isPlaying) {
-                    setIsPlaying(false);
-                    return;
-                  }
-
-                  if (currentStepIndex >= activeStepCount - 1) {
-                    setCurrentStepIndex(0);
-                  }
-
-                  setIsPlaying(true);
-                }}
-                type="button"
-              >
-                {isPlaying ? "Pause" : "Play"}
-              </button>
-              <button
-                className="transport-button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setCurrentStepIndex((stepIndex) => Math.min(activeStepCount - 1, stepIndex + 1));
-                }}
-                type="button"
-              >
-                Step Forward
-              </button>
-              <button
-                className="transport-button"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setCurrentStepIndex(activeStepCount - 1);
-                }}
-                type="button"
-              >
-                End
-              </button>
-            </div>
-
-            <div className="speed-row">
-              {(
-                Object.entries(playbackProfiles) as Array<
-                  [PlaybackSpeed, (typeof playbackProfiles)[PlaybackSpeed]]
-                >
-              ).map(([profileId, profile]) => (
-                <button
-                  className={`segmented ${profileId === speedId ? "segmented-active" : ""}`}
-                  key={profileId}
-                  onClick={() => {
-                    setSpeedId(profileId);
-                  }}
-                  type="button"
-                >
-                  {profile.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="transport-summary">
-              <div className="metric-inline">
-                <span>{viewMode === "compare" ? "Sync progress" : "Current frame"}</span>
-                <strong>{viewMode === "compare" ? `${syncProgress}%` : currentStep?.phase}</strong>
-              </div>
-              <div className="metric-inline">
-                <span>Playback profile</span>
-                <strong>{playbackProfiles[speedId].label}</strong>
-              </div>
-              <div className="metric-inline">
-                <span>{viewMode === "compare" ? "Deck size" : "Input footprint"}</span>
-                <strong>
-                  {viewMode === "compare"
-                    ? `${comparisonRuns.length} algorithms`
-                    : describeInputFootprint(run)}
-                </strong>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel timeline-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Timeline</p>
-                <h3>
-                  {viewMode === "compare"
-                    ? "Scrub the synchronized progress line"
-                    : "Scrub to any deterministic checkpoint"}
-                </h3>
-              </div>
-              <p className="panel-copy">
-                {viewMode === "compare"
-                  ? `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
-                  : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`}
-              </p>
-            </div>
-            <div className={`timeline-progress-shell ${isPlaying ? "timeline-progress-shell-live" : ""}`}>
-              <div className={`timeline-progress-bar ${isPlaying ? "timeline-progress-bar-live" : ""}`}>
-                <span style={{ width: `${syncProgress}%` }} />
-              </div>
-              <div className="timeline-progress-copy">
-                <strong>
-                  {viewMode === "compare"
-                    ? `${syncProgress}% synchronized`
-                    : currentStep?.explanation.summary}
-                </strong>
-                <span>{timelineSnapshotDetail}</span>
-              </div>
-            </div>
-            <input
-              aria-label="Replay timeline"
-              className="timeline-range"
-              max={activeStepCount - 1}
-              min={0}
-              onChange={(event) => {
-                setIsPlaying(false);
-                setCurrentStepIndex(Number(event.target.value));
-              }}
-              onInput={(event) => {
-                setIsPlaying(false);
-                setCurrentStepIndex(Number((event.target as HTMLInputElement).value));
-              }}
-              type="range"
-              value={currentStepIndex}
-            />
-            <div className="timeline-labels">
-              <span>{viewMode === "compare" ? "Lift-off" : "Seed"}</span>
-              <span>{viewMode === "compare" ? `${syncProgress}% synced` : currentStep?.phase}</span>
-              <span>Done</span>
-            </div>
-            <StoryboardRail
-              activeStepIndex={currentStepIndex}
-              onSelect={(stepIndex) => {
-                setIsPlaying(false);
-                setCurrentStepIndex(stepIndex);
-              }}
-              stops={storyboardStops}
-            />
-            <div className="checkpoint-row">
-              {checkpointWindow.map((stepIndex) => {
-                if (viewMode === "compare") {
-                  const phaseSummary = comparisonRuns.map((comparisonRun) => {
-                    const syncedIndex = getSyncedStepIndex(
-                      comparisonRun.trace.steps.length,
-                      stepIndex,
-                      activeStepCount
-                    );
-                    return getRunStep(comparisonRun, syncedIndex).phase;
-                  });
-
-                  return (
-                    <button
-                      className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
-                      key={`compare-${stepIndex}`}
-                      onClick={() => {
-                        setIsPlaying(false);
-                        setCurrentStepIndex(stepIndex);
-                      }}
-                      type="button"
-                    >
-                      <span className="checkpoint-index">
-                        {Math.round((stepIndex / Math.max(1, activeStepCount - 1)) * 100)}%
-                      </span>
-                      <strong>{phaseSummary.join(" / ")}</strong>
-                      <span>Synchronized frame {stepIndex + 1}</span>
-                    </button>
-                  );
-                }
-
-                const step = getRunStep(run, stepIndex);
-                return (
-                  <button
-                    className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
-                    key={step.key}
-                    onClick={() => {
-                      setIsPlaying(false);
-                      setCurrentStepIndex(stepIndex);
-                    }}
-                    type="button"
-                  >
-                    <span className="checkpoint-index">{step.index + 1}</span>
-                    <strong>{step.phase}</strong>
-                    <span>{step.explanation.summary}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {foundation?.services?.length ? (
-            <section className="panel summary-panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Product Focus</p>
-                  <h3>Execution seams already visible in the shell</h3>
-                </div>
-              </div>
-              <div className="summary-grid">
-                {foundation.services.map((service) => (
-                  <article className="summary-card" key={service.name}>
-                    <p className="card-kicker">{service.name}</p>
-                    <h3>{service.role}</h3>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      </div>
+      {route.page === "history" ? (
+        <HistoryPage
+          loadingSavedRunId={loadingSavedRunId}
+          onLoadSavedRun={loadSavedRun}
+          onRefresh={() => {
+            void refreshProductData();
+          }}
+          persistence={persistence}
+          recentComparisons={recentComparisons}
+          recentRuns={recentRuns}
+          status={status}
+        />
+      ) : null}
     </main>
   );
 }

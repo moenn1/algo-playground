@@ -30,6 +30,8 @@ The demo seed currently materializes:
 - Binary Search on `search.missing-target`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
+- Longest Common Subsequence on `dynamic-programming.reference-overlap`
+- Longest Common Subsequence on `dynamic-programming.no-overlap`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

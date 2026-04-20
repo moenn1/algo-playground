@@ -1,19 +1,26 @@
 import {
+  buildDynamicProgrammingTrace,
   buildGraphTrace,
   buildSearchTrace,
   buildSortingTrace,
   buildWindowTrace,
+  defaultLongestCommonSubsequenceInput,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultDijkstraInput,
   defaultMinimumSizeSubarrayInput,
+  parseDynamicProgrammingInputText,
   formatGraphDistance,
   parseGraphInputText,
   parseSearchInputText,
   parseWindowInputText,
+  serializeDynamicProgrammingInput,
   serializeGraphInput,
   serializeSearchInput,
   serializeWindowInput,
+  type DynamicProgrammingAlgorithmId,
+  type DynamicProgrammingExecutionState,
+  type DynamicProgrammingInput,
   type GraphAlgorithmId,
   type GraphExecutionState,
   type GraphInput,
@@ -65,15 +72,22 @@ export type WindowAlgorithm = ReplayAlgorithmBase & {
   domain: "window";
 };
 
+export type DynamicProgrammingAlgorithm = ReplayAlgorithmBase & {
+  id: DynamicProgrammingAlgorithmId;
+  domain: "dynamic-programming";
+};
+
 export type ReplayAlgorithm =
   | SortingAlgorithm
   | GraphAlgorithm
   | SearchAlgorithm
-  | WindowAlgorithm;
+  | WindowAlgorithm
+  | DynamicProgrammingAlgorithm;
 
 export type SortingReplayState = SortingExecutionState;
 export type GraphReplayState = GraphExecutionState;
 export type SearchReplayState = SearchExecutionState;
+export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -103,7 +117,14 @@ export type WindowRun = {
   trace: TraceEnvelope<WindowExecutionState>;
 };
 
-export type ReplayRun = SortingRun | GraphRun | SearchRun | WindowRun;
+export type DynamicProgrammingRun = {
+  algorithm: DynamicProgrammingAlgorithm;
+  input: DynamicProgrammingInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<DynamicProgrammingReplayState>;
+};
+
+export type ReplayRun = SortingRun | GraphRun | SearchRun | WindowRun | DynamicProgrammingRun;
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
@@ -111,6 +132,10 @@ function isSearchRun(run: ReplayRun): run is SearchRun {
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
+}
+
+function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
+  return run.algorithm.domain === "dynamic-programming";
 }
 
 function parseSortingInput(inputText: string): number[] {
@@ -213,6 +238,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "window"
   },
   {
+    id: "longest-common-subsequence",
+    name: "Longest Common Subsequence",
+    badge: "DP",
+    accent: "teal",
+    description:
+      "Table-driven replay records cell fills, diagonal matches, and deterministic traceback through the finished matrix.",
+    inputLabel: "DP Input",
+    inputHint: "JSON with left and right strings up to 12 characters each.",
+    defaultInput: serializeDynamicProgrammingInput(defaultLongestCommonSubsequenceInput),
+    domain: "dynamic-programming"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -311,6 +348,19 @@ function buildWindowRunFromInput(
   };
 }
 
+function buildDynamicProgrammingRunFromInput(
+  algorithm: DynamicProgrammingAlgorithm,
+  input: DynamicProgrammingInput,
+  normalizedInputText = serializeDynamicProgrammingInput(input)
+): DynamicProgrammingRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildDynamicProgrammingTrace(algorithm.id, input)
+  };
+}
+
 export function buildComparisonRuns(inputText: string): SortingRun[] {
   const input = parseSortingInput(inputText);
   const normalizedInputText = serializeSortingInput(input);
@@ -338,6 +388,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildWindowRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "dynamic-programming") {
+    const input = parseDynamicProgrammingInputText(inputText);
+    return buildDynamicProgrammingRunFromInput(algorithm, input);
+  }
+
   const input = parseGraphInputText(inputText);
   return buildGraphRunFromInput(algorithm, input);
 }
@@ -353,6 +408,10 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   if (isWindowRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isDynamicProgrammingRun(run)) {
+    return `${run.input.left.length} x ${run.input.right.length} table`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;

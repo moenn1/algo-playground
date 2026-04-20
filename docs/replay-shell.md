@@ -4,11 +4,21 @@
 
 This document describes the replay shell direction established in `apps/web`.
 
-Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback across sorting, search, sliding-window, and graph traces, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
+Today the web app is a multi-surface product shell: it validates API connectivity, separates overview, replay, library, reference, history, and comparison pages, and keeps each surface on the same deterministic trace contract.
+
+## Product structure
+
+- `#/` is the landing overview with product context, recent activity, and primary route selection.
+- `#/playground/:algorithmId?` is the dedicated single-run workspace for live replay, transport, timeline, and step inspection.
+- `#/library` groups algorithms by domain and acts as the catalog entry point for focused reference pages.
+- `#/algorithms/:algorithmId` captures per-algorithm guidance, input format, and replay expectations without crowding the live playground.
+- `#/history` surfaces saved runs and saved comparison records as lightweight summaries first, then hydrates a replay only when the user resumes one.
+- `#/compare` reserves synchronized sorting playback, trend charts, and leaderboard metrics for a dedicated comparison route.
 
 ## Interaction model
 
 - Replay surfaces should treat recorded trace envelopes as the source of truth instead of recomputing hidden state in the browser.
+- Navigation should create genuinely separate working surfaces, not one long page disguised with anchor jumps or tabs.
 - The selected algorithm should own its input editor format and trace builder so transport and inspection views stay domain-aware.
 - Algorithm trace builders should lean on the shared `trace-core` recorder so step keys, path diffs, and runtime-state projection stay consistent across domains.
 - Playback and timeline scrubbing should operate on full step snapshots encoded through `trace-core`. This keeps restoration deterministic and avoids replay drift.
@@ -25,18 +35,20 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 
 ## Replay Surfaces
 
-- Product priorities and service seams are visible in the landing shell.
+- Product priorities, recent activity, and route choices are visible in the landing shell.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, sliding-window, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
-- The hero band now acts as a command surface with live progress telemetry, playback context, and product-priority pills for the current run.
-- The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so the studio reads differently from the previous dark glass treatment.
+- Single-run replay exposes domain-aware sorting, search, sliding-window, dynamic-programming, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- The product shell uses a persistent top-level navigation band so users can move between landing, replay, library, history, and compare without collapsing the whole product into one page.
+- The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so each page reads like part of one product rather than a disconnected tool set.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main shell and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
+- The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
 - Graph replay now pairs the SVG network map with a structural-state rail for node status, distance inspection, and route focus so the shell can surface graph state without inventing browser-only metadata.
+- Saved-run history now lives on its own page and loads replay payloads on demand so persistence browsing stays responsive with larger trace payloads.
 
 ## Comparison Surfaces
 
@@ -51,7 +63,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 
 ## Extension guidance
 
-- Add algorithm selection, seeded inputs, transport controls, and step inspection on top of the existing shell rather than replacing it with a separate app path.
+- Add new product areas as first-class routes inside the navigation shell instead of extending one long page.
 - Hook persistence into the eventual run-builder shape so saved runs can hydrate the shell without changing the transport model.
 - Extend comparison mode by adding more compare-ready algorithms that share an input contract and metric vocabulary.
 - Keep future visualizations snapshot-driven. The timeline should always be able to jump to a step without replaying intermediate mutations.

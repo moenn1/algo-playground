@@ -7,6 +7,7 @@ export const supportedAlgorithmIds = [
   "merge-sort",
   "binary-search",
   "minimum-size-subarray-sum",
+  "longest-common-subsequence",
   "bfs",
   "dijkstra"
 ] as const;
@@ -35,6 +36,11 @@ export interface SearchInputPayload extends JsonObject {
 export interface WindowInputPayload extends JsonObject {
   array: number[];
   target: number;
+}
+
+export interface DynamicProgrammingInputPayload extends JsonObject {
+  left: string;
+  right: string;
 }
 
 export interface InputPresetSummary {

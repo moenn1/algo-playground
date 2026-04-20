@@ -4,7 +4,7 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, window, and graph runtimes:
+The current package covers shared sorting, search, window, dynamic-programming, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
@@ -12,6 +12,7 @@ The current package covers shared sorting, search, window, and graph runtimes:
 - `merge-sort`
 - `binary-search`
 - `minimum-size-subarray-sum`
+- `longest-common-subsequence`
 - `bfs`
 - `dijkstra`
 
@@ -75,6 +76,28 @@ Shared window metrics focus on replaying the scan and contraction rhythm directl
 
 The runtime records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and terminal `Done` or `No Solution` checkpoints so replay never has to infer qualifying intervals from aggregate counters alone.
 
+## Dynamic-Programming Runtime Model
+
+Longest Common Subsequence establishes the first table-driven runtime shape:
+
+- `state.left` and `state.right`: the source strings under comparison
+- `state.table`: the full LCS table snapshot, including the zero row and zero column
+- `state.activeCell`: the table coordinate currently being filled or traced back
+- `state.dependencyCells`: the predecessor cells that justify the current recurrence choice
+- `state.currentValue`: the value committed at the active cell, or `null` outside active cell work
+- `state.matching`: whether the current active cell came from a character match
+- `state.resultLength`: the terminal LCS length once the table is complete
+- `state.resultSequence`: the reconstructed subsequence during traceback and on the terminal frame
+- `state.tracebackPath`: the ordered coordinates already visited while recovering the subsequence
+
+Shared dynamic-programming metrics keep the table fill and recovery phases readable:
+
+- `cellsComputed`: interior table cells finalized so far
+- `matches`: character matches recorded while filling the table
+- `tracebackSteps`: traceback moves committed while recovering the result
+
+The runtime records explicit `Initialization`, per-cell `Match` and `Carry`, `Table Complete`, traceback, and terminal `Done` checkpoints so replay can jump between recurrence work and result recovery without recomputing the table in the browser.
+
 ## Graph Runtime Model
 
 Breadth-First Search and Dijkstra share one replay-safe graph state shape:
@@ -103,11 +126,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
+- Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting, search, window, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, longest-common-subsequence replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, window, dynamic-programming, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

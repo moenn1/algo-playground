@@ -3,6 +3,7 @@ import type { AlgorithmDomain, JsonObject, JsonValue } from "@tracedeck/trace-co
 import { HttpError } from "../lib/http.js";
 
 import type {
+  DynamicProgrammingInputPayload,
   GraphInputPayload,
   InputPresetListQuery,
   InputPresetSummary,
@@ -47,6 +48,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Minimum Size Subarray Sum",
     domain: "window"
   },
+  "longest-common-subsequence": {
+    id: "longest-common-subsequence",
+    label: "Longest Common Subsequence",
+    domain: "dynamic-programming"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -67,6 +73,7 @@ const sortingAlgorithms = [
 ] as const;
 const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
+const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
@@ -76,6 +83,10 @@ const defaultSearchInput: SearchInputPayload = {
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
   target: 7
+};
+const defaultDynamicProgrammingInput: DynamicProgrammingInputPayload = {
+  left: "XMJYAUZ",
+  right: "MZJAWXU"
 };
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -379,6 +390,65 @@ function serializeWindowInput(input: WindowInputPayload) {
   );
 }
 
+function normalizeDynamicProgrammingInput(payload: unknown): DynamicProgrammingInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Dynamic-programming input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "Dynamic-programming input must be an object with left and right strings."
+    );
+  }
+
+  const value = candidate as {
+    left?: unknown;
+    right?: unknown;
+  };
+
+  if (typeof value.left !== "string" || value.left.length === 0) {
+    throw new HttpError(400, "Dynamic-programming input left must be a non-empty string.");
+  }
+
+  if (typeof value.right !== "string" || value.right.length === 0) {
+    throw new HttpError(400, "Dynamic-programming input right must be a non-empty string.");
+  }
+
+  if (value.left.length > 12 || value.right.length > 12) {
+    throw new HttpError(
+      400,
+      "Dynamic-programming input strings must be 12 characters or fewer."
+    );
+  }
+
+  return {
+    left: value.left,
+    right: value.right
+  };
+}
+
+function serializeDynamicProgrammingInput(input: DynamicProgrammingInputPayload) {
+  return JSON.stringify(
+    {
+      left: input.left,
+      right: input.right
+    },
+    null,
+    2
+  );
+}
+
 function normalizeGraphEdge(edge: unknown, label: string): [string, string, number] {
   if (!Array.isArray(edge) || edge.length !== 3) {
     throw new HttpError(400, `${label} must contain [from, to, weight] tuples.`);
@@ -538,6 +608,16 @@ function normalizeAlgorithmInput(
       input: window,
       normalizedInputText: serializeWindowInput(window),
       footprint: `${window.array.length} lanes / target ${window.target}`
+    };
+  }
+
+  if (algorithm.domain === "dynamic-programming") {
+    const dynamicProgramming = normalizeDynamicProgrammingInput(payload);
+
+    return {
+      input: dynamicProgramming,
+      normalizedInputText: serializeDynamicProgrammingInput(dynamicProgramming),
+      footprint: `${dynamicProgramming.left.length} x ${dynamicProgramming.right.length} table`
     };
   }
 
@@ -853,6 +933,43 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [1, 1, 1, 1, 1, 1],
         target: 9
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "dynamic-programming.reference-overlap",
+      label: "Reference overlap table",
+      description:
+        "Use a classic LCS pair with a non-trivial traceback so the table fill and reconstruction phases stay visible in replay.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "dynamic-programming",
+      algorithms: dynamicProgrammingAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultDynamicProgrammingInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "dynamic-programming.no-overlap",
+      label: "No-overlap strings",
+      description:
+        "Keep both strings disjoint so the replay exercises zero-length tables and deterministic traceback tie breaks.",
+      scenario: "no-overlap",
+      kind: "curated",
+      domain: "dynamic-programming",
+      algorithms: dynamicProgrammingAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        left: "ABC",
+        right: "XYZ"
       },
       options: {}
     })

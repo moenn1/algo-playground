@@ -1,8 +1,8 @@
 # TraceDeck
 
-TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, and comparison-ready metric surfaces.
+TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, comparison-ready metric surfaces, and a route-based product shell that separates overview, replay, reference, and saved activity.
 
-This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a web shell for replay-oriented UX direction, shared sorting, search, window, and graph execution engines, and a shared trace contract that execution and history features build on.
+This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a multi-surface web shell for replay-oriented UX, shared sorting, search, window, dynamic-programming, and graph execution engines, and a shared trace contract that execution and history features build on.
 
 ## Workspace Layout
 
@@ -47,6 +47,17 @@ npm run dev:web
 
 The web app runs on `http://localhost:5173` and proxies `/api` to the local API on port `4000`.
 
+## Product Surfaces
+
+The web app is organized into distinct navigation surfaces instead of one vertically condensed page:
+
+- `#/` overview landing with product context, recent activity, and route selection
+- `#/playground/:algorithmId?` single-run replay workspace
+- `#/library` algorithm catalog
+- `#/algorithms/:algorithmId` focused reference pages for each algorithm
+- `#/history` saved runs and saved comparison records
+- `#/compare` synchronized sorting comparison studio
+
 Set `TRACEDECK_DATA_FILE` when you want the API to store durable run history somewhere other than the default local path at `.tracedeck/storage.json`. The Fastify entrypoint reads that env var directly, so local runs and restart checks can point at a stable file without changing source code.
 
 `npm run dev:demo` seeds `.tracedeck/demo-storage.json` before startup and then launches both services against that file. You can inspect or reseed that dataset manually with:
@@ -77,13 +88,13 @@ The API also exposes a deterministic input-service layer for preset scenarios an
 - `POST /api/input-presets/:presetId/resolve`
 - `POST /api/inputs/validate`
 
-The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, sliding-window cases, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
+The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, sliding-window cases, dynamic-programming references, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
 
 ## Current Foundation
 
-- `apps/web` exposes the replay and comparison shell: seeded traces, command-surface telemetry, deterministic timeline scrubbing, active-frame step inspection, reusable sorting and graph visualization modules, dedicated search and sliding-window stages, one shared graph runtime for BFS and Dijkstra, and a synchronized sorting comparison deck across four shared-engine sorting algorithms.
+- `apps/web` exposes the multi-surface product shell: overview, replay playground, algorithm library and detail pages, saved-run history, and a dedicated comparison studio backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, and synchronized sorting matchups.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
-- `packages/execution-engine` owns the shared sorting, search, window, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Breadth-First Search, and Dijkstra.
+- `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.
 - `docs/` captures the architecture, execution-engine, workflow, persistence-model, and input-service decisions that shape execution and replay work.
 - `docs/operator-runbook.md` captures the local orchestration and seeded-demo operating flow.

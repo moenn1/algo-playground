@@ -35,7 +35,13 @@ import type {
   ListStepsQuery
 } from "../persistence/types.js";
 
-const algorithmDomains = new Set<AlgorithmDomain>(["sorting", "graph", "search"]);
+const algorithmDomains = new Set<AlgorithmDomain>([
+  "sorting",
+  "graph",
+  "search",
+  "window",
+  "dynamic-programming"
+]);
 const algorithmIds = new Set(supportedAlgorithmIds);
 const metricUnits = new Set<MetricUnit>([
   "count",

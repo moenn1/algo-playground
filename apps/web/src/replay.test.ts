@@ -8,6 +8,7 @@ import {
   buildComparisonRuns,
   buildRun,
   getTraceStepPaths,
+  type DynamicProgrammingRun,
   type SearchRun,
   type SortingRun,
   type WindowRun
@@ -151,6 +152,33 @@ describe("buildRun", () => {
       windowRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.bestLength"))
     ).toBe(true);
   });
+
+  it("builds dynamic-programming replay runs from the shared DP engine", () => {
+    const run = buildRun(
+      "longest-common-subsequence",
+      JSON.stringify(
+        {
+          left: "XMJYAUZ",
+          right: "MZJAWXU"
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "dynamic-programming") {
+      throw new Error("Expected a dynamic-programming run.");
+    }
+
+    const dynamicProgrammingRun = run as DynamicProgrammingRun;
+    const finalStep = dynamicProgrammingRun.trace.steps[dynamicProgrammingRun.trace.steps.length - 1]!;
+
+    expect(dynamicProgrammingRun.algorithm.id).toBe("longest-common-subsequence");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.resultLength).toBe(4);
+    expect(finalStep.state.resultSequence).toBe("MJAU");
+    expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.resultSequence");
+  });
 });
 
 describe("replay visualizations", () => {
@@ -161,7 +189,8 @@ describe("replay visualizations", () => {
       throw new Error("Expected a sorting run.");
     }
 
-    const swapStep = run.trace.steps.find((step) => step.state.swapPair.length === 2);
+    const sortingRun = run as SortingRun;
+    const swapStep = sortingRun.trace.steps.find((step) => step.state.swapPair.length === 2);
 
     expect(swapStep).toBeDefined();
     expect(describeSortingOperation(swapStep!)).toBe("Swap lanes 0 and 1");

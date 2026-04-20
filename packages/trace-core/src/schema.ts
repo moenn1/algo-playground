@@ -7,7 +7,12 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
-export type AlgorithmDomain = "sorting" | "graph" | "search" | "window";
+export type AlgorithmDomain =
+  | "sorting"
+  | "graph"
+  | "search"
+  | "window"
+  | "dynamic-programming";
 export type MetricUnit = "count" | "milliseconds" | "bytes" | "ratio" | "items";
 export type ComparisonDirection = "lower-is-better" | "higher-is-better" | "neutral";
 export type TraceChangeOperation = "set" | "insert" | "remove" | "move";

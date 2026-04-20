@@ -9,6 +9,7 @@ The service currently covers the supported algorithms already present in the wor
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`
 - Window: `minimum-size-subarray-sum`
+- Dynamic Programming: `longest-common-subsequence`
 - Graph: `bfs`, `dijkstra`
 
 ## Endpoints
@@ -129,15 +130,24 @@ Both search presets currently resolve for Binary Search through the same `algori
 
 Both window presets currently resolve for Minimum Size Subarray Sum through the same `algorithmId` field.
 
+### Dynamic-programming presets
+
+- `dynamic-programming.reference-overlap`: curated pair of strings with a non-trivial shared subsequence and visible traceback
+- `dynamic-programming.no-overlap`: curated pair of strings with no shared characters so the runtime still exercises table fill plus deterministic traceback
+
+Both dynamic-programming presets currently resolve for Longest Common Subsequence through the same `algorithmId` field.
+
 ## Validation Rules
 
 - Sorting payloads accept either integer arrays or comma-separated integer strings.
 - Search payloads accept either JSON objects or JSON strings.
 - Window payloads accept either JSON objects or JSON strings.
+- Dynamic-programming payloads accept either JSON objects or JSON strings.
 - Graph payloads accept either JSON objects or JSON strings.
 - Sorting inputs must contain between 2 and 24 integers.
 - Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Window payloads must define between 2 and 32 positive integers plus a positive integer target.
+- Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

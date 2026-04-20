@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Reworked `apps/web` into a route-based product shell with distinct overview, replay playground, algorithm library, algorithm detail, history, and comparison surfaces, and documented the new navigation model in the README and replay-shell notes.
+- Added a shared dynamic-programming runtime for Longest Common Subsequence, including deterministic row-major table fill, up-first traceback ties, and stable `cellsComputed`, `matches`, and `tracebackSteps` metrics.
+- Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new dynamic-programming domain so TraceDeck now includes its first table-driven algorithm family.
 - Extracted reusable sorting and graph replay visualization modules, added a per-lane sorting ledger plus a graph state rail, and documented the new component boundary for the ongoing shell rework.
 - Added a shared sliding-window runtime for Minimum Size Subarray Sum, including deterministic expansion, candidate, shrink, and no-solution checkpoints with stable `expansions`, `shrinks`, and `bestUpdates` metrics.
 - Wired the web replay shell, input-service API, demo seed data, and validation tests to the new window domain so TraceDeck now covers a first sliding-window family alongside sorting, search, and graph traces.
