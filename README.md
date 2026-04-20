@@ -24,6 +24,8 @@ Install workspace dependencies first:
 npm install
 ```
 
+Run that command from the repository root. TraceDeck now verifies the internal `@tracedeck/*` workspace links during install and before local build, test, demo, or dev commands start, so nested `npm install` runs inside `apps/*` or `packages/*` are rejected as incomplete workspace bootstraps.
+
 Start the API and web shell together:
 
 ```bash
@@ -92,3 +94,5 @@ The current preset catalog covers seeded random inputs, worst-case scenarios, cu
 npm run check
 npm run smoke
 ```
+
+All local entrypoints that depend on shared packages now fail fast with the workspace-integrity guard. If a command reports missing `@tracedeck/*` links, rerun `npm install` from the repository root before retrying.

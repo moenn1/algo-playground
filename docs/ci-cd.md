@@ -9,6 +9,8 @@ TraceDeck runs a single GitHub Actions workflow on pull requests and on pushes t
 
 The workflow lives in `.github/workflows/ci.yml` and uses `.nvmrc` to keep the GitHub Actions Node version aligned with local development.
 
+The repo now also runs the same workspace-integrity check during root `npm install` and ahead of build, test, demo, and workspace-start commands so local failures match CI more closely.
+
 ## Local docs guard usage
 
 Run the guard directly when you want to validate a change before pushing:
@@ -36,6 +38,8 @@ The guard fails when:
 - a workspace package is declared but missing from the root workspace map
 - `package-lock.json` does not record the workspace link metadata
 - `node_modules/@tracedeck/*` does not point at the expected local workspace directory
+
+When the guard fails, the expected recovery path is to rerun `npm install` from the repository root. Nested installs inside `apps/*` or `packages/*` are not treated as valid TraceDeck workspace bootstraps.
 
 ## Enforcement scope
 

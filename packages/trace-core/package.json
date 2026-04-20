@@ -15,8 +15,11 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "npm --prefix ../.. run verify:workspaces",
     "build": "tsc -p tsconfig.json",
+    "pretest": "npm --prefix ../.. run verify:workspaces",
     "test": "vitest run test",
+    "pretypecheck": "npm --prefix ../.. run verify:workspaces",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

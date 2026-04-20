@@ -2,6 +2,8 @@
 
 ## 2026-04-20
 
+- Moved the workspace-integrity guard onto root install plus local build, test, demo, and dev entrypoints so stale or partial workspace installs fail before Vite or TypeScript resolve internal packages.
+- Clarified the local workflow and CI docs around root-only workspace bootstrapping and the recovery path for missing `@tracedeck/*` links.
 - Added a workspace-integrity guard for internal `@tracedeck/*` package links and wired it into local and GitHub Actions verification.
 - Updated the CI and developer workflow docs to cover workspace-link validation before build and app startup checks.
 - Added `packages/execution-engine` as a shared sorting runtime with deterministic trace emitters for Bubble Sort, Selection Sort, Quick Sort, and Merge Sort.

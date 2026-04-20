@@ -13,6 +13,8 @@ npm install
 
 If your environment requires a proxy, `npm` and git should honor the standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` variables.
 
+Run `npm install` from the repository root only. TraceDeck now executes the workspace-integrity guard during install and before build, test, demo, and dev commands, so nested installs inside `apps/*` or `packages/*` fail fast instead of leaving Vite or TypeScript to report missing internal packages later.
+
 ## Local Development
 
 Start both services from the repo root:
@@ -68,6 +70,8 @@ npm run build
 ```
 
 `npm run verify:workspaces` checks that internal TraceDeck workspace packages are recorded in `package-lock.json` and linked correctly under `node_modules/@tracedeck/*` before lint, typecheck, test, or Vite startup depend on them.
+
+The same guard now runs automatically during `npm install` and before the repo's build, test, demo, and workspace-start commands. If it fails, restore the root workspace state with a fresh `npm install` from the repository root.
 
 ## Package Conventions
 

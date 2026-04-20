@@ -179,6 +179,13 @@ function main() {
     for (const failure of failures) {
       console.error(`- ${failure}`);
     }
+    console.error("");
+    console.error(
+      "Remediation: run `npm install` from the repository root so npm materializes the full TraceDeck workspace graph before you start a workspace or build."
+    );
+    console.error(
+      "Avoid running `npm install` inside `apps/*` or `packages/*`; those nested installs do not bootstrap the shared workspace links."
+    );
     process.exit(1);
   }
 

@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix ../.. run verify:workspaces",
     "dev": "npm --prefix ../../packages/trace-core run build && tsx watch src/server.ts",
+    "prebuild": "npm --prefix ../.. run verify:workspaces",
     "build": "npm --prefix ../../packages/trace-core run build && tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "pretest": "npm --prefix ../.. run verify:workspaces",
     "test": "vitest run test",
+    "pretypecheck": "npm --prefix ../.. run verify:workspaces",
     "typecheck": "npm --prefix ../../packages/trace-core run build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
