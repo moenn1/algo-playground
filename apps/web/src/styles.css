@@ -252,6 +252,11 @@ button {
   color: #abf7f1;
 }
 
+.algorithm-badge-gold {
+  background: rgba(245, 201, 120, 0.18);
+  color: #ffe3a8;
+}
+
 .input-label {
   font-weight: 700;
 }

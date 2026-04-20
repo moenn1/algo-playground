@@ -49,9 +49,16 @@ npm run test
 npm run build
 ```
 
+Targeted graph-engine checks are available when you only need the runtime and shell surfaces:
+
+```bash
+npm run test --workspace @tracedeck/trace-core
+npm run test --workspace @tracedeck/web
+```
+
 ## Package Conventions
 
-- Put cross-cutting contracts in `packages/trace-core`.
+- Put cross-cutting contracts and reusable execution builders in `packages/trace-core`.
 - Keep HTTP boundaries and persistence flows inside `apps/api`.
 - Keep replay UI state derived from trace payloads inside `apps/web`.
 - Prefer additive contracts so trace consumers can evolve without silent semantic drift.

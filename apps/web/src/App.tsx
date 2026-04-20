@@ -4,6 +4,7 @@ import {
   algorithms,
   buildRun,
   formatDistance,
+  getTraceStepPaths,
   getAlgorithmById,
   type GraphRun,
   type ReplayRun,
@@ -26,6 +27,7 @@ const playbackProfiles = {
 } as const;
 
 type PlaybackSpeed = keyof typeof playbackProfiles;
+const initialAlgorithm = algorithms[0]!;
 
 function buildCheckpointWindow(totalSteps: number, currentStepIndex: number): number[] {
   const anchorIndices = new Set<number>([0, currentStepIndex, totalSteps - 1]);
@@ -59,8 +61,20 @@ function graphLayout(nodes: string[]) {
   );
 }
 
+function createDirectedEdgeKey(from: string, to: string): string {
+  return `${from}->${to}`;
+}
+
+function isSortingRun(run: ReplayRun): run is SortingRun {
+  return run.algorithm.domain === "sorting";
+}
+
+function isGraphRun(run: ReplayRun): run is GraphRun {
+  return run.algorithm.domain === "graph";
+}
+
 function SortingStage({ run, stepIndex }: { run: SortingRun; stepIndex: number }) {
-  const step = run.trace.steps[stepIndex];
+  const step = run.trace.steps[stepIndex]!;
   const values = step.state.array;
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
@@ -122,17 +136,37 @@ function SortingStage({ run, stepIndex }: { run: SortingRun; stepIndex: number }
 }
 
 function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
-  const step = run.trace.steps[stepIndex];
+  const step = run.trace.steps[stepIndex]!;
   const layout = graphLayout(run.input.nodes);
-  const settledSet = new Set(step.state.settled);
+  const visitedSet = new Set(step.state.visited);
   const frontierSet = new Set(step.state.frontier);
   const pathPairs = new Set(
-    step.state.path.slice(0, -1).map((node, index) => `${node}->${step.state.path[index + 1]}`)
+    step.state.path
+      .slice(0, -1)
+      .map((node, index) => createDirectedEdgeKey(node, step.state.path[index + 1]!))
   );
   const activeEdgeKey =
     step.state.activeEdge.length === 2
-      ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
+      ? createDirectedEdgeKey(step.state.activeEdge[0]!, step.state.activeEdge[1]!)
       : "";
+  const frontierLabel = run.algorithm.id === "bfs" ? "Queue" : "Frontier";
+  const visitedLabel = run.algorithm.id === "dijkstra" ? "Settled" : "Visited";
+
+  function isHighlightedEdge(from: string, to: string): boolean {
+    const directKey = createDirectedEdgeKey(from, to);
+    const reverseKey = createDirectedEdgeKey(to, from);
+
+    if (run.input.directed) {
+      return activeEdgeKey === directKey || pathPairs.has(directKey);
+    }
+
+    return (
+      activeEdgeKey === directKey ||
+      activeEdgeKey === reverseKey ||
+      pathPairs.has(directKey) ||
+      pathPairs.has(reverseKey)
+    );
+  }
 
   return (
     <>
@@ -146,14 +180,16 @@ function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
       <div className="graph-stage">
         <svg viewBox="0 0 360 300" role="img" aria-label="Weighted graph replay">
           {run.input.edges.map(([from, to, weight]) => {
-            const start = layout[from];
-            const end = layout[to];
+            const start = layout[from]!;
+            const end = layout[to]!;
             const classNames = [
               "graph-edge",
-              activeEdgeKey === `${from}->${to}` || activeEdgeKey === `${to}->${from}`
+              isHighlightedEdge(from, to) &&
+              activeEdgeKey.length > 0
                 ? "graph-edge-active"
                 : "",
-              pathPairs.has(`${from}->${to}`) || pathPairs.has(`${to}->${from}`)
+              isHighlightedEdge(from, to) &&
+              pathPairs.size > 0
                 ? "graph-edge-path"
                 : ""
             ]
@@ -177,12 +213,12 @@ function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
           })}
 
           {run.input.nodes.map((node) => {
-            const { x, y } = layout[node];
+            const { x, y } = layout[node]!;
             const distance = step.state.distances[node] ?? null;
             const classNames = [
               "graph-node",
               step.state.current === node ? "graph-node-current" : "",
-              settledSet.has(node) ? "graph-node-settled" : "",
+              visitedSet.has(node) ? "graph-node-settled" : "",
               frontierSet.has(node) ? "graph-node-frontier" : "",
               step.state.path.includes(node) ? "graph-node-path" : ""
             ]
@@ -205,7 +241,7 @@ function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
       </div>
       <div className="mini-grid">
         <div className="mini-card">
-          <span>Frontier</span>
+          <span>{frontierLabel}</span>
           <div className="pill-row">
             {step.state.frontier.length > 0 ? (
               step.state.frontier.map((node) => (
@@ -214,17 +250,23 @@ function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
                 </span>
               ))
             ) : (
-              <span className="empty-pill">Frontier empty</span>
+              <span className="empty-pill">{frontierLabel} empty</span>
             )}
           </div>
         </div>
         <div className="mini-card">
-          <span>Settled</span>
-          <strong>{step.state.settled.length}</strong>
+          <span>{visitedLabel}</span>
+          <strong>{step.state.visited.length}</strong>
         </div>
         <div className="mini-card">
           <span>Route</span>
-          <strong>{step.state.path.length > 0 ? step.state.path.join(" -> ") : "Pending"}</strong>
+          <strong>
+            {step.state.path.length > 0
+              ? step.state.path.join(" -> ")
+              : run.input.target === null
+                ? "Traversal only"
+                : "Pending"}
+          </strong>
         </div>
       </div>
     </>
@@ -232,7 +274,7 @@ function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
 }
 
 function renderMetricCards(run: ReplayRun, stepIndex: number) {
-  const step = run.trace.steps[stepIndex];
+  const step = run.trace.steps[stepIndex]!;
 
   return run.trace.summary.metricDefinitions.map((metric) => (
     <div className="metric-card" key={metric.key}>
@@ -245,9 +287,11 @@ function renderMetricCards(run: ReplayRun, stepIndex: number) {
 export default function App() {
   const [foundation, setFoundation] = useState<FoundationResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "offline">("loading");
-  const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<string>(algorithms[0].id);
-  const [inputText, setInputText] = useState<string>(algorithms[0].defaultInput);
-  const [run, setRun] = useState<ReplayRun>(() => buildRun(algorithms[0].id, algorithms[0].defaultInput));
+  const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<string>(initialAlgorithm.id);
+  const [inputText, setInputText] = useState<string>(initialAlgorithm.defaultInput);
+  const [run, setRun] = useState<ReplayRun>(() =>
+    buildRun(initialAlgorithm.id, initialAlgorithm.defaultInput)
+  );
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedId, setSpeedId] = useState<PlaybackSpeed>("normal");
@@ -310,9 +354,11 @@ export default function App() {
     };
   }, [currentStepIndex, isPlaying, run.trace.steps.length, speedId]);
 
-  const currentStep = run.trace.steps[currentStepIndex];
+  const currentStep = run.trace.steps[currentStepIndex]!;
   const selectedAlgorithm = getAlgorithmById(selectedAlgorithmId);
   const checkpointWindow = buildCheckpointWindow(run.trace.steps.length, currentStepIndex);
+  const sortingRun = isSortingRun(run) ? run : null;
+  const graphRun = isGraphRun(run) ? run : null;
 
   function launchRun(algorithmId: string, nextInputText: string) {
     try {
@@ -375,8 +421,8 @@ export default function App() {
               <h2>Choose an algorithm</h2>
             </div>
             <p className="panel-copy">
-              Seeded trace builders exercise the replay UX until persistence and
-              execution services land.
+              Shared runtime builders emit deterministic checkpoints directly from
+              the trace contract.
             </p>
           </div>
           <div className="algorithm-list">
@@ -405,7 +451,7 @@ export default function App() {
           <textarea
             className="input-editor"
             id="input-editor"
-            onChange={(event) => {
+            onChange={(event: { target: { value: string } }) => {
               setInputText(event.target.value);
             }}
             spellCheck={false}
@@ -432,10 +478,10 @@ export default function App() {
           <section className="panel stage-panel">
             <div className="stage-layout">
               <div className="visual-panel">
-                {run.algorithm.domain === "sorting" ? (
-                  <SortingStage run={run} stepIndex={currentStepIndex} />
+                {sortingRun ? (
+                  <SortingStage run={sortingRun} stepIndex={currentStepIndex} />
                 ) : (
-                  <GraphStage run={run} stepIndex={currentStepIndex} />
+                  <GraphStage run={graphRun!} stepIndex={currentStepIndex} />
                 )}
               </div>
 
@@ -449,9 +495,13 @@ export default function App() {
                     <span className="phase-badge">Frame {currentStep.index + 1}</span>
                   </div>
                   <p className="step-detail">{currentStep.description}</p>
+                  <p className="step-detail">{currentStep.explanation.summary}</p>
+                  {currentStep.explanation.details ? (
+                    <p className="step-detail">{currentStep.explanation.details}</p>
+                  ) : null}
                   <ul className="change-list">
                     {currentStep.highlights.map((highlight) => (
-                      <li key={highlight}>{highlight}</li>
+                      <li key={highlight.key}>{highlight.label ?? highlight.key}</li>
                     ))}
                   </ul>
                   <div className="metric-grid">{renderMetricCards(run, currentStepIndex)}</div>
@@ -465,15 +515,15 @@ export default function App() {
                     </div>
                   </div>
                   <div className="number-grid">
-                    {currentStep.changedPaths.map((path) => (
+                    {getTraceStepPaths(currentStep).map((path) => (
                       <span className="number-pill" key={path}>
                         {path}
                       </span>
                     ))}
                   </div>
-                  {run.algorithm.domain === "graph" ? (
+                  {graphRun ? (
                     <div className="distance-grid">
-                      {Object.entries(run.trace.steps[currentStepIndex].state.distances).map(
+                      {Object.entries(graphRun.trace.steps[currentStepIndex]!.state.distances).map(
                         ([node, distance]) => (
                           <div className="distance-row" key={node}>
                             <span>{node}</span>
@@ -484,11 +534,13 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="number-grid">
-                      {run.trace.steps[currentStepIndex].state.array.map((value, index) => (
-                        <span className="number-pill" key={`${value}-${index}`}>
-                          {value}
-                        </span>
-                      ))}
+                      {sortingRun!.trace.steps[currentStepIndex]!.state.array.map(
+                        (value, index) => (
+                          <span className="number-pill" key={`${value}-${index}`}>
+                            {value}
+                          </span>
+                        )
+                      )}
                     </div>
                   )}
                 </section>
@@ -603,13 +655,13 @@ export default function App() {
               className="timeline-range"
               max={run.trace.steps.length - 1}
               min={0}
-              onChange={(event) => {
+              onChange={(event: { target: { value: string } }) => {
                 setIsPlaying(false);
                 setCurrentStepIndex(Number(event.target.value));
               }}
-              onInput={(event) => {
+              onInput={(event: { target: HTMLInputElement }) => {
                 setIsPlaying(false);
-                setCurrentStepIndex(Number((event.target as HTMLInputElement).value));
+                setCurrentStepIndex(Number(event.target.value));
               }}
               type="range"
               value={currentStepIndex}
@@ -621,7 +673,7 @@ export default function App() {
             </div>
             <div className="checkpoint-row">
               {checkpointWindow.map((stepIndex) => {
-                const step = run.trace.steps[stepIndex];
+                const step = run.trace.steps[stepIndex]!;
                 return (
                   <button
                     className={`checkpoint ${

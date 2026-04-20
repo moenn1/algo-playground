@@ -174,7 +174,7 @@ export function canonicalizeJson<T extends JsonValue>(value: T): T {
     Object.keys(value)
       .sort((left, right) => left.localeCompare(right))
       .forEach((key) => {
-        canonicalObject[key] = canonicalizeJson(value[key]);
+        canonicalObject[key] = canonicalizeJson((value as JsonObject)[key]!);
       });
 
     return canonicalObject as T;
@@ -242,7 +242,7 @@ function normalizeMetrics(
         throw new Error(`${label} references undeclared metric "${metricKey}".`);
       }
 
-      const value = metrics[metricKey];
+      const value = metrics[metricKey]!;
 
       if (!Number.isFinite(value)) {
         throw new Error(`${label} metric "${metricKey}" must use a finite numeric value.`);
@@ -273,12 +273,16 @@ function normalizeTraceChange(change: TraceChange, stepIndex: number, changeInde
 
   return {
     ...change,
-    previousValue:
-      change.previousValue === undefined
-        ? undefined
-        : canonicalizeJson(change.previousValue),
-    nextValue:
-      change.nextValue === undefined ? undefined : canonicalizeJson(change.nextValue)
+    ...(change.previousValue !== undefined
+      ? {
+          previousValue: canonicalizeJson(change.previousValue)
+        }
+      : {}),
+    ...(change.nextValue !== undefined
+      ? {
+          nextValue: canonicalizeJson(change.nextValue)
+        }
+      : {})
   };
 }
 
@@ -321,8 +325,11 @@ function normalizeTraceHighlight(
 
   return {
     ...highlight,
-    metadata:
-      highlight.metadata === undefined ? undefined : canonicalizeJson(highlight.metadata)
+    ...(highlight.metadata !== undefined
+      ? {
+          metadata: canonicalizeJson(highlight.metadata)
+        }
+      : {})
   };
 }
 
@@ -338,10 +345,14 @@ function normalizeTraceExplanation(
 
   return {
     ...explanation,
-    tags:
-      explanation.tags === undefined
-        ? undefined
-        : normalizeStringList(explanation.tags, `Trace step ${stepIndex} explanation tags`)
+    ...(explanation.tags !== undefined
+      ? {
+          tags: normalizeStringList(
+            explanation.tags,
+            `Trace step ${stepIndex} explanation tags`
+          )
+        }
+      : {})
   };
 }
 
@@ -427,7 +438,7 @@ export function createTraceEnvelope<State extends JsonObject>(
   const steps = input.steps.map((step, expectedIndex) =>
     normalizeTraceStep(step, expectedIndex, metricKeys, seenStepKeys)
   );
-  const finalStep = steps[steps.length - 1];
+  const finalStep = steps[steps.length - 1]!;
   const missingComparisonMetric = comparisonMetricKeys.find(
     (metricKey) => finalStep.metrics[metricKey] === undefined
   );

@@ -14,9 +14,9 @@ The frontend uses React with Vite. The replay interface needs quick iteration on
 
 The API uses Fastify. It provides a small service boundary today and leaves enough headroom for persisted runs, trace retrieval, comparison APIs, and future background execution services without a framework-heavy bootstrap.
 
-### Shared Contracts
+### Shared Contracts And Runtimes
 
-The `packages/trace-core` workspace is the canonical contract for trace envelopes, serializable state, and comparison metric definitions. Shared trace semantics belong in one package so the execution engine, persistence layer, and UI all consume the same shape.
+The `packages/trace-core` workspace is the canonical contract for trace envelopes, serializable state, graph execution builders, and comparison metric definitions. Shared trace semantics belong in one package so the execution engine, persistence layer, and UI all consume the same shape.
 
 ## Repository Layout
 
@@ -25,7 +25,7 @@ apps/
   api/            Fastify service boundary
   web/            React replay shell
 packages/
-  trace-core/     Trace envelope contract and validation helpers
+  trace-core/     Trace envelope contract, graph execution builders, and validation helpers
 docs/             Architecture and developer workflow
 ```
 
@@ -37,6 +37,7 @@ docs/             Architecture and developer workflow
 - Enforces canonical JSON-serializable inputs and full step snapshots
 - Guards contiguous step indexing and stable step keys for deterministic replay
 - Carries explicit change records, structured highlights, explanations, and metric definitions that can be reused by replay and comparison views
+- Hosts the shared BFS and Dijkstra builders so graph runtime semantics live outside the web shell
 
 ### `apps/api`
 
@@ -53,7 +54,7 @@ docs/             Architecture and developer workflow
 ## Execution Model
 
 1. An algorithm implementation receives a validated input payload.
-2. The execution engine emits a deterministic sequence of serializable steps.
+2. Shared execution builders emit a deterministic sequence of serializable steps.
 3. The final trace envelope stores both step-level state and metric summaries.
 4. Replay reconstructs UI state from the recorded trace rather than recomputing algorithm behavior.
 5. Comparison views align algorithms through explicit metric definitions and stable step semantics.
@@ -62,7 +63,7 @@ docs/             Architecture and developer workflow
 
 - Persisted traces will be treated as durable records, not transient UI artifacts.
 - State transitions must be inspectable and serializable at every step.
-- Shared contract changes should happen in `trace-core` first so replay and persistence remain aligned.
+- Shared contract and runtime changes should happen in `trace-core` first so replay and persistence remain aligned.
 - The repo is intentionally split into apps and packages now to reduce migration churn once storage, comparison history, and isolated execution workers are added.
 
 ## Trace Contract Invariants
