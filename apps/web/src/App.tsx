@@ -317,7 +317,9 @@ function StoryboardRail({
     <div className="storyboard-row">
       {stops.map((stop) => (
         <button
-          className={`storyboard-card ${stop.stepIndex === activeStepIndex ? "storyboard-card-active" : ""}`}
+          className={`storyboard-card storyboard-card-enter ${
+            stop.stepIndex === activeStepIndex ? "storyboard-card-active" : ""
+          }`}
           key={stop.key}
           onClick={() => {
             onSelect(stop.stepIndex);
@@ -355,18 +357,18 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
   return (
     <section className="focus-strip" aria-label="Active frame briefing">
-      <article className="focus-card focus-card-primary">
+      <article className="focus-card focus-card-primary focus-card-motion">
         <p className="card-kicker">Frame Briefing</p>
         <h3>{step.phase}</h3>
         <p className="focus-copy">{step.explanation.summary}</p>
         {step.explanation.details ? <p className="focus-copy">{step.explanation.details}</p> : null}
       </article>
-      <article className="focus-card">
+      <article className="focus-card focus-card-motion">
         <span>Snapshot lens</span>
         <strong>{snapshotLabel}</strong>
         <p className="focus-meta">{stateStatus}</p>
       </article>
-      <article className="focus-card">
+      <article className="focus-card focus-card-motion">
         <span>Recorded signals</span>
         <strong>{deltaPaths.length} delta paths</strong>
         <div className="compare-pill-row">
@@ -801,7 +803,10 @@ function ComparisonWorkspace({
         </div>
         <div className="compare-sync-grid">
           {syncedRuns.map(({ run, stepIndex, step }) => (
-            <article className={`sync-card ${getAccentClass(run.algorithm.accent)}`} key={run.algorithm.id}>
+            <article
+              className={`sync-card sync-card-motion ${getAccentClass(run.algorithm.accent)}`}
+              key={run.algorithm.id}
+            >
               <div className="sync-card-header">
                 <span className={`algorithm-badge algorithm-badge-${run.algorithm.accent}`}>
                   {run.algorithm.badge}
@@ -1138,7 +1143,7 @@ export default function App() {
   }
 
   return (
-    <main className="shell">
+    <main className={`shell ${isPlaying ? "shell-playing" : ""}`}>
       <section className="hero-band">
         <div>
           <p className="eyebrow">TraceDeck</p>
@@ -1443,7 +1448,7 @@ export default function App() {
             />
           )}
 
-          <section className="panel transport-panel">
+          <section className={`panel transport-panel ${isPlaying ? "transport-panel-live" : ""}`}>
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Transport</p>
@@ -1478,7 +1483,10 @@ export default function App() {
                 Step Back
               </button>
               <button
-                className="transport-button transport-button-primary"
+                className={`transport-button transport-button-primary ${
+                  isPlaying ? "transport-button-live" : ""
+                }`}
+                aria-pressed={isPlaying}
                 onClick={() => {
                   if (isPlaying) {
                     setIsPlaying(false);
@@ -1572,8 +1580,8 @@ export default function App() {
                   : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`}
               </p>
             </div>
-            <div className="timeline-progress-shell">
-              <div className="timeline-progress-bar">
+            <div className={`timeline-progress-shell ${isPlaying ? "timeline-progress-shell-live" : ""}`}>
+              <div className={`timeline-progress-bar ${isPlaying ? "timeline-progress-bar-live" : ""}`}>
                 <span style={{ width: `${syncProgress}%` }} />
               </div>
               <div className="timeline-progress-copy">

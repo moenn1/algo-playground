@@ -19,6 +19,8 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - Global storyboard stops should complement local checkpoint windows: the storyboard communicates journey-level progress while nearby checkpoints keep precise jumps fast.
 - Comparison mode should surface compact per-lane sync signals ahead of the full comparison deck so multi-run playback remains legible on narrow viewports.
 - The visual system should read as an intentional replay studio rather than a generic dashboard: solid surfaces, bolder section separation, and a distinct palette shift should be visible on first load.
+- Motion should clarify replay state instead of adding ambient ornament: panel entrances can stage dense information, while live playback cues should stay tied to the transport surface and timeline progress.
+- Any animated replay affordance needs a reduced-motion fallback so deterministic stepping remains comfortable during long inspection sessions.
 - Tablet and mobile layouts should keep controls in explicit grids and let dense navigation rows scroll horizontally instead of compressing core replay actions into cramped wraps.
 
 ## Replay Surfaces
@@ -29,6 +31,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - The hero band now acts as a command surface with live progress telemetry, playback context, and product-priority pills for the current run.
 - The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so the studio reads differently from the previous dark glass treatment.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
+- Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
 
@@ -40,6 +43,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - Comparison summary cards read final comparison metrics directly from the trace envelope instead of recomputing winners in the UI layer.
 - A sync-signal grid summarizes each algorithm's current phase and normalized position before the full comparison deck, which improves scanability on desktop and mobile.
 - Timeline scrubbing now pairs a progress bar, storyboard stops, and local checkpoint windows so users can switch between global navigation and precise frame stepping.
+- Storyboard cards, sync cards, and transport metrics enter with staged motion and keep snap-aligned horizontal browsing on smaller screens so multi-run inspection remains readable without shrinking the cards away.
 - Mobile and tablet comparison layouts now prioritize stacked cards, grid-based controls, and horizontal checkpoint browsing so synchronized playback stays readable without shrinking the visualization cards away.
 
 ## Extension guidance

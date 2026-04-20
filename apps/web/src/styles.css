@@ -17,6 +17,10 @@
   --gold-soft: rgba(49, 87, 200, 0.14);
   --shadow: 0 20px 44px rgba(105, 77, 35, 0.12);
   --stack-shadow: 10px 10px 0 rgba(36, 49, 77, 0.08);
+  --motion-base: 220ms;
+  --motion-slow: 420ms;
+  --motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-shift: 18px;
   color-scheme: light;
   font-family: "Avenir Next Condensed", "Franklin Gothic Medium", "Trebuchet MS", sans-serif;
 }
@@ -67,6 +71,51 @@ body::after {
     radial-gradient(circle at center, rgba(214, 101, 67, 0.16), rgba(214, 101, 67, 0) 68%);
 }
 
+@keyframes panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-shift));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes active-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(214, 101, 67, 0.18);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(214, 101, 67, 0);
+  }
+}
+
+@keyframes progress-sheen {
+  from {
+    transform: translateX(-110%);
+  }
+
+  to {
+    transform: translateX(110%);
+  }
+}
+
 button,
 textarea,
 input {
@@ -94,6 +143,10 @@ input:focus-visible {
   padding: 24px 0 56px;
 }
 
+.shell-playing .hero-band {
+  box-shadow: 0 26px 56px rgba(105, 77, 35, 0.18);
+}
+
 .hero-band {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
@@ -108,6 +161,7 @@ input:focus-visible {
   background: linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 236, 218, 0.94));
   box-shadow: var(--shadow);
   overflow: hidden;
+  animation: panel-enter var(--motion-slow) var(--motion-spring) both;
 }
 
 .hero-band::before,
@@ -356,6 +410,11 @@ input:focus-visible {
   border-radius: 26px;
   background: linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(247, 236, 218, 0.92));
   box-shadow: var(--shadow);
+  animation: panel-enter var(--motion-slow) var(--motion-spring) both;
+  transition:
+    box-shadow var(--motion-base) ease,
+    background var(--motion-base) ease,
+    border-color var(--motion-base) ease;
 }
 
 .sidebar {
@@ -368,6 +427,7 @@ input:focus-visible {
     linear-gradient(180deg, rgba(49, 87, 200, 0.14), rgba(49, 87, 200, 0)),
     var(--ink);
   color: #fff7ed;
+  animation-delay: 80ms;
 }
 
 .sidebar .panel-copy,
@@ -472,10 +532,10 @@ input:focus-visible {
   background: rgba(255, 247, 237, 0.08);
   text-align: left;
   transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background 180ms ease,
-    box-shadow 180ms ease;
+    transform var(--motion-base) var(--motion-spring),
+    border-color var(--motion-base) ease,
+    background var(--motion-base) ease,
+    box-shadow var(--motion-base) ease;
 }
 
 .algorithm-card:hover,
@@ -561,11 +621,11 @@ input:focus-visible {
 .checkpoint,
 .storyboard-card {
   transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background 180ms ease,
-    color 180ms ease,
-    box-shadow 180ms ease;
+    transform var(--motion-base) var(--motion-spring),
+    border-color var(--motion-base) ease,
+    background var(--motion-base) ease,
+    color var(--motion-base) ease,
+    box-shadow var(--motion-base) ease;
 }
 
 .launch-button,
@@ -599,6 +659,10 @@ input:focus-visible {
   color: #fff7ed;
 }
 
+.transport-button-live {
+  animation: active-pulse 1.8s ease-in-out infinite;
+}
+
 .stage-panel,
 .transport-panel,
 .timeline-panel,
@@ -613,6 +677,14 @@ input:focus-visible {
 
 .transport-panel {
   border-top: 8px solid var(--ember);
+}
+
+.transport-panel-live {
+  border-color: rgba(214, 101, 67, 0.5);
+  background:
+    linear-gradient(180deg, rgba(214, 101, 67, 0.12), rgba(255, 250, 242, 0)),
+    linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(247, 236, 218, 0.92));
+  box-shadow: 0 24px 50px rgba(105, 77, 35, 0.18);
 }
 
 .timeline-panel {
@@ -642,6 +714,18 @@ input:focus-visible {
   display: grid;
   gap: 12px;
   padding: 18px;
+}
+
+.focus-card-motion {
+  animation: card-enter var(--motion-slow) var(--motion-spring) both;
+}
+
+.focus-card-motion:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.focus-card-motion:nth-child(3) {
+  animation-delay: 140ms;
 }
 
 .focus-card-primary {
@@ -950,6 +1034,11 @@ input:focus-visible {
 .sync-card {
   display: grid;
   gap: 10px;
+  animation: card-enter var(--motion-slow) var(--motion-spring) both;
+}
+
+.sync-card-motion:nth-child(2) {
+  animation-delay: 80ms;
 }
 
 .mini-card span,
@@ -1065,6 +1154,15 @@ input:focus-visible {
   border: 2px solid var(--line);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.64);
+  animation: card-enter var(--motion-slow) var(--motion-spring) both;
+}
+
+.transport-summary .metric-inline:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.transport-summary .metric-inline:nth-child(3) {
+  animation-delay: 140ms;
 }
 
 .timeline-range {
@@ -1080,9 +1178,36 @@ input:focus-visible {
   background: linear-gradient(180deg, rgba(47, 119, 105, 0.08), rgba(255, 250, 242, 0));
 }
 
+.timeline-progress-shell-live {
+  box-shadow: inset 0 0 0 2px rgba(47, 119, 105, 0.12);
+}
+
 .timeline-progress-copy {
   display: grid;
   gap: 6px;
+}
+
+.timeline-progress-bar span {
+  transition: width 360ms var(--motion-spring);
+}
+
+.timeline-progress-bar-live {
+  position: relative;
+}
+
+.timeline-progress-bar-live::after {
+  content: "";
+  position: absolute;
+  inset: 1px auto 1px 0;
+  width: 88px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.48) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: progress-sheen 1.6s linear infinite;
 }
 
 .timeline-labels {
@@ -1106,6 +1231,24 @@ input:focus-visible {
   padding: 14px;
   text-align: left;
   background: rgba(255, 255, 255, 0.72);
+  animation: card-enter var(--motion-slow) var(--motion-spring) both;
+  scroll-snap-align: start;
+}
+
+.storyboard-card-enter:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.storyboard-card-enter:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.storyboard-card-enter:nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.storyboard-card-enter:nth-child(5) {
+  animation-delay: 240ms;
 }
 
 .storyboard-card:hover,
@@ -1119,6 +1262,8 @@ input:focus-visible {
 .storyboard-card-active {
   background: var(--gold-soft);
   border-color: var(--gold);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(49, 87, 200, 0.16);
 }
 
 .storyboard-index,
@@ -1136,6 +1281,9 @@ input:focus-visible {
   overflow-x: auto;
   padding-bottom: 4px;
   scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .checkpoint {
@@ -1146,6 +1294,7 @@ input:focus-visible {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   text-align: left;
+  scroll-snap-align: start;
 }
 
 .checkpoint-active {
@@ -1269,11 +1418,21 @@ input:focus-visible {
   }
 
   .transport-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(170px, 1fr);
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
   }
 
   .transport-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transport-button,
+  .segmented {
+    scroll-snap-align: start;
   }
 }
 
@@ -1312,7 +1471,7 @@ input:focus-visible {
   }
 
   .transport-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-columns: minmax(160px, 72vw);
   }
 
   .transport-summary {
@@ -1320,7 +1479,22 @@ input:focus-visible {
   }
 
   .storyboard-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(210px, 72vw);
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+  }
+
+  .timeline-progress-copy {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-labels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
   }
 }
 
@@ -1336,9 +1510,21 @@ input:focus-visible {
   }
 
   .view-switch,
-  .speed-row,
   .storyboard-row {
     grid-template-columns: 1fr;
+  }
+
+  .view-switch {
+    gap: 10px;
+  }
+
+  .speed-row {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(132px, 68vw);
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
   }
 
   .sort-stage {
@@ -1364,7 +1550,7 @@ input:focus-visible {
   }
 
   .transport-row {
-    grid-template-columns: 1fr 1fr;
+    grid-auto-columns: minmax(156px, 72vw);
   }
 
   .checkpoint-row,
@@ -1379,5 +1565,24 @@ input:focus-visible {
 
   .storyboard-row {
     display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .transport-button-live {
+    animation: none;
+  }
+
+  .timeline-progress-bar-live::after {
+    display: none;
   }
 }

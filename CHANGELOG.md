@@ -10,6 +10,7 @@
 - Added per-lane sync signal cards to comparison mode and documented the updated replay-shell interaction model in the README and replay-shell notes.
 - Reworked the web shell art direction around warm paper surfaces, ink-heavy controls, and a new accent palette so the replay studio now reads differently on first load.
 - Improved tablet and mobile responsiveness by moving transport controls into explicit grids and turning dense checkpoint/storyboard rows into horizontal browse surfaces instead of cramped wraps.
+- Added replay-state motion cues for panel entrances, live transport controls, and timeline progress, with reduced-motion handling and stronger horizontal browse behavior on smaller screens.
 
 ## 2026-04-20
 
