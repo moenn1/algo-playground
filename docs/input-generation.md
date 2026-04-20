@@ -7,7 +7,7 @@
 The service currently covers the supported algorithms already present in the workspace:
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
-- Graph: `dijkstra`
+- Graph: `bfs`, `dijkstra`
 
 ## Endpoints
 
@@ -110,6 +110,8 @@ Every sorting preset can be resolved for Bubble Sort, Selection Sort, Quick Sort
 - `graph.disconnected-target`: curated no-route scenario
 - `graph.weighted-detour`: curated pathfinding case with a cheaper multi-hop route
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
+
+Every graph preset can be resolved for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
 
 ## Validation Rules
 

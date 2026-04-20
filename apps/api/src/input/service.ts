@@ -35,6 +35,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Merge Sort",
     domain: "sorting"
   },
+  bfs: {
+    id: "bfs",
+    label: "Breadth-First Search",
+    domain: "graph"
+  },
   dijkstra: {
     id: "dijkstra",
     label: "Dijkstra",
@@ -48,7 +53,7 @@ const sortingAlgorithms = [
   supportedAlgorithms["quick-sort"],
   supportedAlgorithms["merge-sort"]
 ] as const;
-const graphAlgorithms = [supportedAlgorithms.dijkstra] as const;
+const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -613,7 +618,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       id: "graph.reference-route",
       label: "Reference shortest-path graph",
       description:
-        "Mirror the shell's default weighted graph so API-generated path runs align with the local replay experience.",
+        "Weighted graph fixture aligned with the shared graph execution runtime and local replay shell.",
       scenario: "baseline",
       kind: "curated",
       domain: "graph",

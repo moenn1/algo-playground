@@ -4,12 +4,14 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers the shared sorting runtime:
+The current package covers shared sorting and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
 - `quick-sort`
 - `merge-sort`
+- `bfs`
+- `dijkstra`
 
 ## Sorting Runtime Model
 
@@ -31,15 +33,37 @@ Sorting traces currently share two comparison metrics:
 
 The package intentionally avoids algorithm-specific comparison metrics in the shared deck so Bubble Sort, Selection Sort, Quick Sort, and Merge Sort can stay directly comparable.
 
+## Graph Runtime Model
+
+Breadth-First Search and Dijkstra share one replay-safe graph state shape:
+
+- `state.distances`: recorded hop counts or weighted distances per node
+- `state.settled`: nodes whose expansion or shortest-path state is final for the current frame
+- `state.frontier`: queue order for BFS or weighted frontier order for Dijkstra
+- `state.current`: the node currently being expanded
+- `state.activeEdge`: the edge under inspection or relaxation
+- `state.path`: the current recovered path overlay
+
+Shared graph metrics keep the runtime readable across both algorithms:
+
+- `settled`: nodes finalized so far
+- `frontier`: queue or weighted-frontier size at the recorded frame
+- `inspections`: edges inspected so far
+- `updates`: predecessor or distance updates committed so far
+
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, while Dijkstra records the weighted frontier sorted by tentative distance and node label tie-breaks.
+
 ## Deterministic Emission Rules
 
 - Every algorithm records full snapshots through the `trace-core` recorder helpers.
 - Recursive algorithms emit structural checkpoints instead of relying on replay-time recursion.
 - Merge sort does not mark intermediate windows as globally sorted; `sortedIndices` only advances when that claim is true for the full array position.
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
+- BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
+- Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay and comparison runs from this package.
-- `apps/api` exposes the same sorting algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -5,6 +5,7 @@ export const supportedAlgorithmIds = [
   "selection-sort",
   "quick-sort",
   "merge-sort",
+  "bfs",
   "dijkstra"
 ] as const;
 

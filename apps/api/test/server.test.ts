@@ -497,7 +497,7 @@ describe("TraceDeck API foundation", () => {
       method: "POST",
       url: "/api/input-presets/graph.random-network/resolve",
       payload: {
-        algorithmId: "dijkstra",
+        algorithmId: "bfs",
         seed: 29,
         options: {
           nodes: 5,
@@ -514,7 +514,7 @@ describe("TraceDeck API foundation", () => {
         id: "graph.random-network"
       },
       algorithm: {
-        id: "dijkstra",
+        id: "bfs",
         domain: "graph"
       },
       seed: 29,

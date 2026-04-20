@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const INTERNAL_SCOPE = "@tracedeck/";
 const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
@@ -167,7 +168,7 @@ function validateWorkspaceLinks(rootDir, workspaceInfos, dependencyRefs) {
 }
 
 function main() {
-  const rootDir = process.cwd();
+  const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const workspaceInfos = loadWorkspaceInfos(rootDir);
   const dependencyRefs = collectInternalDependencyRefs(workspaceInfos);
   const failures = validateWorkspaceLinks(rootDir, workspaceInfos, dependencyRefs);

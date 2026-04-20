@@ -43,6 +43,34 @@ if (!defaultAlgorithm || !defaultComparisonAlgorithm) {
 const assuredDefaultAlgorithm = defaultAlgorithm;
 const assuredDefaultComparisonAlgorithm = defaultComparisonAlgorithm;
 
+function isSortingRun(run: ReplayRun): run is SortingRun {
+  return run.algorithm.domain === "sorting";
+}
+
+type StoryboardStop = {
+  key: string;
+  stepIndex: number;
+  progressLabel: string;
+  title: string;
+  detail: string;
+};
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function formatStepProgress(stepIndex: number, totalSteps: number): string {
+  if (totalSteps <= 1) {
+    return "100%";
+  }
+
+  return `${Math.round((stepIndex / (totalSteps - 1)) * 100)}%`;
+}
+
 function buildCheckpointWindow(totalSteps: number, currentStepIndex: number): number[] {
   const anchorIndices = new Set<number>([0, currentStepIndex, totalSteps - 1]);
 
@@ -51,6 +79,17 @@ function buildCheckpointWindow(totalSteps: number, currentStepIndex: number): nu
     if (candidate >= 0 && candidate < totalSteps) {
       anchorIndices.add(candidate);
     }
+  }
+
+  return Array.from(anchorIndices).sort((left, right) => left - right);
+}
+
+function buildStoryboardIndices(totalSteps: number, currentStepIndex: number): number[] {
+  const lastIndex = Math.max(0, totalSteps - 1);
+  const anchorIndices = new Set<number>([0, currentStepIndex, lastIndex]);
+
+  for (const ratio of [0.2, 0.4, 0.6, 0.8]) {
+    anchorIndices.add(Math.round(lastIndex * ratio));
   }
 
   return Array.from(anchorIndices).sort((left, right) => left - right);
@@ -180,6 +219,134 @@ function formatMetricLead(
   }
 
   return `Lead ${gap}`;
+}
+
+function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
+  if (isSortingRun(run)) {
+    const step = getRunStep(run, stepIndex);
+    return truncateText(step.state.array.join(" · "), 56);
+  }
+
+  const step = getRunStep(run, stepIndex);
+
+  if (step.state.path.length > 0) {
+    return truncateText(step.state.path.join(" -> "), 56);
+  }
+
+  if (step.state.current) {
+    return `Current node ${step.state.current}`;
+  }
+
+  return "Route pending";
+}
+
+function buildSingleStoryboard(run: ReplayRun, currentStepIndex: number): StoryboardStop[] {
+  return buildStoryboardIndices(run.trace.steps.length, currentStepIndex).map((stepIndex) => {
+    const step = getRunStep(run, stepIndex);
+
+    return {
+      key: step.key,
+      stepIndex,
+      progressLabel: formatStepProgress(stepIndex, run.trace.steps.length),
+      title: step.phase,
+      detail: truncateText(step.explanation.summary, 88)
+    };
+  });
+}
+
+function buildComparisonStoryboard(
+  runs: SortingRun[],
+  currentStepIndex: number,
+  stepCount: number
+): StoryboardStop[] {
+  return buildStoryboardIndices(stepCount, currentStepIndex).map((stepIndex) => {
+    const mappedSummaries = runs.map((run) => {
+      const syncedIndex = getSyncedStepIndex(run.trace.steps.length, stepIndex, stepCount);
+      const step = getRunStep(run, syncedIndex);
+
+      return `${run.algorithm.name.split(" ")[0]}: ${step.phase}`;
+    });
+
+    return {
+      key: `compare-${stepIndex}`,
+      stepIndex,
+      progressLabel: formatStepProgress(stepIndex, stepCount),
+      title: `Shared frame ${stepIndex + 1}`,
+      detail: truncateText(mappedSummaries.join(" · "), 88)
+    };
+  });
+}
+
+function StoryboardRail({
+  activeStepIndex,
+  onSelect,
+  stops
+}: {
+  activeStepIndex: number;
+  onSelect: (stepIndex: number) => void;
+  stops: StoryboardStop[];
+}) {
+  return (
+    <div className="storyboard-row">
+      {stops.map((stop) => (
+        <button
+          className={`storyboard-card ${stop.stepIndex === activeStepIndex ? "storyboard-card-active" : ""}`}
+          key={stop.key}
+          onClick={() => {
+            onSelect(stop.stepIndex);
+          }}
+          type="button"
+        >
+          <span className="storyboard-index">{stop.progressLabel}</span>
+          <strong>{stop.title}</strong>
+          <span>{stop.detail}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: number }) {
+  const step = getRunStep(run, stepIndex);
+  const snapshotLabel = describeRunSnapshot(run, stepIndex);
+  const deltaPaths = getTraceStepPaths(step);
+  const signalLabels = (
+    step.highlights.length > 0
+      ? step.highlights.map((highlight) => formatHighlightLabel(highlight.label, highlight.key))
+      : deltaPaths
+  ).slice(0, 3);
+  const stateStatus = isSortingRun(run)
+    ? `${getRunStep(run as SortingRun, stepIndex).state.sortedIndices.length} lanes locked`
+    : `${getRunStep(run as GraphRun, stepIndex).state.settled.length} nodes settled`;
+
+  return (
+    <section className="focus-strip" aria-label="Active frame briefing">
+      <article className="focus-card focus-card-primary">
+        <p className="card-kicker">Frame Briefing</p>
+        <h3>{step.phase}</h3>
+        <p className="focus-copy">{step.explanation.summary}</p>
+        {step.explanation.details ? <p className="focus-copy">{step.explanation.details}</p> : null}
+      </article>
+      <article className="focus-card">
+        <span>Snapshot lens</span>
+        <strong>{snapshotLabel}</strong>
+        <p className="focus-meta">{stateStatus}</p>
+      </article>
+      <article className="focus-card">
+        <span>Recorded signals</span>
+        <strong>{deltaPaths.length} delta paths</strong>
+        <div className="compare-pill-row">
+          {(signalLabels.length > 0 ? signalLabels : ["Full snapshot recorded"]).map(
+            (signalLabel, index) => (
+              <span className="number-pill" key={`${signalLabel}-${index}`}>
+                {signalLabel}
+              </span>
+            )
+          )}
+        </div>
+      </article>
+    </section>
+  );
 }
 
 function SortingStage({ run, stepIndex }: { run: SortingRun; stepIndex: number }) {
@@ -442,6 +609,25 @@ function ComparisonWorkspace({
             );
           })}
         </div>
+        <div className="compare-sync-grid">
+          {syncedRuns.map(({ run, stepIndex, step }) => (
+            <article className={`sync-card ${getAccentClass(run.algorithm.accent)}`} key={run.algorithm.id}>
+              <div className="sync-card-header">
+                <span className={`algorithm-badge algorithm-badge-${run.algorithm.accent}`}>
+                  {run.algorithm.badge}
+                </span>
+                <span className="sync-card-progress">
+                  {formatStepProgress(stepIndex, run.trace.summary.stepCount)}
+                </span>
+              </div>
+              <strong>{run.algorithm.name}</strong>
+              <p>{truncateText(step.explanation.summary, 104)}</p>
+              <span className="sync-card-meta">
+                {step.phase} · Frame {stepIndex + 1} of {run.trace.summary.stepCount}
+              </span>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="panel stage-panel">
@@ -638,6 +824,85 @@ export default function App() {
   const checkpointWindow = buildCheckpointWindow(activeStepCount, currentStepIndex);
   const syncProgress =
     activeStepCount <= 1 ? 100 : Math.round((currentStepIndex / (activeStepCount - 1)) * 100);
+  const storyboardStops =
+    viewMode === "compare"
+      ? buildComparisonStoryboard(comparisonRuns, currentStepIndex, activeStepCount)
+      : buildSingleStoryboard(run, currentStepIndex);
+  const compareLaneSignals =
+    viewMode === "compare"
+      ? comparisonRuns.map((comparisonRun) => {
+          const syncedIndex = getSyncedStepIndex(
+            comparisonRun.trace.steps.length,
+            currentStepIndex,
+            activeStepCount
+          );
+          const syncedStep = getRunStep(comparisonRun, syncedIndex);
+
+          return `${comparisonRun.algorithm.name.split(" ")[0]}: ${syncedStep.phase}`;
+        })
+      : [];
+  const compareMatchupLabel = comparisonRuns
+    .map((comparisonRun) => comparisonRun.algorithm.name.split(" ")[0])
+    .join(" / ");
+  const heroHeadline =
+    viewMode === "compare" ? "Comparison command center" : `${run.algorithm.name} under replay lens`;
+  const heroNarrative =
+    viewMode === "compare"
+      ? `Shared transport keeps ${comparisonRuns.length} deterministic runs on one progress line while every lane preserves its own checkpoint density. ${compareLaneSignals.join(" · ")}`
+      : currentStep?.explanation.summary ?? run.trace.steps[0]!.explanation.summary;
+  const heroStats =
+    viewMode === "compare"
+      ? [
+          {
+            label: "Matchup",
+            value: compareMatchupLabel,
+            detail: `${comparisonRuns.length} algorithms on one seeded array`
+          },
+          {
+            label: "Shared input",
+            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
+            detail: "Every metric reads from the same normalized payload"
+          },
+          {
+            label: "Sync progress",
+            value: `${syncProgress}%`,
+            detail: `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
+          },
+          {
+            label: "Playback profile",
+            value: playbackProfiles[speedId].label,
+            detail: isPlaying ? "Transport rolling" : "Transport paused"
+          }
+        ]
+      : [
+          {
+            label: "Active algorithm",
+            value: run.algorithm.name,
+            detail: run.algorithm.description
+          },
+          {
+            label: "Input footprint",
+            value: describeInputFootprint(run),
+            detail: selectedAlgorithm.inputHint
+          },
+          {
+            label: "Current frame",
+            value: currentStep ? `${currentStep.index + 1} / ${run.trace.summary.stepCount}` : "0 / 0",
+            detail: currentStep?.phase ?? "Awaiting trace"
+          },
+          {
+            label: "Playback profile",
+            value: playbackProfiles[speedId].label,
+            detail: isPlaying ? "Transport rolling" : "Transport paused"
+          }
+        ];
+  const platformPriorities = foundation?.priorities ?? [];
+  const timelineSnapshotDetail =
+    viewMode === "compare"
+      ? compareLaneSignals.join(" · ")
+      : currentStep
+        ? describeRunSnapshot(run, currentStep.index)
+        : "";
 
   function resetPlayback(nextMode: ViewMode) {
     setViewMode(nextMode);
@@ -694,6 +959,52 @@ export default function App() {
             mutations.
           </p>
         </div>
+        <div className="hero-command">
+          <div className="hero-command-panel">
+            <div className="panel-heading hero-command-header">
+              <div>
+                <p className="eyebrow">Live Workspace</p>
+                <h2>{heroHeadline}</h2>
+              </div>
+              <span className="phase-badge">
+                {viewMode === "compare"
+                  ? `${syncProgress}% synchronized`
+                  : currentStep
+                    ? `Frame ${currentStep.index + 1}`
+                    : "Frame 1"}
+              </span>
+            </div>
+            <p className="hero-copy hero-command-copy">{heroNarrative}</p>
+            <div className="hero-meter">
+              <div className="hero-meter-bar">
+                <span style={{ width: `${syncProgress}%` }} />
+              </div>
+              <div className="hero-meter-labels">
+                <span>{viewMode === "compare" ? "Lift-off" : "Seed"}</span>
+                <span>{viewMode === "compare" ? `${syncProgress}% synced` : currentStep?.phase}</span>
+                <span>Done</span>
+              </div>
+            </div>
+          </div>
+          <div className="hero-stat-grid">
+            {heroStats.map((stat) => (
+              <article className="hero-stat-card" key={stat.label}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+                <p>{stat.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+        {platformPriorities.length > 0 ? (
+          <div className="priority-row">
+            {platformPriorities.map((priority) => (
+              <span className="priority-pill" key={priority}>
+                {priority}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="hero-status">
           <div className="status-row">
             <span className={`status-chip status-chip--${status}`}>
@@ -865,6 +1176,10 @@ export default function App() {
           {viewMode === "single" && currentStep ? (
             <>
               <section className="panel stage-panel">
+                <SingleReplayBriefing
+                  run={run}
+                  stepIndex={Math.min(currentStepIndex, run.trace.steps.length - 1)}
+                />
                 <div className="stage-layout">
                   <div className="visual-panel">
                     {run.algorithm.domain === "sorting" ? (
@@ -1093,6 +1408,19 @@ export default function App() {
                   : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`}
               </p>
             </div>
+            <div className="timeline-progress-shell">
+              <div className="timeline-progress-bar">
+                <span style={{ width: `${syncProgress}%` }} />
+              </div>
+              <div className="timeline-progress-copy">
+                <strong>
+                  {viewMode === "compare"
+                    ? `${syncProgress}% synchronized`
+                    : currentStep?.explanation.summary}
+                </strong>
+                <span>{timelineSnapshotDetail}</span>
+              </div>
+            </div>
             <input
               aria-label="Replay timeline"
               className="timeline-range"
@@ -1114,6 +1442,14 @@ export default function App() {
               <span>{viewMode === "compare" ? `${syncProgress}% synced` : currentStep?.phase}</span>
               <span>Done</span>
             </div>
+            <StoryboardRail
+              activeStepIndex={currentStepIndex}
+              onSelect={(stepIndex) => {
+                setIsPlaying(false);
+                setCurrentStepIndex(stepIndex);
+              }}
+              stops={storyboardStops}
+            />
             <div className="checkpoint-row">
               {checkpointWindow.map((stepIndex) => {
                 if (viewMode === "compare") {

@@ -33,6 +33,8 @@ Run the workspace guard after `npm install` when you need to confirm that intern
 npm run verify:workspaces
 ```
 
+The guard resolves the repository root from `scripts/check-workspace-links.mjs`, so the same validation works when it is triggered from root commands, CI, or workspace lifecycle hooks such as `prebuild` and `pretypecheck`.
+
 The guard fails when:
 
 - a workspace package is declared but missing from the root workspace map

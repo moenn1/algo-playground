@@ -29,7 +29,7 @@ apps/
   api/            Fastify service boundary
   web/            React replay shell
 packages/
-  execution-engine/ Shared sorting runtime and trace emitters
+  execution-engine/ Shared sorting and graph runtimes plus trace emitters
   trace-core/     Trace envelope contract and validation helpers
 docs/             Architecture and developer workflow
 ```
@@ -47,9 +47,11 @@ docs/             Architecture and developer workflow
 
 ### `packages/execution-engine`
 
-- Owns deterministic sorting runtime models and trace emitters
+- Owns deterministic sorting and graph runtime models plus trace emitters
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
+- Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
+- Publishes stable graph semantics for frontier ordering, settled nodes, edge inspections, and route updates across BFS and Dijkstra
 - Keeps algorithm narration, highlights, and mutation checkpoints close to the execution logic instead of scattering them through the UI
 
 ### `apps/api`
@@ -93,3 +95,4 @@ docs/             Architecture and developer workflow
 - Diff generation should stay readable as well as deterministic: object leaves can change independently, while array-oriented views publish collection-level changes.
 - Comparison metrics must be declared up front and present on the terminal step when they are used for run-to-run comparisons.
 - Sorting engines currently share `comparisons` and `writes` so bubble, selection, quick, and merge traces stay comparable without overloading algorithm-specific counters.
+- Graph engines currently share `settled`, `frontier`, `inspections`, and `updates` so BFS and Dijkstra expose one stable pathfinding vocabulary to replay and persistence consumers.

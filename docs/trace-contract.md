@@ -35,6 +35,7 @@
 - Instrumentation may project non-serializable runtime structures such as `Set`-backed frontier state into replay-safe JSON snapshots before the envelope is assembled.
 - Object-shaped diffs recurse to the leaf path so node-distance updates stay precise, while array-shaped diffs stay at the collection path so swaps, frontiers, and sorted ranges remain readable.
 - Emitters may append semantic changes for publication steps whose meaning matters even when the projected snapshot matches the previous frame.
+- Shared graph runtimes should publish ordered frontier arrays rather than opaque queue or heap internals so replay, persistence, and explanations all read the same pathfinding state.
 
 ## Comparison Rules
 

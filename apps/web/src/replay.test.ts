@@ -52,6 +52,38 @@ describe("buildRun", () => {
     expect(finalStep.state.path).toEqual(["A", "B", "C"]);
     expect(getTraceStepPaths(finalStep)).toContain("state.path");
   });
+
+  it("builds breadth-first replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "bfs",
+      JSON.stringify(
+        {
+          nodes: ["A", "B", "C", "D"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 1],
+            ["B", "D", 1],
+            ["C", "D", 1]
+          ],
+          start: "A",
+          target: "D",
+          directed: false
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("bfs");
+    expect(finalStep.state.path).toEqual(["A", "B", "D"]);
+    expect(finalStep.state.frontier).toEqual([]);
+    expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
+  });
 });
 
 describe("buildComparisonRuns", () => {

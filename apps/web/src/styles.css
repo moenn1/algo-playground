@@ -111,6 +111,120 @@ button {
   gap: 12px;
 }
 
+.hero-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  gap: 16px;
+}
+
+.hero-command-panel,
+.hero-stat-card,
+.focus-card,
+.sync-card,
+.timeline-progress-shell,
+.storyboard-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hero-command-panel {
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 142, 85, 0.14), transparent 34%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.hero-command-copy {
+  max-width: none;
+}
+
+.hero-meter {
+  margin-top: 18px;
+}
+
+.hero-meter-bar,
+.timeline-progress-bar {
+  position: relative;
+  overflow: hidden;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hero-meter-bar span,
+.timeline-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ember), var(--gold), var(--teal));
+  box-shadow: 0 0 24px rgba(245, 201, 120, 0.35);
+}
+
+.hero-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.hero-stat-grid,
+.focus-strip,
+.compare-sync-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.hero-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hero-stat-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.hero-stat-card span,
+.focus-card span,
+.sync-card-progress {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.hero-stat-card strong,
+.focus-card strong {
+  font-size: 1.02rem;
+}
+
+.hero-stat-card p,
+.focus-copy,
+.focus-meta,
+.sync-card p,
+.sync-card-meta,
+.timeline-progress-copy span,
+.storyboard-card span:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.priority-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.priority-pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
 .view-switch {
   display: flex;
   flex-wrap: wrap;
@@ -310,7 +424,8 @@ button {
 .launch-button,
 .transport-button,
 .segmented,
-.checkpoint {
+.checkpoint,
+.storyboard-card {
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -343,6 +458,23 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
   gap: 18px;
+}
+
+.focus-strip {
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 0.8fr));
+  margin-bottom: 18px;
+}
+
+.focus-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.focus-card-primary {
+  background:
+    radial-gradient(circle at top right, rgba(88, 208, 200, 0.16), transparent 36%),
+    rgba(255, 255, 255, 0.04);
 }
 
 .visual-panel,
@@ -512,6 +644,11 @@ button {
   gap: 18px;
 }
 
+.compare-sync-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
 .mini-card,
 .metric-card,
 .state-panel,
@@ -535,6 +672,31 @@ button {
   display: grid;
   gap: 16px;
   padding: 18px;
+}
+
+.sync-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.sync-card.accent-ember {
+  border-color: rgba(255, 142, 85, 0.34);
+}
+
+.sync-card.accent-teal {
+  border-color: rgba(88, 208, 200, 0.34);
+}
+
+.sync-card.accent-gold {
+  border-color: rgba(245, 201, 120, 0.34);
+}
+
+.sync-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
 .compare-stage-card.accent-ember {
@@ -678,12 +840,55 @@ button {
   accent-color: var(--ember);
 }
 
+.timeline-progress-shell {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.timeline-progress-copy {
+  display: grid;
+  gap: 6px;
+}
+
 .timeline-labels {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   margin-top: 8px;
   font-size: 0.84rem;
+}
+
+.storyboard-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.storyboard-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  text-align: left;
+}
+
+.storyboard-card:hover,
+.storyboard-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.storyboard-card-active {
+  border-color: rgba(245, 201, 120, 0.34);
+  background: rgba(245, 201, 120, 0.1);
+}
+
+.storyboard-index {
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-family: "SF Mono", "Roboto Mono", "Menlo", monospace;
 }
 
 .checkpoint-row {
@@ -794,8 +999,10 @@ button {
 }
 
 @media (max-width: 1280px) {
+  .hero-command,
   .compare-stage-grid,
-  .compare-trend-grid {
+  .compare-trend-grid,
+  .compare-sync-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -805,7 +1012,8 @@ button {
   .stage-layout,
   .summary-grid,
   .compare-summary-grid,
-  .compare-metric-grid {
+  .compare-metric-grid,
+  .focus-strip {
     grid-template-columns: 1fr;
   }
 
@@ -834,14 +1042,17 @@ button {
   .panel-heading,
   .visual-heading,
   .compare-stage-header,
-  .trend-card-header {
+  .trend-card-header,
+  .sync-card-header {
     flex-direction: column;
   }
 
   .mini-grid,
   .metric-grid,
   .distance-grid,
-  .comparison-metric-strip {
+  .comparison-metric-strip,
+  .hero-stat-grid,
+  .storyboard-row {
     grid-template-columns: 1fr;
   }
 

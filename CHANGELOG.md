@@ -1,7 +1,18 @@
 # Changelog
 
+## 2026-04-21
+
+- Added shared graph execution-engine builders for Breadth-First Search and Dijkstra, and fixed the workspace-integrity guard so root-linked validation still works when package lifecycle hooks invoke it from nested workspaces.
+- Elevated the replay shell with a hero command surface that exposes live playback telemetry, product priorities, and current replay context.
+- Added an active-frame briefing strip for single-run replay with snapshot summaries and recorded-signal chips ahead of the detailed inspector panels.
+- Expanded timeline navigation with a progress bar plus storyboard stops so users can jump between global milestones and local checkpoints more deliberately.
+- Added per-lane sync signal cards to comparison mode and documented the updated replay-shell interaction model in the README and replay-shell notes.
+
 ## 2026-04-20
 
+- Added shared graph runtimes in `packages/execution-engine` for Breadth-First Search and Dijkstra, including deterministic frontier ordering, route recovery, and stable graph metrics.
+- Refactored the web replay shell to consume shared graph trace builders instead of maintaining a UI-local Dijkstra runtime, and added BFS to the seeded graph algorithm catalog.
+- Expanded the input-service contract and docs so graph presets resolve for both Breadth-First Search and Dijkstra through the same normalized payload shape.
 - Moved the workspace-integrity guard onto root install plus local build, test, demo, and dev entrypoints so stale or partial workspace installs fail before Vite or TypeScript resolve internal packages.
 - Clarified the local workflow and CI docs around root-only workspace bootstrapping and the recovery path for missing `@tracedeck/*` links.
 - Added a workspace-integrity guard for internal `@tracedeck/*` package links and wired it into local and GitHub Actions verification.
