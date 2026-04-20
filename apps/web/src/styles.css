@@ -998,11 +998,148 @@ button {
   border-radius: 999px;
 }
 
+.reference-stack {
+  display: grid;
+  gap: 20px;
+}
+
+.reference-summary-grid,
+.reference-card-grid,
+.reference-fact-grid,
+.reference-bullet-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.reference-summary-grid,
+.reference-fact-grid,
+.reference-bullet-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reference-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.reference-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 38%),
+    rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.reference-card.accent-ember {
+  border-color: rgba(255, 142, 85, 0.28);
+}
+
+.reference-card.accent-teal {
+  border-color: rgba(88, 208, 200, 0.28);
+}
+
+.reference-card.accent-gold {
+  border-color: rgba(245, 201, 120, 0.28);
+}
+
+.reference-card-header,
+.reference-action-row,
+.reference-code-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.reference-card-copy,
+.reference-step-card,
+.reference-code-meta > div {
+  display: grid;
+  gap: 10px;
+}
+
+.reference-card-copy p,
+.reference-step-card p,
+.reference-code-meta p,
+.reference-hero-copy {
+  margin: 0;
+}
+
+.reference-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reference-open-button {
+  flex: 1;
+}
+
+.reference-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+.reference-rail {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.reference-step-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.reference-step-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.reference-code-meta {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.reference-code-block {
+  margin: 16px 0 0;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(10, 21, 31, 0.98), rgba(4, 11, 17, 0.98)),
+    rgba(5, 10, 15, 0.98);
+  color: #d9f3ef;
+  line-height: 1.65;
+  font-size: 0.92rem;
+}
+
+.reference-code-block code {
+  display: block;
+  min-width: max-content;
+  font-family: "SF Mono", "Roboto Mono", "Menlo", monospace;
+}
+
 @media (max-width: 1280px) {
   .hero-command,
   .compare-stage-grid,
   .compare-trend-grid,
-  .compare-sync-grid {
+  .compare-sync-grid,
+  .reference-card-grid,
+  .reference-detail-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -1018,6 +1155,10 @@ button {
   }
 
   .sidebar {
+    position: static;
+  }
+
+  .reference-rail {
     position: static;
   }
 }
@@ -1052,7 +1193,11 @@ button {
   .distance-grid,
   .comparison-metric-strip,
   .hero-stat-grid,
-  .storyboard-row {
+  .storyboard-row,
+  .reference-summary-grid,
+  .reference-fact-grid,
+  .reference-bullet-grid,
+  .reference-quick-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1071,5 +1216,12 @@ button {
 
   .metric-inline {
     min-width: 100%;
+  }
+
+  .reference-card-header,
+  .reference-action-row,
+  .reference-code-meta {
+    flex-direction: column;
+    align-items: start;
   }
 }

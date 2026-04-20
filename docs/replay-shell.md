@@ -2,9 +2,9 @@
 
 ## Scope
 
-This document describes the replay shell direction established in `apps/web`.
+This document describes the replay and study surfaces established in `apps/web`.
 
-Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
+Today the web app includes three connected product paths: deterministic single-run playback, synchronized comparison for supported sorting algorithms, and a dedicated algorithm reference library that links directly back into replay.
 
 ## Interaction model
 
@@ -14,6 +14,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - Playback and timeline scrubbing should operate on full step snapshots encoded through `trace-core`. This keeps restoration deterministic and avoids replay drift.
 - Timeline checkpoints should render as focused working windows around the active step instead of naive markers for every frame.
 - Comparison playback should synchronize runs by normalized progress instead of forcing algorithms with different trace densities onto the same absolute step count.
+- Reference pages should use the same algorithm identifiers as replay so study content, seeded input defaults, and product navigation stay aligned.
 - Step inspectors should read structured explanations, explicit change paths, and structured highlights from the recorded trace envelope rather than deriving them ad hoc in the UI.
 - The shell should foreground the active frame with a briefing layer before deeper inspector panels so the current replay moment stays readable during scrubbing.
 - Global storyboard stops should complement local checkpoint windows: the storyboard communicates journey-level progress while nearby checkpoints keep precise jumps fast.
@@ -25,8 +26,10 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - API availability is surfaced directly so local development failures are obvious.
 - Single-run replay exposes domain-aware sorting and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The hero band now acts as a command surface with live progress telemetry, playback context, and product-priority pills for the current run.
+- The hero band also acts as the top-level route switch between replay and the reference library, so study and execution paths remain part of one product shell.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
+- The reference library exposes a catalog route plus per-algorithm detail routes with complexity framing, reasoning steps, and four starter implementations that can open the live replay surface for the same algorithm.
 
 ## Comparison Surfaces
 
@@ -40,6 +43,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 ## Extension guidance
 
 - Add algorithm selection, seeded inputs, transport controls, and step inspection on top of the existing shell rather than replacing it with a separate app path.
+- Extend the reference library whenever a new replayable algorithm lands; replay and reference coverage should move together.
 - Hook persistence into the eventual run-builder shape so saved runs can hydrate the shell without changing the transport model.
 - Extend comparison mode by adding more compare-ready algorithms that share an input contract and metric vocabulary.
 - Keep future visualizations snapshot-driven. The timeline should always be able to jump to a step without replaying intermediate mutations.

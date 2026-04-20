@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { ReferenceLibrary } from "./ReferenceLibrary.js";
+import {
+  algorithmReferences,
+  getAlgorithmReferenceById,
+  type ReferenceAlgorithmId
+} from "./reference.js";
 import {
   algorithms,
   buildComparisonRuns,
@@ -14,6 +20,7 @@ import {
   type ReplayRun,
   type SortingRun
 } from "./replay.js";
+import { getAppRouteHref, parseAppRoute, type AppRoute } from "./routes.js";
 
 type FoundationResponse = {
   product: string;
@@ -728,6 +735,7 @@ function ComparisonWorkspace({
 }
 
 export default function App() {
+  const [route, setRoute] = useState<AppRoute>(() => parseAppRoute(window.location.pathname));
   const [foundation, setFoundation] = useState<FoundationResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "offline">("loading");
   const [viewMode, setViewMode] = useState<ViewMode>("single");
@@ -747,6 +755,18 @@ export default function App() {
   const [speedId, setSpeedId] = useState<PlaybackSpeed>("normal");
   const [singleError, setSingleError] = useState<string>("");
   const [compareError, setCompareError] = useState<string>("");
+
+  useEffect(() => {
+    function handlePopState() {
+      setRoute(parseAppRoute(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -844,58 +864,117 @@ export default function App() {
   const compareMatchupLabel = comparisonRuns
     .map((comparisonRun) => comparisonRun.algorithm.name.split(" ")[0])
     .join(" / ");
+  const activeReference =
+    route.view === "reference-detail" ? getAlgorithmReferenceById(route.algorithmId) : null;
+  const referenceCoverage = Math.round((algorithmReferences.length / algorithms.length) * 100);
   const heroHeadline =
-    viewMode === "compare" ? "Comparison command center" : `${run.algorithm.name} under replay lens`;
+    route.view === "studio"
+      ? viewMode === "compare"
+        ? "Comparison command center"
+        : `${run.algorithm.name} under replay lens`
+      : route.view === "reference-detail" && activeReference
+        ? `${activeReference.algorithm.name} reference page`
+        : "Algorithm reference library";
   const heroNarrative =
-    viewMode === "compare"
-      ? `Shared transport keeps ${comparisonRuns.length} deterministic runs on one progress line while every lane preserves its own checkpoint density. ${compareLaneSignals.join(" · ")}`
-      : currentStep?.explanation.summary ?? run.trace.steps[0]!.explanation.summary;
+    route.view === "studio"
+      ? viewMode === "compare"
+        ? `Shared transport keeps ${comparisonRuns.length} deterministic runs on one progress line while every lane preserves its own checkpoint density. ${compareLaneSignals.join(" · ")}`
+        : currentStep?.explanation.summary ?? run.trace.steps[0]!.explanation.summary
+      : route.view === "reference-detail" && activeReference
+        ? activeReference.coreIdea
+        : "Reference pages are now a core TraceDeck surface: each one bundles the algorithm idea, complexity profile, reasoning path, and starter implementations in multiple languages while staying one click away from replay.";
   const heroStats =
-    viewMode === "compare"
-      ? [
-          {
-            label: "Matchup",
-            value: compareMatchupLabel,
-            detail: `${comparisonRuns.length} algorithms on one seeded array`
-          },
-          {
-            label: "Shared input",
-            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
-            detail: "Every metric reads from the same normalized payload"
-          },
-          {
-            label: "Sync progress",
-            value: `${syncProgress}%`,
-            detail: `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
-          },
-          {
-            label: "Playback profile",
-            value: playbackProfiles[speedId].label,
-            detail: isPlaying ? "Transport rolling" : "Transport paused"
-          }
-        ]
-      : [
-          {
-            label: "Active algorithm",
-            value: run.algorithm.name,
-            detail: run.algorithm.description
-          },
-          {
-            label: "Input footprint",
-            value: describeInputFootprint(run),
-            detail: selectedAlgorithm.inputHint
-          },
-          {
-            label: "Current frame",
-            value: currentStep ? `${currentStep.index + 1} / ${run.trace.summary.stepCount}` : "0 / 0",
-            detail: currentStep?.phase ?? "Awaiting trace"
-          },
-          {
-            label: "Playback profile",
-            value: playbackProfiles[speedId].label,
-            detail: isPlaying ? "Transport rolling" : "Transport paused"
-          }
-        ];
+    route.view === "studio"
+      ? viewMode === "compare"
+        ? [
+            {
+              label: "Matchup",
+              value: compareMatchupLabel,
+              detail: `${comparisonRuns.length} algorithms on one seeded array`
+            },
+            {
+              label: "Shared input",
+              value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
+              detail: "Every metric reads from the same normalized payload"
+            },
+            {
+              label: "Sync progress",
+              value: `${syncProgress}%`,
+              detail: `Shared frame ${currentStepIndex + 1} of ${activeStepCount}`
+            },
+            {
+              label: "Playback profile",
+              value: playbackProfiles[speedId].label,
+              detail: isPlaying ? "Transport rolling" : "Transport paused"
+            }
+          ]
+        : [
+            {
+              label: "Active algorithm",
+              value: run.algorithm.name,
+              detail: run.algorithm.description
+            },
+            {
+              label: "Input footprint",
+              value: describeInputFootprint(run),
+              detail: selectedAlgorithm.inputHint
+            },
+            {
+              label: "Current frame",
+              value: currentStep ? `${currentStep.index + 1} / ${run.trace.summary.stepCount}` : "0 / 0",
+              detail: currentStep?.phase ?? "Awaiting trace"
+            },
+            {
+              label: "Playback profile",
+              value: playbackProfiles[speedId].label,
+              detail: isPlaying ? "Transport rolling" : "Transport paused"
+            }
+          ]
+      : route.view === "reference-detail" && activeReference
+        ? [
+            {
+              label: "Domain",
+              value: activeReference.algorithm.badge,
+              detail: activeReference.algorithm.description
+            },
+            {
+              label: "Worst case",
+              value: activeReference.complexity.worst,
+              detail: "Upper-bound runtime"
+            },
+            {
+              label: "Space",
+              value: activeReference.complexity.space,
+              detail: "Auxiliary memory profile"
+            },
+            {
+              label: "Languages",
+              value: `${activeReference.implementations.length}`,
+              detail: activeReference.implementations.map((entry) => entry.label).join(" / ")
+            }
+          ]
+        : [
+            {
+              label: "Reference pages",
+              value: `${algorithmReferences.length}`,
+              detail: "Every current TraceDeck algorithm has a dedicated page"
+            },
+            {
+              label: "Coverage",
+              value: `${referenceCoverage}%`,
+              detail: "Catalog coverage against the current replay set"
+            },
+            {
+              label: "Languages",
+              value: "4",
+              detail: "TypeScript, Python, Java, and C++"
+            },
+            {
+              label: "Replay handoff",
+              value: "Direct",
+              detail: "Reference cards launch the live replay shell"
+            }
+          ];
   const platformPriorities = foundation?.priorities ?? [];
   const timelineSnapshotDetail =
     viewMode === "compare"
@@ -903,6 +982,28 @@ export default function App() {
       : currentStep
         ? describeRunSnapshot(run, currentStep.index)
         : "";
+  const heroProgress =
+    route.view === "studio" ? syncProgress : referenceCoverage;
+  const heroProgressStartLabel = route.view === "studio" ? (viewMode === "compare" ? "Lift-off" : "Seed") : "Catalog";
+  const heroProgressMiddleLabel =
+    route.view === "studio"
+      ? viewMode === "compare"
+        ? `${syncProgress}% synced`
+        : currentStep?.phase
+      : route.view === "reference-detail" && activeReference
+        ? activeReference.algorithm.name
+        : `${referenceCoverage}% covered`;
+  const heroProgressEndLabel = route.view === "studio" ? "Done" : "Replay-linked";
+  const heroPhaseBadgeLabel =
+    route.view === "studio"
+      ? viewMode === "compare"
+        ? `${syncProgress}% synchronized`
+        : currentStep
+          ? `Frame ${currentStep.index + 1}`
+          : "Frame 1"
+      : route.view === "reference-detail" && activeReference
+        ? `${activeReference.implementations.length} implementations`
+        : `${algorithmReferences.length} pages`;
 
   function resetPlayback(nextMode: ViewMode) {
     setViewMode(nextMode);
@@ -947,16 +1048,47 @@ export default function App() {
     }
   }
 
+  function navigate(nextRoute: AppRoute) {
+    const href = getAppRouteHref(nextRoute);
+
+    if (window.location.pathname !== href) {
+      window.history.pushState({}, "", href);
+    }
+
+    setRoute(nextRoute);
+  }
+
+  function openReference(algorithmId: string) {
+    navigate({
+      view: "reference-detail",
+      algorithmId: algorithmId as ReferenceAlgorithmId
+    });
+  }
+
+  function openReplayFromReference(algorithmId: string) {
+    const algorithm = getAlgorithmById(algorithmId);
+
+    launchRun(algorithm.id, algorithm.defaultInput);
+    resetPlayback("single");
+    navigate({ view: "studio" });
+  }
+
   return (
     <main className="shell">
       <section className="hero-band">
         <div>
           <p className="eyebrow">TraceDeck</p>
-          <h1>Replay and comparison studio for deterministic algorithm traces.</h1>
+          <h1>
+            {route.view === "studio"
+              ? "Replay and comparison studio for deterministic algorithm traces."
+              : route.view === "reference-detail" && activeReference
+                ? `${activeReference.algorithm.name}, explained for study and replay.`
+                : "Reference pages for every replay-backed algorithm in TraceDeck."}
+          </h1>
           <p className="hero-copy">
-            The shell keeps replay, step inspection, and algorithm comparison on top of the same
-            checkpointed trace model so every scrub lands on recorded state instead of reconstructed
-            mutations.
+            {route.view === "studio"
+              ? "The shell keeps replay, step inspection, and algorithm comparison on top of the same checkpointed trace model so every scrub lands on recorded state instead of reconstructed mutations."
+              : "The reference library turns algorithm knowledge into a first-class product surface with complexity framing, reasoning steps, and multi-language implementations that stay connected to the deterministic replay shell."}
           </p>
         </div>
         <div className="hero-command">
@@ -966,23 +1098,17 @@ export default function App() {
                 <p className="eyebrow">Live Workspace</p>
                 <h2>{heroHeadline}</h2>
               </div>
-              <span className="phase-badge">
-                {viewMode === "compare"
-                  ? `${syncProgress}% synchronized`
-                  : currentStep
-                    ? `Frame ${currentStep.index + 1}`
-                    : "Frame 1"}
-              </span>
+              <span className="phase-badge">{heroPhaseBadgeLabel}</span>
             </div>
             <p className="hero-copy hero-command-copy">{heroNarrative}</p>
             <div className="hero-meter">
               <div className="hero-meter-bar">
-                <span style={{ width: `${syncProgress}%` }} />
+                <span style={{ width: `${heroProgress}%` }} />
               </div>
               <div className="hero-meter-labels">
-                <span>{viewMode === "compare" ? "Lift-off" : "Seed"}</span>
-                <span>{viewMode === "compare" ? `${syncProgress}% synced` : currentStep?.phase}</span>
-                <span>Done</span>
+                <span>{heroProgressStartLabel}</span>
+                <span>{heroProgressMiddleLabel}</span>
+                <span>{heroProgressEndLabel}</span>
               </div>
             </div>
           </div>
@@ -1015,46 +1141,95 @@ export default function App() {
                   : "Loading foundation"}
             </span>
             <span className="status-chip status-chip--accent">
-              {foundation?.product ?? "TraceDeck"} {viewMode === "compare" ? "comparison" : "replay"}
+              {foundation?.product ?? "TraceDeck"}{" "}
+              {route.view === "studio"
+                ? viewMode === "compare"
+                  ? "comparison"
+                  : "replay"
+                : "reference"}
             </span>
           </div>
           <div className="status-row">
             <span className="status-chip">
-              {viewMode === "compare"
-                ? comparisonRuns.map((comparisonRun) => comparisonRun.algorithm.name).join(" vs ")
-                : run.algorithm.name}
+              {route.view === "studio"
+                ? viewMode === "compare"
+                  ? comparisonRuns.map((comparisonRun) => comparisonRun.algorithm.name).join(" vs ")
+                  : run.algorithm.name
+                : route.view === "reference-detail" && activeReference
+                  ? activeReference.algorithm.name
+                  : `${algorithmReferences.length} reference pages`}
             </span>
             <span className="status-chip">
-              {viewMode === "compare"
-                ? `Sync ${syncProgress}%`
-                : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`}
+              {route.view === "studio"
+                ? viewMode === "compare"
+                  ? `Sync ${syncProgress}%`
+                  : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`
+                : route.view === "reference-detail" && activeReference
+                  ? activeReference.complexity.worst
+                  : `${referenceCoverage}% coverage`}
             </span>
-            <span className="status-chip">Contract-driven replay</span>
+            <span className="status-chip">
+              {route.view === "studio" ? "Contract-driven replay" : "Replay-linked reference"}
+            </span>
           </div>
           <div className="view-switch">
             <button
-              className={`segmented ${viewMode === "single" ? "segmented-active" : ""}`}
+              className={`segmented ${route.view === "studio" ? "segmented-active" : ""}`}
               onClick={() => {
-                resetPlayback("single");
+                navigate({ view: "studio" });
               }}
               type="button"
             >
-              Single Replay
+              Replay Studio
             </button>
             <button
-              className={`segmented ${viewMode === "compare" ? "segmented-active" : ""}`}
+              className={`segmented ${route.view !== "studio" ? "segmented-active" : ""}`}
               onClick={() => {
-                resetPlayback("compare");
+                navigate({ view: "reference-index" });
               }}
               type="button"
             >
-              Compare Runs
+              Reference Library
             </button>
+            {route.view === "reference-detail" ? (
+              <button
+                className="segmented"
+                onClick={() => {
+                  navigate({ view: "reference-index" });
+                }}
+                type="button"
+              >
+                All Algorithms
+              </button>
+            ) : null}
           </div>
+          {route.view === "studio" ? (
+            <div className="view-switch">
+              <button
+                className={`segmented ${viewMode === "single" ? "segmented-active" : ""}`}
+                onClick={() => {
+                  resetPlayback("single");
+                }}
+                type="button"
+              >
+                Single Replay
+              </button>
+              <button
+                className={`segmented ${viewMode === "compare" ? "segmented-active" : ""}`}
+                onClick={() => {
+                  resetPlayback("compare");
+                }}
+                type="button"
+              >
+                Compare Runs
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <div className="workspace-grid">
+      {route.view === "studio" ? (
+        <div className="workspace-grid">
         <aside className="sidebar panel">
           {viewMode === "single" ? (
             <>
@@ -1520,7 +1695,17 @@ export default function App() {
             </section>
           ) : null}
         </div>
-      </div>
+        </div>
+      ) : (
+        <ReferenceLibrary
+          onBrowseLibrary={() => {
+            navigate({ view: "reference-index" });
+          }}
+          onOpenReference={openReference}
+          onOpenReplay={openReplayFromReference}
+          route={route}
+        />
+      )}
     </main>
   );
 }
