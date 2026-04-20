@@ -523,6 +523,27 @@ describe("TraceDeck API foundation", () => {
     expect(graphPreset.json().input.start).toBe("A");
     expect(graphPreset.json().input.target).toBe("E");
 
+    const searchPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/search.reference-hit/resolve",
+      payload: {
+        algorithmId: "binary-search"
+      }
+    });
+
+    expect(searchPreset.statusCode).toBe(200);
+    expect(searchPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "search.reference-hit"
+      },
+      algorithm: {
+        id: "binary-search",
+        domain: "search"
+      },
+      footprint: "9 lanes / target 23"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -542,6 +563,32 @@ describe("TraceDeck API foundation", () => {
       input: [9, 4, 1, 7],
       normalizedInputText: "9, 4, 1, 7",
       footprint: "4 lanes"
+    });
+
+    const validateSearchInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "binary-search",
+        payload: {
+          array: [4, 9, 12, 18, 27],
+          target: 18
+        }
+      }
+    });
+
+    expect(validateSearchInput.statusCode).toBe(200);
+    expect(validateSearchInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "binary-search",
+        domain: "search"
+      },
+      input: {
+        array: [4, 9, 12, 18, 27],
+        target: 18
+      },
+      footprint: "5 lanes / target 18"
     });
   });
 

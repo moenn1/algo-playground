@@ -7,6 +7,7 @@
 The service currently covers the supported algorithms already present in the workspace:
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
+- Search: `binary-search`
 - Graph: `bfs`, `dijkstra`
 
 ## Endpoints
@@ -113,11 +114,20 @@ Every sorting preset can be resolved for Bubble Sort, Selection Sort, Quick Sort
 
 Every graph preset can be resolved for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
 
+### Search presets
+
+- `search.reference-hit`: curated sorted array where the target is present
+- `search.missing-target`: curated sorted array where the target is absent
+
+Both search presets currently resolve for Binary Search through the same `algorithmId` field.
+
 ## Validation Rules
 
 - Sorting payloads accept either integer arrays or comma-separated integer strings.
+- Search payloads accept either JSON objects or JSON strings.
 - Graph payloads accept either JSON objects or JSON strings.
 - Sorting inputs must contain between 2 and 24 integers.
+- Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

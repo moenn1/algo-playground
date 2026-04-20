@@ -1,14 +1,21 @@
 import {
   buildGraphTrace,
+  buildSearchTrace,
   buildSortingTrace,
   defaultBreadthFirstSearchInput,
+  defaultBinarySearchInput,
   defaultDijkstraInput,
   formatGraphDistance,
   parseGraphInputText,
+  parseSearchInputText,
   serializeGraphInput,
+  serializeSearchInput,
   type GraphAlgorithmId,
   type GraphExecutionState,
   type GraphInput,
+  type SearchAlgorithmId,
+  type SearchExecutionState,
+  type SearchInput,
   type SortingAlgorithmId,
   type SortingExecutionState
 } from "@tracedeck/execution-engine";
@@ -41,10 +48,16 @@ export type GraphAlgorithm = ReplayAlgorithmBase & {
   domain: "graph";
 };
 
-export type ReplayAlgorithm = SortingAlgorithm | GraphAlgorithm;
+export type SearchAlgorithm = ReplayAlgorithmBase & {
+  id: SearchAlgorithmId;
+  domain: "search";
+};
+
+export type ReplayAlgorithm = SortingAlgorithm | GraphAlgorithm | SearchAlgorithm;
 
 export type SortingReplayState = SortingExecutionState;
 export type GraphReplayState = GraphExecutionState;
+export type SearchReplayState = SearchExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -60,7 +73,18 @@ export type GraphRun = {
   trace: TraceEnvelope<GraphReplayState>;
 };
 
-export type ReplayRun = SortingRun | GraphRun;
+export type SearchRun = {
+  algorithm: SearchAlgorithm;
+  input: SearchInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<SearchReplayState>;
+};
+
+export type ReplayRun = SortingRun | GraphRun | SearchRun;
+
+function isSearchRun(run: ReplayRun): run is SearchRun {
+  return run.algorithm.domain === "search";
+}
 
 function parseSortingInput(inputText: string): number[] {
   const tokens = inputText
@@ -138,6 +162,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "sorting"
   },
   {
+    id: "binary-search",
+    name: "Binary Search",
+    badge: "Search",
+    accent: "gold",
+    description:
+      "Interval-driven replay records midpoint probes, discarded halves, and explicit exhausted searches.",
+    inputLabel: "Search Input",
+    inputHint: "JSON with a sorted integer array and a target value.",
+    defaultInput: serializeSearchInput(defaultBinarySearchInput),
+    domain: "search"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -210,6 +246,19 @@ function buildGraphRunFromInput(
   };
 }
 
+function buildSearchRunFromInput(
+  algorithm: SearchAlgorithm,
+  input: SearchInput,
+  normalizedInputText = serializeSearchInput(input)
+): SearchRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildSearchTrace(algorithm.id, input)
+  };
+}
+
 export function buildComparisonRuns(inputText: string): SortingRun[] {
   const input = parseSortingInput(inputText);
   const normalizedInputText = serializeSortingInput(input);
@@ -227,6 +276,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildSortingRunFromValues(algorithm, input);
   }
 
+  if (algorithm.domain === "search") {
+    const input = parseSearchInputText(inputText);
+    return buildSearchRunFromInput(algorithm, input);
+  }
+
   const input = parseGraphInputText(inputText);
   return buildGraphRunFromInput(algorithm, input);
 }
@@ -234,6 +288,10 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
 export function describeInputFootprint(run: ReplayRun): string {
   if (Array.isArray(run.input)) {
     return `${run.input.length} lanes`;
+  }
+
+  if (isSearchRun(run)) {
+    return `${run.input.array.length} lanes / target ${run.input.target}`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;

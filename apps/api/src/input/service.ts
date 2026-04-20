@@ -8,6 +8,7 @@ import type {
   InputPresetSummary,
   ResolveInputPresetInput,
   ResolvedInputPreset,
+  SearchInputPayload,
   SupportedAlgorithmDescriptor,
   SupportedAlgorithmId,
   ValidateCustomInputInput,
@@ -35,6 +36,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Merge Sort",
     domain: "sorting"
   },
+  "binary-search": {
+    id: "binary-search",
+    label: "Binary Search",
+    domain: "search"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -53,8 +59,13 @@ const sortingAlgorithms = [
   supportedAlgorithms["quick-sort"],
   supportedAlgorithms["merge-sort"]
 ] as const;
+const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
+const defaultSearchInput: SearchInputPayload = {
+  array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
+  target: 23
+};
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
   edges: [
@@ -229,6 +240,73 @@ function serializeSortingValues(values: number[]) {
   return values.join(", ");
 }
 
+function normalizeSearchInput(payload: unknown): SearchInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Search input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Search input must be an object with array and target.");
+  }
+
+  const value = candidate as {
+    array?: unknown;
+    target?: unknown;
+  };
+
+  if (!Array.isArray(value.array) || value.array.length < 2) {
+    throw new HttpError(
+      400,
+      "Search input must define a sorted array with at least two integers."
+    );
+  }
+
+  if (value.array.length > 32) {
+    throw new HttpError(400, "Search input must contain 32 integers or fewer.");
+  }
+
+  const array = value.array.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry)) {
+      throw new HttpError(400, `array[${index}] must be an integer.`);
+    }
+
+    return entry;
+  });
+
+  for (let index = 1; index < array.length; index += 1) {
+    if (array[index - 1]! > array[index]!) {
+      throw new HttpError(400, "Search input array must be sorted in ascending order.");
+    }
+  }
+
+  if (typeof value.target !== "number" || !Number.isInteger(value.target)) {
+    throw new HttpError(400, "Search input target must be an integer.");
+  }
+
+  return {
+    array,
+    target: value.target
+  };
+}
+
+function serializeSearchInput(input: SearchInputPayload) {
+  return JSON.stringify(
+    {
+      array: input.array,
+      target: input.target
+    },
+    null,
+    2
+  );
+}
+
 function normalizeGraphEdge(edge: unknown, label: string): [string, string, number] {
   if (!Array.isArray(edge) || edge.length !== 3) {
     throw new HttpError(400, `${label} must contain [from, to, weight] tuples.`);
@@ -368,6 +446,16 @@ function normalizeAlgorithmInput(
       input: values,
       normalizedInputText: serializeSortingValues(values),
       footprint: `${values.length} lanes`
+    };
+  }
+
+  if (algorithm.domain === "search") {
+    const search = normalizeSearchInput(payload);
+
+    return {
+      input: search,
+      normalizedInputText: serializeSearchInput(search),
+      footprint: `${search.array.length} lanes / target ${search.target}`
     };
   }
 
@@ -612,6 +700,43 @@ const presetDefinitions: InputPresetDefinition[] = [
         }
       };
     }
+  },
+  {
+    summary: {
+      id: "search.reference-hit",
+      label: "Reference midpoint hit",
+      description:
+        "Use a curated sorted array where the target is present so binary-search probes and interval cuts stay easy to inspect.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "search",
+      algorithms: searchAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultSearchInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "search.missing-target",
+      label: "Absent target search",
+      description:
+        "Keep the target outside the sorted array so replay ends on an explicit exhausted interval instead of a match.",
+      scenario: "miss",
+      kind: "curated",
+      domain: "search",
+      algorithms: searchAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [3, 7, 11, 18, 24, 31, 42, 56],
+        target: 19
+      },
+      options: {}
+    })
   },
   {
     summary: {

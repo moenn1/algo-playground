@@ -4,12 +4,13 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting and graph runtimes:
+The current package covers shared sorting, search, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
 - `quick-sort`
 - `merge-sort`
+- `binary-search`
 - `bfs`
 - `dijkstra`
 
@@ -32,6 +33,25 @@ Sorting traces currently share two comparison metrics:
 - `writes`: writes committed into the primary array state
 
 The package intentionally avoids algorithm-specific comparison metrics in the shared deck so Bubble Sort, Selection Sort, Quick Sort, and Merge Sort can stay directly comparable.
+
+## Search Runtime Model
+
+Binary Search currently establishes the first interval-search runtime shape:
+
+- `state.array`: the sorted array snapshot used for every probe
+- `state.target`: the requested value the runtime is resolving
+- `state.low`: the inclusive left bound of the active interval, or `null` when exhausted
+- `state.high`: the inclusive right bound of the active interval, or `null` when exhausted
+- `state.mid`: the midpoint lane under inspection for the current probe step
+- `state.eliminatedIndices`: lanes ruled out by previous interval cuts
+- `state.foundIndex`: the resolved match lane when the target is present
+
+Shared search metrics focus on the binary-search decision path:
+
+- `probes`: midpoint inspections performed so far
+- `comparisons`: equality and directional comparisons committed so far
+
+That shape is designed to stay reusable for future interval-search variants because the visualization only depends on sorted input, active bounds, the current probe, and the terminal match state.
 
 ## Graph Runtime Model
 
@@ -59,11 +79,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Recursive algorithms emit structural checkpoints instead of relying on replay-time recursion.
 - Merge sort does not mark intermediate windows as globally sorted; `sortedIndices` only advances when that claim is true for the full array position.
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
+- Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -26,6 +26,8 @@ The demo seed currently materializes:
 - Selection Sort on `sorting.baseline`
 - Bubble Sort on `sorting.reverse-sorted`
 - Selection Sort on `sorting.reverse-sorted`
+- Binary Search on `search.reference-hit`
+- Binary Search on `search.missing-target`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

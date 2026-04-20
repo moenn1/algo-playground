@@ -5,6 +5,7 @@ export const supportedAlgorithmIds = [
   "selection-sort",
   "quick-sort",
   "merge-sort",
+  "binary-search",
   "bfs",
   "dijkstra"
 ] as const;
@@ -23,6 +24,11 @@ export interface GraphInputPayload extends JsonObject {
   start: string;
   target: string | null;
   directed: boolean;
+}
+
+export interface SearchInputPayload extends JsonObject {
+  array: number[];
+  target: number;
 }
 
 export interface InputPresetSummary {

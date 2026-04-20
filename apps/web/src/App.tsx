@@ -12,6 +12,7 @@ import {
   type AccentTone,
   type GraphRun,
   type ReplayRun,
+  type SearchRun,
   type SortingRun
 } from "./replay.js";
 
@@ -45,6 +46,14 @@ const assuredDefaultComparisonAlgorithm = defaultComparisonAlgorithm;
 
 function isSortingRun(run: ReplayRun): run is SortingRun {
   return run.algorithm.domain === "sorting";
+}
+
+function isGraphRun(run: ReplayRun): run is GraphRun {
+  return run.algorithm.domain === "graph";
+}
+
+function isSearchRun(run: ReplayRun): run is SearchRun {
+  return run.algorithm.domain === "search";
 }
 
 type StoryboardStop = {
@@ -227,6 +236,24 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return truncateText(step.state.array.join(" · "), 56);
   }
 
+  if (isSearchRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.foundIndex !== null) {
+      return `Found ${step.state.target} at lane ${step.state.foundIndex}`;
+    }
+
+    if (step.state.mid !== null) {
+      return `Probe lane ${step.state.mid} = ${step.state.array[step.state.mid]}`;
+    }
+
+    if (step.state.low !== null && step.state.high !== null) {
+      return `Active interval ${step.state.low}-${step.state.high}`;
+    }
+
+    return `Target ${step.state.target} absent`;
+  }
+
   const step = getRunStep(run, stepIndex);
 
   if (step.state.path.length > 0) {
@@ -316,8 +343,15 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
       : deltaPaths
   ).slice(0, 3);
   const stateStatus = isSortingRun(run)
-    ? `${getRunStep(run as SortingRun, stepIndex).state.sortedIndices.length} lanes locked`
-    : `${getRunStep(run as GraphRun, stepIndex).state.settled.length} nodes settled`;
+    ? `${getRunStep(run, stepIndex).state.sortedIndices.length} lanes locked`
+    : isSearchRun(run)
+      ? (() => {
+          const searchStep = getRunStep(run, stepIndex);
+          return searchStep.state.foundIndex !== null
+            ? `Match locked at lane ${searchStep.state.foundIndex}`
+            : `${searchStep.state.eliminatedIndices.length} lanes ruled out`;
+        })()
+      : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
   return (
     <section className="focus-strip" aria-label="Active frame briefing">
@@ -405,6 +439,87 @@ function SortingStage({ run, stepIndex }: { run: SortingRun; stepIndex: number }
         <div className="mini-card">
           <span>Replay mode</span>
           <strong>Deterministic restore</strong>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: number }) {
+  const step = getRunStep(run, stepIndex);
+  const activeLow = step.state.low;
+  const activeHigh = step.state.high;
+  const eliminatedSet = new Set(step.state.eliminatedIndices);
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} interval</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="search-stage">
+        <div className="search-interval-banner">
+          <span>Target {step.state.target}</span>
+          <strong>
+            {activeLow !== null && activeHigh !== null
+              ? `Search lanes ${activeLow} through ${activeHigh}`
+              : "Interval exhausted"}
+          </strong>
+        </div>
+        <div className="search-grid">
+          {step.state.array.map((value, index) => {
+            const isFound = step.state.foundIndex === index;
+            const isMid = step.state.mid === index;
+            const isEliminated = eliminatedSet.has(index);
+            const isActive =
+              activeLow !== null &&
+              activeHigh !== null &&
+              index >= activeLow &&
+              index <= activeHigh;
+            const className = [
+              "search-cell",
+              isActive ? "search-cell-active" : "",
+              isMid ? "search-cell-mid" : "",
+              isFound ? "search-cell-found" : "",
+              isEliminated ? "search-cell-eliminated" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div className={className} key={`${index}-${value}`}>
+                <span className="search-cell-index">{index}</span>
+                <strong className="search-cell-value">{value}</strong>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Midpoint</span>
+          <strong>{step.state.mid !== null ? step.state.mid : "Waiting"}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Active interval</span>
+          <strong>
+            {activeLow !== null && activeHigh !== null
+              ? `${activeLow} to ${activeHigh}`
+              : "Exhausted"}
+          </strong>
+        </div>
+        <div className="mini-card">
+          <span>Match state</span>
+          <strong>
+            {step.state.foundIndex !== null
+              ? `Lane ${step.state.foundIndex}`
+              : activeLow === null
+                ? "Not found"
+                : "Searching"}
+          </strong>
         </div>
       </div>
     </>
@@ -534,6 +649,81 @@ function renderMetricCards(run: ReplayRun, stepIndex: number) {
       <strong>{step.metrics[metric.key] ?? 0}</strong>
     </div>
   ));
+}
+
+function renderSingleStage(run: ReplayRun, stepIndex: number) {
+  if (isSortingRun(run)) {
+    return <SortingStage run={run} stepIndex={stepIndex} />;
+  }
+
+  if (isSearchRun(run)) {
+    return <SearchStage run={run} stepIndex={stepIndex} />;
+  }
+
+  return <GraphStage run={run} stepIndex={stepIndex} />;
+}
+
+function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
+  if (isGraphRun(run)) {
+    return (
+      <div className="distance-grid">
+        {Object.entries(getRunStep(run, stepIndex).state.distances).map(([node, distance]) => (
+          <div className="distance-row" key={node}>
+            <span>{node}</span>
+            <strong>{formatDistance(distance)}</strong>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isSearchRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Target</span>
+            <strong>{step.state.target}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Midpoint</span>
+            <strong>{step.state.mid !== null ? step.state.mid : "Waiting"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Window</span>
+            <strong>
+              {step.state.low !== null && step.state.high !== null
+                ? `${step.state.low} to ${step.state.high}`
+                : "Exhausted"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Match</span>
+            <strong>{step.state.foundIndex !== null ? step.state.foundIndex : "None"}</strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.array.map((value, index) => (
+            <span className="number-pill" key={`${value}-${index}`}>
+              {index}:{value}
+            </span>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="number-grid">
+      {getRunStep(run, stepIndex).state.array.map((value, index) => (
+        <span className="number-pill" key={`${value}-${index}`}>
+          {value}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function ComparisonWorkspace({
@@ -1182,16 +1372,9 @@ export default function App() {
                 />
                 <div className="stage-layout">
                   <div className="visual-panel">
-                    {run.algorithm.domain === "sorting" ? (
-                      <SortingStage
-                        run={run as SortingRun}
-                        stepIndex={Math.min(currentStepIndex, run.trace.steps.length - 1)}
-                      />
-                    ) : (
-                      <GraphStage
-                        run={run as GraphRun}
-                        stepIndex={Math.min(currentStepIndex, run.trace.steps.length - 1)}
-                      />
+                    {renderSingleStage(
+                      run,
+                      Math.min(currentStepIndex, run.trace.steps.length - 1)
                     )}
                   </div>
 
@@ -1246,26 +1429,7 @@ export default function App() {
                           </span>
                         ))}
                       </div>
-                      {run.algorithm.domain === "graph" ? (
-                        <div className="distance-grid">
-                          {Object.entries((run as GraphRun).trace.steps[currentStep.index]!.state.distances).map(
-                            ([node, distance]) => (
-                              <div className="distance-row" key={node}>
-                                <span>{node}</span>
-                                <strong>{formatDistance(distance)}</strong>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        <div className="number-grid">
-                          {(run as SortingRun).trace.steps[currentStep.index]!.state.array.map((value, index) => (
-                            <span className="number-pill" key={`${value}-${index}`}>
-                              {value}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {renderStateSnapshot(run, currentStep.index)}
                     </section>
                   </div>
                 </div>

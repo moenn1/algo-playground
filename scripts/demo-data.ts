@@ -53,6 +53,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "sorting", "worst-case"]
   },
   {
+    key: "search-reference-hit",
+    algorithmId: "binary-search",
+    presetId: "search.reference-hit",
+    recordedAt: "2026-04-20T09:07:00.000Z",
+    tags: ["seeded-demo", "search", "reference-hit"]
+  },
+  {
+    key: "search-missing-target",
+    algorithmId: "binary-search",
+    presetId: "search.missing-target",
+    recordedAt: "2026-04-20T09:07:30.000Z",
+    tags: ["seeded-demo", "search", "missing-target"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildComparisonRuns, buildRun, getTraceStepPaths, type SortingRun } from "./replay.js";
+import {
+  buildComparisonRuns,
+  buildRun,
+  getTraceStepPaths,
+  type SearchRun,
+  type SortingRun
+} from "./replay.js";
 
 describe("buildRun", () => {
   it("emits schema-compliant sorting traces for quick sort", () => {
@@ -83,6 +89,32 @@ describe("buildRun", () => {
     expect(finalStep.state.path).toEqual(["A", "B", "D"]);
     expect(finalStep.state.frontier).toEqual([]);
     expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
+  });
+
+  it("builds binary-search replay runs from the shared search engine", () => {
+    const run = buildRun(
+      "binary-search",
+      JSON.stringify(
+        {
+          array: [2, 5, 8, 12, 16, 23, 38],
+          target: 12
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "search") {
+      throw new Error("Expected a search run.");
+    }
+
+    const searchRun = run as SearchRun;
+    const finalStep = searchRun.trace.steps[searchRun.trace.steps.length - 1]!;
+
+    expect(searchRun.algorithm.id).toBe("binary-search");
+    expect(finalStep.phase).toBe("Found");
+    expect(finalStep.state.foundIndex).toBe(3);
+    expect(getTraceStepPaths(finalStep)).toContain("state.foundIndex");
   });
 });
 

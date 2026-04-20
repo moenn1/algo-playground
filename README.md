@@ -2,7 +2,7 @@
 
 TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, and comparison-ready metric surfaces.
 
-This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a web shell for replay-oriented UX direction, shared sorting and graph execution engines, and a shared trace contract that execution and history features build on.
+This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a web shell for replay-oriented UX direction, shared sorting, search, and graph execution engines, and a shared trace contract that execution and history features build on.
 
 ## Workspace Layout
 
@@ -77,13 +77,13 @@ The API also exposes a deterministic input-service layer for preset scenarios an
 - `POST /api/input-presets/:presetId/resolve`
 - `POST /api/inputs/validate`
 
-The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, and graph pathfinding fixtures across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
+The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
 
 ## Current Foundation
 
-- `apps/web` exposes the replay and comparison shell: seeded traces, command-surface telemetry, deterministic timeline scrubbing, active-frame step inspection, one shared graph runtime for BFS and Dijkstra, and a synchronized sorting comparison deck across four shared-engine sorting algorithms.
+- `apps/web` exposes the replay and comparison shell: seeded traces, command-surface telemetry, deterministic timeline scrubbing, active-frame step inspection, a dedicated binary-search interval stage, one shared graph runtime for BFS and Dijkstra, and a synchronized sorting comparison deck across four shared-engine sorting algorithms.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
-- `packages/execution-engine` owns the shared sorting and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Breadth-First Search, and Dijkstra.
+- `packages/execution-engine` owns the shared sorting, search, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.
 - `docs/` captures the architecture, execution-engine, workflow, persistence-model, and input-service decisions that shape execution and replay work.
 - `docs/operator-runbook.md` captures the local orchestration and seeded-demo operating flow.
