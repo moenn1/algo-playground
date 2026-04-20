@@ -54,6 +54,6 @@ The product is being shaped for three audiences at once:
 - `docs/architecture.md`: system boundaries, execution model, and service seams
 - `docs/trace-contract.md`: canonical trace rules and payload semantics
 - `docs/replay-shell.md`: replay UX direction and extension guidance
-- `docs/roadmap.md`: phased delivery plan, benchmark strategy, and extensibility roadmap
+- `docs/roadmap.md`: milestone sequencing, benchmark suites, and extension readiness gates
 - `docs/contribution-standards.md`: implementation and review expectations for contributors
 - `docs/diagrams.md`: architecture and trace-flow diagrams

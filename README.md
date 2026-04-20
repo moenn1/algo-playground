@@ -50,7 +50,7 @@ The web app runs on `http://localhost:5173` and proxies `/api` to the local API 
 - `docs/product-overview.md` maps the product pillars, user flows, and doc set.
 - `docs/architecture.md` covers service boundaries, execution flow, and trace invariants.
 - `docs/trace-contract.md` defines the replay and comparison contract semantics.
-- `docs/roadmap.md` captures phased delivery, benchmarking, and extensibility plans.
+- `docs/roadmap.md` captures milestone sequencing, benchmark suites, and extensibility gates.
 - `docs/contribution-standards.md` sets implementation, testing, and documentation expectations.
 - `docs/diagrams.md` contains mermaid diagrams for system boundaries and trace flow.
 

@@ -2,6 +2,8 @@
 
 ## 2026-04-20
 
+- Expanded the roadmap with milestone exit criteria, workstream ordering, benchmark suites, and extension readiness gates.
+- Added a delivery-sequence diagram to connect trace contracts, persistence, comparison, and operator maturity work.
 - Added a product documentation set covering the platform overview, phased roadmap, contribution standards, and architecture diagrams.
 - Linked the README and core docs into a navigable documentation map for TraceDeck contributors.
 - Expanded `packages/trace-core` with canonical JSON snapshot normalization, structured changes/highlights/explanations, and replay invariant metadata for deterministic trace persistence.

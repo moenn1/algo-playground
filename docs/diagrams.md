@@ -45,3 +45,16 @@ flowchart TD
   Persistence --> Trace
   Experience --> Trace
 ```
+
+## Delivery Sequence
+
+```mermaid
+flowchart LR
+  A[Trace contract] --> B[Execution coverage]
+  B --> C[Persistence APIs]
+  C --> D[History and replay restore]
+  D --> E[Comparison surfaces]
+  C --> F[Benchmark baselines]
+  E --> G[Operator and CI maturity]
+  F --> G
+```
