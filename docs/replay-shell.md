@@ -4,7 +4,7 @@
 
 This document describes the replay shell direction established in `apps/web`.
 
-Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
+Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback across sorting, search, and graph traces, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
 
 ## Interaction model
 
@@ -18,14 +18,18 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - The shell should foreground the active frame with a briefing layer before deeper inspector panels so the current replay moment stays readable during scrubbing.
 - Global storyboard stops should complement local checkpoint windows: the storyboard communicates journey-level progress while nearby checkpoints keep precise jumps fast.
 - Comparison mode should surface compact per-lane sync signals ahead of the full comparison deck so multi-run playback remains legible on narrow viewports.
+- The visual system should read as an intentional replay studio rather than a generic dashboard: solid surfaces, bolder section separation, and a distinct palette shift should be visible on first load.
+- Tablet and mobile layouts should keep controls in explicit grids and let dense navigation rows scroll horizontally instead of compressing core replay actions into cramped wraps.
 
 ## Replay Surfaces
 
 - Product priorities and service seams are visible in the landing shell.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The hero band now acts as a command surface with live progress telemetry, playback context, and product-priority pills for the current run.
+- The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so the studio reads differently from the previous dark glass treatment.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
+- The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
 
 ## Comparison Surfaces
@@ -36,6 +40,7 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - Comparison summary cards read final comparison metrics directly from the trace envelope instead of recomputing winners in the UI layer.
 - A sync-signal grid summarizes each algorithm's current phase and normalized position before the full comparison deck, which improves scanability on desktop and mobile.
 - Timeline scrubbing now pairs a progress bar, storyboard stops, and local checkpoint windows so users can switch between global navigation and precise frame stepping.
+- Mobile and tablet comparison layouts now prioritize stacked cards, grid-based controls, and horizontal checkpoint browsing so synchronized playback stays readable without shrinking the visualization cards away.
 
 ## Extension guidance
 

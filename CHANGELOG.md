@@ -2,11 +2,14 @@
 
 ## 2026-04-21
 
+- Added a shared binary-search runtime, input presets, and replay stage so TraceDeck now covers a distinct interval-search family alongside sorting and graph traces.
 - Added shared graph execution-engine builders for Breadth-First Search and Dijkstra, and fixed the workspace-integrity guard so root-linked validation still works when package lifecycle hooks invoke it from nested workspaces.
 - Elevated the replay shell with a hero command surface that exposes live playback telemetry, product priorities, and current replay context.
 - Added an active-frame briefing strip for single-run replay with snapshot summaries and recorded-signal chips ahead of the detailed inspector panels.
 - Expanded timeline navigation with a progress bar plus storyboard stops so users can jump between global milestones and local checkpoints more deliberately.
 - Added per-lane sync signal cards to comparison mode and documented the updated replay-shell interaction model in the README and replay-shell notes.
+- Reworked the web shell art direction around warm paper surfaces, ink-heavy controls, and a new accent palette so the replay studio now reads differently on first load.
+- Improved tablet and mobile responsiveness by moving transport controls into explicit grids and turning dense checkpoint/storyboard rows into horizontal browse surfaces instead of cramped wraps.
 
 ## 2026-04-20
 
