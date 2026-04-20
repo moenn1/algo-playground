@@ -81,7 +81,7 @@ The current preset catalog covers seeded random inputs, worst-case scenarios, cu
 
 ## Current Foundation
 
-- `apps/web` exposes the replay and comparison shell: seeded traces, command-surface telemetry, deterministic timeline scrubbing, active-frame step inspection, dedicated search and sliding-window stages, one shared graph runtime for BFS and Dijkstra, and a synchronized sorting comparison deck across four shared-engine sorting algorithms.
+- `apps/web` exposes the replay and comparison shell: seeded traces, command-surface telemetry, deterministic timeline scrubbing, active-frame step inspection, reusable sorting and graph visualization modules, dedicated search and sliding-window stages, one shared graph runtime for BFS and Dijkstra, and a synchronized sorting comparison deck across four shared-engine sorting algorithms.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
 - `packages/execution-engine` owns the shared sorting, search, window, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.

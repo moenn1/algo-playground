@@ -32,9 +32,11 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so the studio reads differently from the previous dark glass treatment.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
+- Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main shell and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
+- Graph replay now pairs the SVG network map with a structural-state rail for node status, distance inspection, and route focus so the shell can surface graph state without inventing browser-only metadata.
 
 ## Comparison Surfaces
 
@@ -53,3 +55,4 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 - Hook persistence into the eventual run-builder shape so saved runs can hydrate the shell without changing the transport model.
 - Extend comparison mode by adding more compare-ready algorithms that share an input contract and metric vocabulary.
 - Keep future visualizations snapshot-driven. The timeline should always be able to jump to a step without replaying intermediate mutations.
+- Reuse the extracted stage visualization modules when product restructuring introduces additional pages or saved-run entry points so replay surfaces keep one rendering contract across the app.

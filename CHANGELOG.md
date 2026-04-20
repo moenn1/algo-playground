@@ -2,6 +2,7 @@
 
 ## 2026-04-21
 
+- Extracted reusable sorting and graph replay visualization modules, added a per-lane sorting ledger plus a graph state rail, and documented the new component boundary for the ongoing shell rework.
 - Added a shared sliding-window runtime for Minimum Size Subarray Sum, including deterministic expansion, candidate, shrink, and no-solution checkpoints with stable `expansions`, `shrinks`, and `bestUpdates` metrics.
 - Wired the web replay shell, input-service API, demo seed data, and validation tests to the new window domain so TraceDeck now covers a first sliding-window family alongside sorting, search, and graph traces.
 - Added a shared binary-search runtime, input presets, and replay stage so TraceDeck now covers a distinct interval-search family alongside sorting and graph traces.
