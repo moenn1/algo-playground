@@ -2,6 +2,9 @@
 
 ## 2026-04-20
 
+- Added a local quality-baseline document covering verification layers, dependency hygiene, determinism expectations, and secure defaults.
+- Added focused root scripts for trace-contract verification and explicit engine requirements for supported Node.js and npm versions.
+- Changed the API default listen host to `127.0.0.1` and added tests for the secure local default plus explicit overrides.
 - Expanded the roadmap with milestone exit criteria, workstream ordering, benchmark suites, and extension readiness gates.
 - Added a delivery-sequence diagram to connect trace contracts, persistence, comparison, and operator maturity work.
 - Added a product documentation set covering the platform overview, phased roadmap, contribution standards, and architecture diagrams.

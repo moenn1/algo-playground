@@ -13,6 +13,8 @@ npm install
 
 If your environment requires a proxy, `npm` and git should honor the standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` variables.
 
+The workspace enforces the minimum supported Node.js and npm versions during install through the root `engines` field and `.npmrc`.
+
 ## Local Development
 
 Start both services from the repo root:
@@ -46,8 +48,11 @@ Or run individual stages:
 npm run lint
 npm run typecheck
 npm run test
+npm run verify:contracts
 npm run build
 ```
+
+`npm run verify:contracts` is the focused gate for trace-contract and determinism-sensitive changes.
 
 ## Package Conventions
 
@@ -61,3 +66,4 @@ npm run build
 - Update the nearest relevant docs in the same iteration as implementation changes.
 - Keep `CHANGELOG.md` aligned with each reviewable change set.
 - Use the docs in this repo as the product and contributor entrypoint rather than relying on source discovery alone.
+- Keep `docs/quality-baseline.md` aligned with any change to local verification scripts, dependency policy, or secure defaults.

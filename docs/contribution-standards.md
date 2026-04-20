@@ -29,12 +29,14 @@
 - Add or update tests when changing trace semantics, persistence behavior, or replay logic.
 - Favor deterministic fixtures over implicit runtime state.
 - Verify that step ordering, snapshot stability, and comparison metrics remain coherent after contract changes.
+- Use `npm run verify:contracts` for trace-contract-sensitive changes before relying on the broader smoke pass alone.
 
 ## Documentation Expectations
 
 - Repository-facing docs should describe TraceDeck as a polished product foundation with phased delivery.
 - Write docs so a contributor can understand how replay, persistence, and comparison fit together without reading source first.
 - Add diagrams when a change affects service boundaries, execution flow, or contract ownership.
+- Update `docs/quality-baseline.md` when local verification commands, dependency requirements, or secure defaults change.
 
 ## Review Checklist
 

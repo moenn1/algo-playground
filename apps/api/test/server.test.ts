@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildServer } from "../src/server.js";
+import { buildServer, resolveListenConfig } from "../src/server.js";
 
 const servers: ReturnType<typeof buildServer>[] = [];
 
@@ -15,6 +15,25 @@ afterEach(async () => {
 });
 
 describe("TraceDeck API foundation", () => {
+  it("uses localhost-first defaults for local development", () => {
+    expect(resolveListenConfig({})).toEqual({
+      host: "127.0.0.1",
+      port: 4000
+    });
+  });
+
+  it("allows explicit listen overrides", () => {
+    expect(
+      resolveListenConfig({
+        HOST: "0.0.0.0",
+        PORT: "4500"
+      })
+    ).toEqual({
+      host: "0.0.0.0",
+      port: 4500
+    });
+  });
+
   it("returns a health response", async () => {
     const server = buildServer();
     servers.push(server);

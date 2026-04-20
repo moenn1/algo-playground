@@ -39,10 +39,18 @@ export function buildServer() {
   return app;
 }
 
+export function resolveListenConfig(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const host = env.HOST ?? "127.0.0.1";
+  const port = Number(env.PORT ?? 4000);
+
+  return { host, port };
+}
+
 async function start() {
   const app = buildServer();
-  const host = process.env.HOST ?? "0.0.0.0";
-  const port = Number(process.env.PORT ?? 4000);
+  const { host, port } = resolveListenConfig();
 
   try {
     await app.listen({ host, port });

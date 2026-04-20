@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,10 +15,14 @@
     "dev": "node scripts/dev.mjs",
     "dev:web": "npm run dev --workspace @tracedeck/web",
     "dev:api": "npm run dev --workspace @tracedeck/api",
+    "test:trace-core": "npm run test --workspace @tracedeck/trace-core",
+    "test:api": "npm run test --workspace @tracedeck/api",
+    "test:web": "npm run test --workspace @tracedeck/web",
+    "verify:contracts": "npm run typecheck --workspace @tracedeck/trace-core && npm run test:trace-core",
     "build": "npm run build --workspace @tracedeck/trace-core && npm run build --workspace @tracedeck/api && npm run build --workspace @tracedeck/web",
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspace @tracedeck/trace-core && npm run typecheck --workspace @tracedeck/api && npm run typecheck --workspace @tracedeck/web",
-    "test": "npm run test --workspace @tracedeck/trace-core && npm run test --workspace @tracedeck/api && npm run test --workspace @tracedeck/web",
+    "test": "npm run test:trace-core && npm run test:api && npm run test:web",
     "check": "npm run lint && npm run typecheck && npm run test",
     "smoke": "npm run check && npm run build"
   },
