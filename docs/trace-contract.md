@@ -23,3 +23,9 @@
 - Comparison metric keys must be declared in `metricDefinitions`.
 - Metric definition order is preserved for presentation.
 - Replay clients should read comparison-ready metrics from the recorded trace envelope rather than reconstructing them from algorithm logic.
+
+## Related References
+
+- `docs/architecture.md` for service ownership and execution flow
+- `docs/roadmap.md` for benchmark and extensibility planning
+- `docs/diagrams.md` for the trace lifecycle view

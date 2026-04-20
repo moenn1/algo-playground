@@ -55,3 +55,9 @@ npm run build
 - Keep HTTP boundaries and persistence flows inside `apps/api`.
 - Keep replay UI state derived from trace payloads inside `apps/web`.
 - Prefer additive contracts so trace consumers can evolve without silent semantic drift.
+
+## Documentation Baseline
+
+- Update the nearest relevant docs in the same iteration as implementation changes.
+- Keep `CHANGELOG.md` aligned with each reviewable change set.
+- Use the docs in this repo as the product and contributor entrypoint rather than relying on source discovery alone.

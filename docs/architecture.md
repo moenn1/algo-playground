@@ -65,6 +65,12 @@ docs/             Architecture and developer workflow
 - Shared contract changes should happen in `trace-core` first so replay and persistence remain aligned.
 - The repo is intentionally split into apps and packages now to reduce migration churn once storage, comparison history, and isolated execution workers are added.
 
+## Related References
+
+- `docs/product-overview.md` for product framing and user flows
+- `docs/trace-contract.md` for step payload semantics
+- `docs/diagrams.md` for system and trace lifecycle diagrams
+
 ## Trace Contract Invariants
 
 - Each trace step is a full snapshot so replay can jump directly to any frame without recomputing intermediate mutations.
