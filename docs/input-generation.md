@@ -8,6 +8,7 @@ The service currently covers the supported algorithms already present in the wor
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`
+- Window: `minimum-size-subarray-sum`
 - Graph: `bfs`, `dijkstra`
 
 ## Endpoints
@@ -121,13 +122,22 @@ Every graph preset can be resolved for Breadth-First Search or Dijkstra through 
 
 Both search presets currently resolve for Binary Search through the same `algorithmId` field.
 
+### Window presets
+
+- `window.reference-target`: curated positive-array case with a shrinking best window
+- `window.no-solution`: curated positive-array case where no contiguous window reaches the target
+
+Both window presets currently resolve for Minimum Size Subarray Sum through the same `algorithmId` field.
+
 ## Validation Rules
 
 - Sorting payloads accept either integer arrays or comma-separated integer strings.
 - Search payloads accept either JSON objects or JSON strings.
+- Window payloads accept either JSON objects or JSON strings.
 - Graph payloads accept either JSON objects or JSON strings.
 - Sorting inputs must contain between 2 and 24 integers.
 - Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
+- Window payloads must define between 2 and 32 positive integers plus a positive integer target.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

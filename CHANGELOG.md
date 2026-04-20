@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared sliding-window runtime for Minimum Size Subarray Sum, including deterministic expansion, candidate, shrink, and no-solution checkpoints with stable `expansions`, `shrinks`, and `bestUpdates` metrics.
+- Wired the web replay shell, input-service API, demo seed data, and validation tests to the new window domain so TraceDeck now covers a first sliding-window family alongside sorting, search, and graph traces.
 - Added a shared binary-search runtime, input presets, and replay stage so TraceDeck now covers a distinct interval-search family alongside sorting and graph traces.
 - Added shared graph execution-engine builders for Breadth-First Search and Dijkstra, and fixed the workspace-integrity guard so root-linked validation still works when package lifecycle hooks invoke it from nested workspaces.
 - Elevated the replay shell with a hero command surface that exposes live playback telemetry, product priorities, and current replay context.

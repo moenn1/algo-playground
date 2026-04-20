@@ -742,13 +742,20 @@ input:focus-visible {
 
 .sort-stage,
 .graph-stage,
-.search-stage {
+.search-stage,
+.window-stage {
   padding: 20px;
   border: 2px solid var(--line);
   border-radius: 24px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(247, 236, 218, 0.72)),
     var(--paper);
+}
+
+.sort-stage-shell,
+.graph-state-rail {
+  display: grid;
+  gap: 16px;
 }
 
 .sort-stage {
@@ -793,7 +800,50 @@ input:focus-visible {
   background: linear-gradient(180deg, #8fb570, #557a34);
 }
 
+.sort-lane-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lane-chip {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.lane-chip-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.lane-chip-active {
+  border-color: var(--ember);
+  background: var(--ember-soft);
+}
+
+.lane-chip-swap {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.lane-chip-sorted {
+  border-color: rgba(85, 122, 52, 0.34);
+  background: rgba(143, 181, 112, 0.16);
+}
+
 .search-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.window-stage {
   display: grid;
   gap: 16px;
 }
@@ -809,9 +859,31 @@ input:focus-visible {
   background: var(--paper);
 }
 
+.window-banner {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(214, 101, 67, 0.1), rgba(255, 250, 242, 0)),
+    var(--paper);
+}
+
+.window-banner p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .search-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.window-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   gap: 10px;
 }
 
@@ -825,7 +897,26 @@ input:focus-visible {
   text-align: center;
 }
 
+.window-cell {
+  display: grid;
+  gap: 8px;
+  padding: 14px 12px;
+  border: 2px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  transition:
+    border-color var(--motion-base) ease,
+    background var(--motion-base) ease,
+    transform var(--motion-base) var(--motion-spring);
+}
+
 .search-cell-active {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.window-cell-active {
   border-color: var(--gold);
   background: var(--gold-soft);
 }
@@ -835,9 +926,24 @@ input:focus-visible {
   background: var(--ember-soft);
 }
 
+.window-cell-candidate {
+  border-color: var(--ember);
+  background: linear-gradient(180deg, var(--ember-soft), rgba(255, 255, 255, 0.72));
+}
+
 .search-cell-found {
   border-color: var(--teal);
   background: var(--teal-soft);
+}
+
+.window-cell-best {
+  border-color: var(--teal);
+  background: linear-gradient(180deg, var(--teal-soft), rgba(255, 255, 255, 0.72));
+}
+
+.window-cell-edge {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(36, 49, 77, 0.08);
 }
 
 .search-cell-eliminated {
@@ -845,7 +951,9 @@ input:focus-visible {
 }
 
 .search-cell-index,
+.window-cell-index,
 .search-cell-value,
+.window-cell-value,
 .sort-bar-value,
 .sort-bar-index,
 .graph-label,
@@ -860,6 +968,7 @@ input:focus-visible {
 }
 
 .search-cell-index,
+.window-cell-index,
 .sort-bar-index {
   color: var(--muted);
   font-size: 0.75rem;
@@ -869,7 +978,19 @@ input:focus-visible {
   font-size: 1.14rem;
 }
 
+.window-cell-value {
+  font-size: 1.08rem;
+}
+
 .sort-bar-value {
+  font-size: 0.82rem;
+}
+
+.lane-chip-status,
+.graph-node-status,
+.graph-node-distance,
+.graph-node-meta {
+  color: var(--muted);
   font-size: 0.82rem;
 }
 
@@ -939,6 +1060,97 @@ input:focus-visible {
 .graph-distance {
   font-size: 11px;
   fill: var(--muted);
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.graph-legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 2px solid var(--line-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+}
+
+.graph-legend-pill::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.graph-legend-pill-current::before {
+  background: var(--gold);
+}
+
+.graph-legend-pill-frontier::before {
+  background: var(--ember);
+}
+
+.graph-legend-pill-settled::before {
+  background: var(--teal);
+}
+
+.graph-legend-pill-path::before {
+  background: #557a34;
+}
+
+.graph-visual-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.graph-node-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.graph-node-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 2px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.graph-node-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.graph-node-card-current {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.graph-node-card-frontier {
+  border-color: var(--ember);
+  background: var(--ember-soft);
+}
+
+.graph-node-card-settled {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.graph-node-card-path {
+  border-color: rgba(85, 122, 52, 0.34);
+  background: rgba(143, 181, 112, 0.16);
 }
 
 .mini-grid,
@@ -1057,6 +1269,14 @@ input:focus-visible {
 .metric-inline strong,
 .trend-card strong {
   font-size: 1.04rem;
+}
+
+.mini-card p,
+.graph-summary-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.9rem;
 }
 
 .metric-caption {
@@ -1408,7 +1628,8 @@ input:focus-visible {
   .summary-grid,
   .compare-summary-grid,
   .compare-metric-grid,
-  .focus-strip {
+  .focus-strip,
+  .graph-visual-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1466,7 +1687,8 @@ input:focus-visible {
   .metric-grid,
   .distance-grid,
   .comparison-metric-strip,
-  .search-summary-grid {
+  .search-summary-grid,
+  .graph-node-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1545,7 +1767,15 @@ input:focus-visible {
     min-width: 320px;
   }
 
+  .sort-lane-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .search-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .window-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

@@ -2,20 +2,27 @@ import {
   buildGraphTrace,
   buildSearchTrace,
   buildSortingTrace,
+  buildWindowTrace,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultDijkstraInput,
+  defaultMinimumSizeSubarrayInput,
   formatGraphDistance,
   parseGraphInputText,
   parseSearchInputText,
+  parseWindowInputText,
   serializeGraphInput,
   serializeSearchInput,
+  serializeWindowInput,
   type GraphAlgorithmId,
   type GraphExecutionState,
   type GraphInput,
   type SearchAlgorithmId,
   type SearchExecutionState,
   type SearchInput,
+  type WindowAlgorithmId,
+  type WindowExecutionState,
+  type WindowInput,
   type SortingAlgorithmId,
   type SortingExecutionState
 } from "@tracedeck/execution-engine";
@@ -53,7 +60,16 @@ export type SearchAlgorithm = ReplayAlgorithmBase & {
   domain: "search";
 };
 
-export type ReplayAlgorithm = SortingAlgorithm | GraphAlgorithm | SearchAlgorithm;
+export type WindowAlgorithm = ReplayAlgorithmBase & {
+  id: WindowAlgorithmId;
+  domain: "window";
+};
+
+export type ReplayAlgorithm =
+  | SortingAlgorithm
+  | GraphAlgorithm
+  | SearchAlgorithm
+  | WindowAlgorithm;
 
 export type SortingReplayState = SortingExecutionState;
 export type GraphReplayState = GraphExecutionState;
@@ -80,10 +96,21 @@ export type SearchRun = {
   trace: TraceEnvelope<SearchReplayState>;
 };
 
-export type ReplayRun = SortingRun | GraphRun | SearchRun;
+export type WindowRun = {
+  algorithm: WindowAlgorithm;
+  input: WindowInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<WindowExecutionState>;
+};
+
+export type ReplayRun = SortingRun | GraphRun | SearchRun | WindowRun;
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
+}
+
+function isWindowRun(run: ReplayRun): run is WindowRun {
+  return run.algorithm.domain === "window";
 }
 
 function parseSortingInput(inputText: string): number[] {
@@ -174,6 +201,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "search"
   },
   {
+    id: "minimum-size-subarray-sum",
+    name: "Minimum Size Subarray Sum",
+    badge: "Window",
+    accent: "ember",
+    description:
+      "Positive-array replay records window expansions, qualifying contractions, and shortest-hit checkpoints.",
+    inputLabel: "Window Input",
+    inputHint: "JSON with a positive integer array and a target sum.",
+    defaultInput: serializeWindowInput(defaultMinimumSizeSubarrayInput),
+    domain: "window"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -259,6 +298,19 @@ function buildSearchRunFromInput(
   };
 }
 
+function buildWindowRunFromInput(
+  algorithm: WindowAlgorithm,
+  input: WindowInput,
+  normalizedInputText = serializeWindowInput(input)
+): WindowRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildWindowTrace(algorithm.id, input)
+  };
+}
+
 export function buildComparisonRuns(inputText: string): SortingRun[] {
   const input = parseSortingInput(inputText);
   const normalizedInputText = serializeSortingInput(input);
@@ -281,6 +333,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildSearchRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "window") {
+    const input = parseWindowInputText(inputText);
+    return buildWindowRunFromInput(algorithm, input);
+  }
+
   const input = parseGraphInputText(inputText);
   return buildGraphRunFromInput(algorithm, input);
 }
@@ -291,6 +348,10 @@ export function describeInputFootprint(run: ReplayRun): string {
   }
 
   if (isSearchRun(run)) {
+    return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isWindowRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
   }
 

@@ -4,13 +4,14 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, and graph runtimes:
+The current package covers shared sorting, search, window, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
 - `quick-sort`
 - `merge-sort`
 - `binary-search`
+- `minimum-size-subarray-sum`
 - `bfs`
 - `dijkstra`
 
@@ -53,6 +54,27 @@ Shared search metrics focus on the binary-search decision path:
 
 That shape is designed to stay reusable for future interval-search variants because the visualization only depends on sorted input, active bounds, the current probe, and the terminal match state.
 
+## Window Runtime Model
+
+Minimum Size Subarray Sum establishes the first sliding-window runtime shape:
+
+- `state.array`: the positive integer array under scan
+- `state.target`: the required minimum sum
+- `state.left`: the inclusive left bound of the active window, or `null` when the window is collapsed
+- `state.right`: the inclusive right bound of the active window, or `null` when the window is collapsed
+- `state.activeSum`: the current window sum
+- `state.bestStart` and `state.bestEnd`: the best qualifying window recorded so far
+- `state.bestLength`: the best qualifying length, or `null` while no candidate exists
+- `state.candidateSatisfied`: whether the active window currently meets the target before the next shrink
+
+Shared window metrics focus on replaying the scan and contraction rhythm directly:
+
+- `expansions`: right-edge growth steps performed so far
+- `shrinks`: left-edge contraction steps performed so far
+- `bestUpdates`: times the runtime published a shorter qualifying window
+
+The runtime records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and terminal `Done` or `No Solution` checkpoints so replay never has to infer qualifying intervals from aggregate counters alone.
+
 ## Graph Runtime Model
 
 Breadth-First Search and Dijkstra share one replay-safe graph state shape:
@@ -80,11 +102,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Merge sort does not mark intermediate windows as globally sorted; `sortedIndices` only advances when that claim is true for the full array position.
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
+- Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting, search, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, window, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

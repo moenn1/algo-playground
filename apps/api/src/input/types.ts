@@ -6,6 +6,7 @@ export const supportedAlgorithmIds = [
   "quick-sort",
   "merge-sort",
   "binary-search",
+  "minimum-size-subarray-sum",
   "bfs",
   "dijkstra"
 ] as const;
@@ -27,6 +28,11 @@ export interface GraphInputPayload extends JsonObject {
 }
 
 export interface SearchInputPayload extends JsonObject {
+  array: number[];
+  target: number;
+}
+
+export interface WindowInputPayload extends JsonObject {
   array: number[];
   target: number;
 }

@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildGraphLayout,
+  describeSortingOperation
+} from "./components/ReplayVisualizations.js";
+import {
   buildComparisonRuns,
   buildRun,
   getTraceStepPaths,
   type SearchRun,
-  type SortingRun
+  type SortingRun,
+  type WindowRun
 } from "./replay.js";
 
 describe("buildRun", () => {
@@ -115,6 +120,61 @@ describe("buildRun", () => {
     expect(finalStep.phase).toBe("Found");
     expect(finalStep.state.foundIndex).toBe(3);
     expect(getTraceStepPaths(finalStep)).toContain("state.foundIndex");
+  });
+
+  it("builds sliding-window replay runs from the shared window engine", () => {
+    const run = buildRun(
+      "minimum-size-subarray-sum",
+      JSON.stringify(
+        {
+          array: [2, 3, 1, 2, 4, 3],
+          target: 7
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "window") {
+      throw new Error("Expected a window run.");
+    }
+
+    const windowRun = run as WindowRun;
+    const finalStep = windowRun.trace.steps[windowRun.trace.steps.length - 1]!;
+
+    expect(windowRun.algorithm.id).toBe("minimum-size-subarray-sum");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.bestStart).toBe(4);
+    expect(finalStep.state.bestEnd).toBe(5);
+    expect(finalStep.state.bestLength).toBe(2);
+    expect(
+      windowRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.bestLength"))
+    ).toBe(true);
+  });
+});
+
+describe("replay visualizations", () => {
+  it("describes swap-focused sorting steps from recorded trace state", () => {
+    const run = buildRun("bubble-sort", "2, 1");
+
+    if (run.algorithm.domain !== "sorting") {
+      throw new Error("Expected a sorting run.");
+    }
+
+    const swapStep = run.trace.steps.find((step) => step.state.swapPair.length === 2);
+
+    expect(swapStep).toBeDefined();
+    expect(describeSortingOperation(swapStep!)).toBe("Swap lanes 0 and 1");
+  });
+
+  it("builds deterministic graph layouts inside the shared viewport", () => {
+    const layout = buildGraphLayout(["A", "B", "C", "D", "E", "F"]);
+    const points = Object.values(layout);
+
+    expect(points).toHaveLength(6);
+    expect(new Set(points.map((point) => `${point.x}:${point.y}`)).size).toBe(6);
+    expect(points.every((point) => point.x > 0 && point.x < 360)).toBe(true);
+    expect(points.every((point) => point.y > 0 && point.y < 300)).toBe(true);
   });
 });
 

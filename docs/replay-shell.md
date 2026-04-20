@@ -4,7 +4,7 @@
 
 This document describes the replay shell direction established in `apps/web`.
 
-Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback across sorting, search, and graph traces, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
+Today the web app is a replay and comparison studio: it validates API connectivity, exposes deterministic single-run playback across sorting, search, sliding-window, and graph traces, and ships a synchronized sorting comparison deck that sits on the same trace contract as the replay shell.
 
 ## Interaction model
 
@@ -27,12 +27,13 @@ Today the web app is a replay and comparison studio: it validates API connectivi
 
 - Product priorities and service seams are visible in the landing shell.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, sliding-window, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The hero band now acts as a command surface with live progress telemetry, playback context, and product-priority pills for the current run.
 - The current shell art direction uses warm paper tones, ink-heavy control surfaces, and section-level color blocking so the studio reads differently from the previous dark glass treatment.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
+- The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
 
 ## Comparison Surfaces

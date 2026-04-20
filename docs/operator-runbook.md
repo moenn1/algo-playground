@@ -28,6 +28,8 @@ The demo seed currently materializes:
 - Selection Sort on `sorting.reverse-sorted`
 - Binary Search on `search.reference-hit`
 - Binary Search on `search.missing-target`
+- Minimum Size Subarray Sum on `window.reference-target`
+- Minimum Size Subarray Sum on `window.no-solution`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

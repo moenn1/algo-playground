@@ -67,6 +67,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "search", "missing-target"]
   },
   {
+    key: "window-reference-target",
+    algorithmId: "minimum-size-subarray-sum",
+    presetId: "window.reference-target",
+    recordedAt: "2026-04-20T09:07:45.000Z",
+    tags: ["seeded-demo", "window", "reference-target"]
+  },
+  {
+    key: "window-no-solution",
+    algorithmId: "minimum-size-subarray-sum",
+    presetId: "window.no-solution",
+    recordedAt: "2026-04-20T09:07:50.000Z",
+    tags: ["seeded-demo", "window", "no-solution"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

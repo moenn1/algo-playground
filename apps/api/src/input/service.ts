@@ -12,7 +12,8 @@ import type {
   SupportedAlgorithmDescriptor,
   SupportedAlgorithmId,
   ValidateCustomInputInput,
-  ValidatedCustomInput
+  ValidatedCustomInput,
+  WindowInputPayload
 } from "./types.js";
 
 const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescriptor> = {
@@ -41,6 +42,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Binary Search",
     domain: "search"
   },
+  "minimum-size-subarray-sum": {
+    id: "minimum-size-subarray-sum",
+    label: "Minimum Size Subarray Sum",
+    domain: "window"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -60,11 +66,16 @@ const sortingAlgorithms = [
   supportedAlgorithms["merge-sort"]
 ] as const;
 const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
+const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
   target: 23
+};
+const defaultWindowInput: WindowInputPayload = {
+  array: [2, 3, 1, 2, 4, 3],
+  target: 7
 };
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -296,7 +307,68 @@ function normalizeSearchInput(payload: unknown): SearchInputPayload {
   };
 }
 
+function normalizeWindowInput(payload: unknown): WindowInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Window input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Window input must be an object with array and target.");
+  }
+
+  const value = candidate as {
+    array?: unknown;
+    target?: unknown;
+  };
+
+  if (!Array.isArray(value.array) || value.array.length < 2) {
+    throw new HttpError(
+      400,
+      "Window input must include an array with at least two positive integers."
+    );
+  }
+
+  if (value.array.length > 32) {
+    throw new HttpError(400, "Window input arrays must contain 32 integers or fewer.");
+  }
+
+  const array = value.array.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry <= 0) {
+      throw new HttpError(400, `array[${index}] must be a positive integer.`);
+    }
+
+    return entry;
+  });
+
+  if (typeof value.target !== "number" || !Number.isInteger(value.target) || value.target <= 0) {
+    throw new HttpError(400, "Window input target must be a positive integer.");
+  }
+
+  return {
+    array,
+    target: value.target
+  };
+}
+
 function serializeSearchInput(input: SearchInputPayload) {
+  return JSON.stringify(
+    {
+      array: input.array,
+      target: input.target
+    },
+    null,
+    2
+  );
+}
+
+function serializeWindowInput(input: WindowInputPayload) {
   return JSON.stringify(
     {
       array: input.array,
@@ -456,6 +528,16 @@ function normalizeAlgorithmInput(
       input: search,
       normalizedInputText: serializeSearchInput(search),
       footprint: `${search.array.length} lanes / target ${search.target}`
+    };
+  }
+
+  if (algorithm.domain === "window") {
+    const window = normalizeWindowInput(payload);
+
+    return {
+      input: window,
+      normalizedInputText: serializeWindowInput(window),
+      footprint: `${window.array.length} lanes / target ${window.target}`
     };
   }
 
@@ -734,6 +816,43 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [3, 7, 11, 18, 24, 31, 42, 56],
         target: 19
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "window.reference-target",
+      label: "Reference shrinking window",
+      description:
+        "Use the classic positive-array target hit so sliding-window contractions and best-window updates stay easy to inspect.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "window",
+      algorithms: windowAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultWindowInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "window.no-solution",
+      label: "No qualifying window",
+      description:
+        "Keep the target larger than every reachable contiguous sum so replay ends with an explicit no-solution outcome.",
+      scenario: "miss",
+      kind: "curated",
+      domain: "window",
+      algorithms: windowAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [1, 1, 1, 1, 1, 1],
+        target: 9
       },
       options: {}
     })

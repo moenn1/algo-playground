@@ -29,7 +29,7 @@ apps/
   api/            Fastify service boundary
   web/            React replay shell
 packages/
-  execution-engine/ Shared sorting, search, and graph runtimes plus trace emitters
+  execution-engine/ Shared sorting, search, window, and graph runtimes plus trace emitters
   trace-core/     Trace envelope contract and validation helpers
 docs/             Architecture and developer workflow
 ```
@@ -47,12 +47,14 @@ docs/             Architecture and developer workflow
 
 ### `packages/execution-engine`
 
-- Owns deterministic sorting, search, and graph runtime models plus trace emitters
+- Owns deterministic sorting, search, window, and graph runtime models plus trace emitters
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
 - Shares one replay-safe interval-search state shape for Binary Search so midpoint probes, discarded lanes, and terminal match state stay readable across replay and persistence
+- Shares one replay-safe sliding-window state shape for Minimum Size Subarray Sum so active bounds, running sums, and best-window updates stay readable across replay and persistence
 - Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, interval bounds, and explicit exhausted-search outcomes
+- Publishes stable window semantics for explicit expand, candidate, shrink, and terminal no-solution frames
 - Publishes stable graph semantics for frontier ordering, settled nodes, edge inspections, and route updates across BFS and Dijkstra
 - Keeps algorithm narration, highlights, and mutation checkpoints close to the execution logic instead of scattering them through the UI
 
@@ -98,4 +100,5 @@ docs/             Architecture and developer workflow
 - Comparison metrics must be declared up front and present on the terminal step when they are used for run-to-run comparisons.
 - Sorting engines currently share `comparisons` and `writes` so bubble, selection, quick, and merge traces stay comparable without overloading algorithm-specific counters.
 - Search engines currently publish `probes` and `comparisons` so interval-search traces can compare midpoint work without reconstructing the decision path in consumers.
+- Window engines currently publish `expansions`, `shrinks`, and `bestUpdates` so sliding-window traces can compare scan pressure and qualifying-window churn without replay-time derivation.
 - Graph engines currently share `settled`, `frontier`, `inspections`, and `updates` so BFS and Dijkstra expose one stable pathfinding vocabulary to replay and persistence consumers.

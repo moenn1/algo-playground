@@ -490,7 +490,7 @@ describe("TraceDeck API foundation", () => {
     expect(repeatedResolve.json().input).toEqual(resolveResponse.json().input);
   });
 
-  it("resolves graph presets and validates custom inputs", async () => {
+  it("resolves graph and window presets and validates custom inputs", async () => {
     const server = await createServer();
 
     const graphPreset = await server.inject({
@@ -544,6 +544,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "9 lanes / target 23"
     });
 
+    const windowPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/window.reference-target/resolve",
+      payload: {
+        algorithmId: "minimum-size-subarray-sum"
+      }
+    });
+
+    expect(windowPreset.statusCode).toBe(200);
+    expect(windowPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "window.reference-target"
+      },
+      algorithm: {
+        id: "minimum-size-subarray-sum",
+        domain: "window"
+      },
+      footprint: "6 lanes / target 7"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -589,6 +610,32 @@ describe("TraceDeck API foundation", () => {
         target: 18
       },
       footprint: "5 lanes / target 18"
+    });
+
+    const validateWindowInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "minimum-size-subarray-sum",
+        payload: {
+          array: [5, 1, 3, 5, 10, 7],
+          target: 15
+        }
+      }
+    });
+
+    expect(validateWindowInput.statusCode).toBe(200);
+    expect(validateWindowInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "minimum-size-subarray-sum",
+        domain: "window"
+      },
+      input: {
+        array: [5, 1, 3, 5, 10, 7],
+        target: 15
+      },
+      footprint: "6 lanes / target 15"
     });
   });
 

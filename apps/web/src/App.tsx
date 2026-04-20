@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
 import {
+  GraphStage,
+  SearchStage,
+  SortingStage
+} from "./components/ReplayVisualizations.js";
+import {
   algorithms,
   buildComparisonRuns,
   buildRun,
@@ -13,7 +18,8 @@ import {
   type GraphRun,
   type ReplayRun,
   type SearchRun,
-  type SortingRun
+  type SortingRun,
+  type WindowRun
 } from "./replay.js";
 
 type FoundationResponse = {
@@ -54,6 +60,10 @@ function isGraphRun(run: ReplayRun): run is GraphRun {
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
+}
+
+function isWindowRun(run: ReplayRun): run is WindowRun {
+  return run.algorithm.domain === "window";
 }
 
 type StoryboardStop = {
@@ -102,25 +112,6 @@ function buildStoryboardIndices(totalSteps: number, currentStepIndex: number): n
   }
 
   return Array.from(anchorIndices).sort((left, right) => left - right);
-}
-
-function graphLayout(nodes: string[]): Record<string, { x: number; y: number }> {
-  const radius = 120;
-  const centerX = 180;
-  const centerY = 150;
-
-  return Object.fromEntries(
-    nodes.map((node, index) => {
-      const angle = (Math.PI * 2 * index) / nodes.length - Math.PI / 2;
-      return [
-        node,
-        {
-          x: centerX + Math.cos(angle) * radius,
-          y: centerY + Math.sin(angle) * radius
-        }
-      ];
-    })
-  );
 }
 
 function getSyncedStepIndex(stepCount: number, syncIndex: number, syncStepCount: number): number {
@@ -254,6 +245,24 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return `Target ${step.state.target} absent`;
   }
 
+  if (isWindowRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (
+      step.state.bestLength !== null &&
+      step.state.bestStart !== null &&
+      step.state.bestEnd !== null
+    ) {
+      return `Best lanes ${step.state.bestStart}-${step.state.bestEnd} · length ${step.state.bestLength}`;
+    }
+
+    if (step.state.left !== null && step.state.right !== null) {
+      return `Active sum ${step.state.activeSum} across lanes ${step.state.left}-${step.state.right}`;
+    }
+
+    return `Target ${step.state.target} not reached`;
+  }
+
   const step = getRunStep(run, stepIndex);
 
   if (step.state.path.length > 0) {
@@ -353,6 +362,20 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
             ? `Match locked at lane ${searchStep.state.foundIndex}`
             : `${searchStep.state.eliminatedIndices.length} lanes ruled out`;
         })()
+      : isWindowRun(run)
+        ? (() => {
+            const windowStep = getRunStep(run, stepIndex);
+
+            if (windowStep.state.bestLength !== null) {
+              return `Best window length ${windowStep.state.bestLength}`;
+            }
+
+            if (windowStep.state.left !== null && windowStep.state.right !== null) {
+              return `${windowStep.state.right - windowStep.state.left + 1} active lanes`;
+            }
+
+            return "Window waiting for first hit";
+          })()
       : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
   return (
@@ -385,116 +408,64 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
   );
 }
 
-function SortingStage({ run, stepIndex }: { run: SortingRun; stepIndex: number }) {
+function WindowStage({ run, stepIndex }: { run: WindowRun; stepIndex: number }) {
   const step = getRunStep(run, stepIndex);
-  const values = step.state.array;
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  const range = Math.max(1, maxValue - minValue);
-  const activeSet = new Set(step.state.activeIndices);
-  const swapSet = new Set(step.state.swapPair);
-  const sortedSet = new Set(step.state.sortedIndices);
+  const activeLeft = step.state.left;
+  const activeRight = step.state.right;
+  const bestStart = step.state.bestStart;
+  const bestEnd = step.state.bestEnd;
 
   return (
     <>
       <div className="visual-heading">
         <div>
           <p className="eyebrow">Live State</p>
-          <h2>{run.algorithm.name} lanes</h2>
+          <h2>{run.algorithm.name} sweep</h2>
         </div>
         <p className="visual-meta">Current phase: {step.phase}</p>
       </div>
-      <div className="sort-stage">
-        {values.map((value, index) => {
-          const classes = [
-            "sort-bar",
-            activeSet.has(index) ? "sort-bar-active" : "",
-            swapSet.has(index) ? "sort-bar-swap" : "",
-            sortedSet.has(index) ? "sort-bar-sorted" : ""
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          return (
-            <div className={classes} key={`${index}-${value}`}>
-              <span className="sort-bar-value">{value}</span>
-              <div
-                className="sort-bar-rod"
-                style={{ height: `${18 + ((value - minValue + 1) / (range + 1)) * 180}px` }}
-              />
-              <span className="sort-bar-index">{index}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mini-grid">
-        <div className="mini-card">
-          <span>Focused lanes</span>
-          <strong>
-            {step.state.activeIndices.length > 0 ? step.state.activeIndices.join(", ") : "None"}
-          </strong>
-        </div>
-        <div className="mini-card">
-          <span>Sorted lanes</span>
-          <strong>{step.state.sortedIndices.length}</strong>
-        </div>
-        <div className="mini-card">
-          <span>Replay mode</span>
-          <strong>Deterministic restore</strong>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: number }) {
-  const step = getRunStep(run, stepIndex);
-  const activeLow = step.state.low;
-  const activeHigh = step.state.high;
-  const eliminatedSet = new Set(step.state.eliminatedIndices);
-
-  return (
-    <>
-      <div className="visual-heading">
-        <div>
-          <p className="eyebrow">Live State</p>
-          <h2>{run.algorithm.name} interval</h2>
-        </div>
-        <p className="visual-meta">Current phase: {step.phase}</p>
-      </div>
-      <div className="search-stage">
-        <div className="search-interval-banner">
+      <div className="window-stage">
+        <div className="window-banner">
           <span>Target {step.state.target}</span>
           <strong>
-            {activeLow !== null && activeHigh !== null
-              ? `Search lanes ${activeLow} through ${activeHigh}`
-              : "Interval exhausted"}
+            {activeLeft !== null && activeRight !== null
+              ? `Active sum ${step.state.activeSum} across lanes ${activeLeft} through ${activeRight}`
+              : "Window collapsed between expansions"}
           </strong>
+          <p>
+            {bestStart !== null && bestEnd !== null && step.state.bestLength !== null
+              ? `Best hit: lanes ${bestStart} through ${bestEnd} at length ${step.state.bestLength}`
+              : "No qualifying window recorded yet"}
+          </p>
         </div>
-        <div className="search-grid">
+        <div className="window-grid">
           {step.state.array.map((value, index) => {
-            const isFound = step.state.foundIndex === index;
-            const isMid = step.state.mid === index;
-            const isEliminated = eliminatedSet.has(index);
             const isActive =
-              activeLow !== null &&
-              activeHigh !== null &&
-              index >= activeLow &&
-              index <= activeHigh;
+              activeLeft !== null &&
+              activeRight !== null &&
+              index >= activeLeft &&
+              index <= activeRight;
+            const isBest =
+              bestStart !== null &&
+              bestEnd !== null &&
+              index >= bestStart &&
+              index <= bestEnd;
+            const isLeftEdge = activeLeft === index;
+            const isRightEdge = activeRight === index;
             const className = [
-              "search-cell",
-              isActive ? "search-cell-active" : "",
-              isMid ? "search-cell-mid" : "",
-              isFound ? "search-cell-found" : "",
-              isEliminated ? "search-cell-eliminated" : ""
+              "window-cell",
+              isActive ? "window-cell-active" : "",
+              step.state.candidateSatisfied && isActive ? "window-cell-candidate" : "",
+              isBest ? "window-cell-best" : "",
+              isLeftEdge || isRightEdge ? "window-cell-edge" : ""
             ]
               .filter(Boolean)
               .join(" ");
 
             return (
               <div className={className} key={`${index}-${value}`}>
-                <span className="search-cell-index">{index}</span>
-                <strong className="search-cell-value">{value}</strong>
+                <span className="window-cell-index">{index}</span>
+                <strong className="window-cell-value">{value}</strong>
               </div>
             );
           })}
@@ -502,140 +473,20 @@ function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: number }) 
       </div>
       <div className="mini-grid">
         <div className="mini-card">
-          <span>Midpoint</span>
-          <strong>{step.state.mid !== null ? step.state.mid : "Waiting"}</strong>
-        </div>
-        <div className="mini-card">
-          <span>Active interval</span>
+          <span>Active window</span>
           <strong>
-            {activeLow !== null && activeHigh !== null
-              ? `${activeLow} to ${activeHigh}`
-              : "Exhausted"}
+            {activeLeft !== null && activeRight !== null
+              ? `${activeLeft} to ${activeRight}`
+              : "Collapsed"}
           </strong>
         </div>
         <div className="mini-card">
-          <span>Match state</span>
-          <strong>
-            {step.state.foundIndex !== null
-              ? `Lane ${step.state.foundIndex}`
-              : activeLow === null
-                ? "Not found"
-                : "Searching"}
-          </strong>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
-  const step = getRunStep(run, stepIndex);
-  const layout = graphLayout(run.input.nodes);
-  const settledSet = new Set(step.state.settled);
-  const frontierSet = new Set(step.state.frontier);
-  const pathPairs = new Set(
-    step.state.path.slice(0, -1).map((node, index) => `${node}->${step.state.path[index + 1]}`)
-  );
-  const activeEdgeKey =
-    step.state.activeEdge.length === 2
-      ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
-      : "";
-
-  return (
-    <>
-      <div className="visual-heading">
-        <div>
-          <p className="eyebrow">Live State</p>
-          <h2>{run.algorithm.name} network</h2>
-        </div>
-        <p className="visual-meta">Current phase: {step.phase}</p>
-      </div>
-      <div className="graph-stage">
-        <svg viewBox="0 0 360 300" role="img" aria-label="Weighted graph replay">
-          {run.input.edges.map(([from, to, weight]) => {
-            const start = layout[from]!;
-            const end = layout[to]!;
-            const classNames = [
-              "graph-edge",
-              activeEdgeKey === `${from}->${to}` || activeEdgeKey === `${to}->${from}`
-                ? "graph-edge-active"
-                : "",
-              pathPairs.has(`${from}->${to}`) || pathPairs.has(`${to}->${from}`)
-                ? "graph-edge-path"
-                : ""
-            ]
-              .filter(Boolean)
-              .join(" ");
-
-            return (
-              <g key={`${from}-${to}`}>
-                <line
-                  className={classNames}
-                  x1={start.x}
-                  y1={start.y}
-                  x2={end.x}
-                  y2={end.y}
-                />
-                <text
-                  className="graph-weight"
-                  x={(start.x + end.x) / 2}
-                  y={(start.y + end.y) / 2 - 8}
-                >
-                  {weight}
-                </text>
-              </g>
-            );
-          })}
-
-          {run.input.nodes.map((node) => {
-            const { x, y } = layout[node]!;
-            const distance = step.state.distances[node] ?? null;
-            const classNames = [
-              "graph-node",
-              step.state.current === node ? "graph-node-current" : "",
-              settledSet.has(node) ? "graph-node-settled" : "",
-              frontierSet.has(node) ? "graph-node-frontier" : "",
-              step.state.path.includes(node) ? "graph-node-path" : ""
-            ]
-              .filter(Boolean)
-              .join(" ");
-
-            return (
-              <g className={classNames} key={node}>
-                <circle cx={x} cy={y} r="26" />
-                <text className="graph-label" x={x} y={y - 2}>
-                  {node}
-                </text>
-                <text className="graph-distance" x={x} y={y + 16}>
-                  {formatDistance(distance)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      <div className="mini-grid">
-        <div className="mini-card">
-          <span>Frontier</span>
-          <div className="pill-row">
-            {step.state.frontier.length > 0 ? (
-              step.state.frontier.map((node) => (
-                <span className="pill" key={node}>
-                  {node}
-                </span>
-              ))
-            ) : (
-              <span className="empty-pill">Frontier empty</span>
-            )}
-          </div>
+          <span>Active sum</span>
+          <strong>{step.state.activeSum}</strong>
         </div>
         <div className="mini-card">
-          <span>Settled</span>
-          <strong>{step.state.settled.length}</strong>
-        </div>
-        <div className="mini-card">
-          <span>Route</span>
-          <strong>{step.state.path.length > 0 ? step.state.path.join(" -> ") : "Pending"}</strong>
+          <span>Best length</span>
+          <strong>{step.state.bestLength !== null ? step.state.bestLength : "Pending"}</strong>
         </div>
       </div>
     </>
@@ -655,11 +506,15 @@ function renderMetricCards(run: ReplayRun, stepIndex: number) {
 
 function renderSingleStage(run: ReplayRun, stepIndex: number) {
   if (isSortingRun(run)) {
-    return <SortingStage run={run} stepIndex={stepIndex} />;
+    return <SortingStage density="detailed" run={run} stepIndex={stepIndex} />;
   }
 
   if (isSearchRun(run)) {
     return <SearchStage run={run} stepIndex={stepIndex} />;
+  }
+
+  if (isWindowRun(run)) {
+    return <WindowStage run={run} stepIndex={stepIndex} />;
   }
 
   return <GraphStage run={run} stepIndex={stepIndex} />;
@@ -704,6 +559,50 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
           <div className="distance-row">
             <span>Match</span>
             <strong>{step.state.foundIndex !== null ? step.state.foundIndex : "None"}</strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.array.map((value, index) => (
+            <span className="number-pill" key={`${value}-${index}`}>
+              {index}:{value}
+            </span>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (isWindowRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Target</span>
+            <strong>{step.state.target}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Active sum</span>
+            <strong>{step.state.activeSum}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Window</span>
+            <strong>
+              {step.state.left !== null && step.state.right !== null
+                ? `${step.state.left} to ${step.state.right}`
+                : "Collapsed"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Best</span>
+            <strong>
+              {step.state.bestStart !== null &&
+              step.state.bestEnd !== null &&
+              step.state.bestLength !== null
+                ? `${step.state.bestStart}-${step.state.bestEnd} (${step.state.bestLength})`
+                : "None"}
+            </strong>
           </div>
         </div>
         <div className="number-grid">
@@ -852,7 +751,7 @@ function ComparisonWorkspace({
                 </span>
               </div>
               <p className="compare-stage-copy">{step.explanation.summary}</p>
-              <SortingStage run={run} stepIndex={stepIndex} />
+              <SortingStage density="compact" run={run} stepIndex={stepIndex} />
               <div className="comparison-metric-strip">{renderMetricCards(run, stepIndex)}</div>
               <div className="compare-pill-row">
                 {step.highlights.map((highlight) => (
