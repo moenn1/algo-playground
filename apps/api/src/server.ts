@@ -1,5 +1,9 @@
 import Fastify from "fastify";
 
+import { TraceDeckPersistenceStore } from "./persistence/store.js";
+import { registerInputPresetRoutes } from "./routes/input-presets.js";
+import { registerPersistenceRoutes } from "./routes/persistence.js";
+
 const foundationServices = [
   {
     name: "execution",
@@ -10,15 +14,26 @@ const foundationServices = [
     role: "Durable run storage, history retrieval, and comparison records"
   },
   {
+    name: "inputs",
+    role: "Scenario presets, seeded generators, and custom payload validation"
+  },
+  {
     name: "experience",
     role: "Replay controls, state inspection, and synchronized comparison UX"
   }
 ];
 
-export function buildServer() {
+export interface BuildServerOptions {
+  dataFile?: string;
+}
+
+export function buildServer(options: BuildServerOptions = {}) {
   const app = Fastify({
     logger: false
   });
+  const persistenceStore = new TraceDeckPersistenceStore(
+    options.dataFile ?? process.env.TRACEDECK_DATA_FILE
+  );
 
   app.get("/health", async () => ({
     status: "ok",
@@ -31,10 +46,14 @@ export function buildServer() {
     priorities: [
       "deterministic replay",
       "persisted traces",
+      "validated input presets",
       "stable comparison semantics"
     ],
     services: foundationServices
   }));
+
+  registerPersistenceRoutes(app, persistenceStore);
+  registerInputPresetRoutes(app);
 
   return app;
 }

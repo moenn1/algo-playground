@@ -124,7 +124,7 @@ export const TRACE_REPLAY_INVARIANTS: TraceReplayInvariants = {
   highlightEncoding: "structured-selectors"
 };
 
-function isSerializableJson(value: unknown): value is JsonValue {
+export function isSerializableJsonValue(value: unknown): value is JsonValue {
   if (value === null) {
     return true;
   }
@@ -138,7 +138,7 @@ function isSerializableJson(value: unknown): value is JsonValue {
   }
 
   if (Array.isArray(value)) {
-    return value.every((entry) => isSerializableJson(entry));
+    return value.every((entry) => isSerializableJsonValue(entry));
   }
 
   if (
@@ -147,7 +147,7 @@ function isSerializableJson(value: unknown): value is JsonValue {
     Object.getPrototypeOf(value) === Object.prototype
   ) {
     return Object.values(value as Record<string, unknown>).every((entry) =>
-      isSerializableJson(entry)
+      isSerializableJsonValue(entry)
     );
   }
 
@@ -158,7 +158,7 @@ export function assertSerializableJson(
   value: unknown,
   label: string
 ): asserts value is JsonValue {
-  if (!isSerializableJson(value)) {
+  if (!isSerializableJsonValue(value)) {
     throw new Error(`${label} must be JSON-serializable with finite numeric values.`);
   }
 }
@@ -169,12 +169,13 @@ export function canonicalizeJson<T extends JsonValue>(value: T): T {
   }
 
   if (value !== null && typeof value === "object") {
+    const objectValue = value as JsonObject;
     const canonicalObject: JsonObject = {};
 
-    Object.keys(value)
+    Object.keys(objectValue)
       .sort((left, right) => left.localeCompare(right))
       .forEach((key) => {
-        canonicalObject[key] = canonicalizeJson(value[key]);
+        canonicalObject[key] = canonicalizeJson(objectValue[key]!);
       });
 
     return canonicalObject as T;
@@ -242,7 +243,7 @@ function normalizeMetrics(
         throw new Error(`${label} references undeclared metric "${metricKey}".`);
       }
 
-      const value = metrics[metricKey];
+      const value = metrics[metricKey]!;
 
       if (!Number.isFinite(value)) {
         throw new Error(`${label} metric "${metricKey}" must use a finite numeric value.`);
@@ -271,15 +272,20 @@ function normalizeTraceChange(change: TraceChange, stepIndex: number, changeInde
     );
   }
 
-  return {
-    ...change,
-    previousValue:
-      change.previousValue === undefined
-        ? undefined
-        : canonicalizeJson(change.previousValue),
-    nextValue:
-      change.nextValue === undefined ? undefined : canonicalizeJson(change.nextValue)
+  const normalizedChange: TraceChange = {
+    path: change.path,
+    op: change.op
   };
+
+  if (change.previousValue !== undefined) {
+    normalizedChange.previousValue = canonicalizeJson(change.previousValue);
+  }
+
+  if (change.nextValue !== undefined) {
+    normalizedChange.nextValue = canonicalizeJson(change.nextValue);
+  }
+
+  return normalizedChange;
 }
 
 function normalizeTraceHighlight(
@@ -319,11 +325,22 @@ function normalizeTraceHighlight(
     );
   }
 
-  return {
-    ...highlight,
-    metadata:
-      highlight.metadata === undefined ? undefined : canonicalizeJson(highlight.metadata)
+  const normalizedHighlight: TraceHighlight = {
+    key: highlight.key,
+    path: highlight.path,
+    kind: highlight.kind,
+    intent: highlight.intent
   };
+
+  if (highlight.label !== undefined) {
+    normalizedHighlight.label = highlight.label;
+  }
+
+  if (highlight.metadata !== undefined) {
+    normalizedHighlight.metadata = canonicalizeJson(highlight.metadata);
+  }
+
+  return normalizedHighlight;
 }
 
 function normalizeTraceExplanation(
@@ -336,13 +353,22 @@ function normalizeTraceExplanation(
     assertNonEmptyString(explanation.details, `Trace step ${stepIndex} explanation details`);
   }
 
-  return {
-    ...explanation,
-    tags:
-      explanation.tags === undefined
-        ? undefined
-        : normalizeStringList(explanation.tags, `Trace step ${stepIndex} explanation tags`)
+  const normalizedExplanation: TraceExplanation = {
+    summary: explanation.summary
   };
+
+  if (explanation.details !== undefined) {
+    normalizedExplanation.details = explanation.details;
+  }
+
+  if (explanation.tags !== undefined) {
+    normalizedExplanation.tags = normalizeStringList(
+      explanation.tags,
+      `Trace step ${stepIndex} explanation tags`
+    );
+  }
+
+  return normalizedExplanation;
 }
 
 function normalizeTraceStep<State extends JsonObject>(
@@ -427,7 +453,7 @@ export function createTraceEnvelope<State extends JsonObject>(
   const steps = input.steps.map((step, expectedIndex) =>
     normalizeTraceStep(step, expectedIndex, metricKeys, seenStepKeys)
   );
-  const finalStep = steps[steps.length - 1];
+  const finalStep = steps[steps.length - 1]!;
   const missingComparisonMetric = comparisonMetricKeys.find(
     (metricKey) => finalStep.metrics[metricKey] === undefined
   );

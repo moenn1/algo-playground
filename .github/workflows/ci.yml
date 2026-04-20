@@ -64,6 +64,9 @@ jobs:
           NPM_CONFIG_FUND: "false"
         run: npm install
 
+      - name: Validate workspace links
+        run: npm run verify:workspaces
+
       - name: Lint
         run: npm run lint
 

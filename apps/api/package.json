@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "dev": "npm --prefix ../../packages/trace-core run build && tsx watch src/server.ts",
+    "build": "npm --prefix ../../packages/trace-core run build && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test": "vitest run test",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "npm --prefix ../../packages/trace-core run build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@tracedeck/trace-core": "0.1.0",
     "fastify": "^4.28.1"
   }
 }

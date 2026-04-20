@@ -1,10 +1,18 @@
 import {
+  buildSortingTrace,
+  type SortingAlgorithmId,
+  type SortingExecutionState
+} from "@tracedeck/execution-engine";
+import {
+  createTraceRecorder,
   createTraceEnvelope,
+  type JsonObject,
   type TraceEnvelope,
-  type TraceMetricDefinition
-} from "../../../packages/trace-core/src/schema";
+  type TraceMetricDefinition,
+  type TraceStep
+} from "@tracedeck/trace-core";
 
-export type AccentTone = "ember" | "teal";
+export type AccentTone = "ember" | "teal" | "gold";
 
 type ReplayAlgorithmBase = {
   id: string;
@@ -18,6 +26,7 @@ type ReplayAlgorithmBase = {
 };
 
 export type SortingAlgorithm = ReplayAlgorithmBase & {
+  id: SortingAlgorithmId;
   domain: "sorting";
 };
 
@@ -35,12 +44,7 @@ export type GraphInput = {
   directed: boolean;
 };
 
-export type SortingReplayState = {
-  array: number[];
-  activeIndices: number[];
-  swapPair: number[];
-  sortedIndices: number[];
-};
+export type SortingReplayState = SortingExecutionState;
 
 export type GraphReplayState = {
   distances: Record<string, number | null>;
@@ -67,38 +71,20 @@ export type GraphRun = {
 
 export type ReplayRun = SortingRun | GraphRun;
 
-type SortingMetrics = {
-  comparisons: number;
-  swaps: number;
-  passes: number;
-};
-
 type GraphMetrics = {
   settled: number;
   frontier: number;
   relaxations: number;
 };
 
-const sortingMetricDefinitions: TraceMetricDefinition[] = [
-  {
-    key: "comparisons",
-    label: "Comparisons",
-    unit: "count",
-    direction: "lower-is-better"
-  },
-  {
-    key: "swaps",
-    label: "Swaps",
-    unit: "count",
-    direction: "lower-is-better"
-  },
-  {
-    key: "passes",
-    label: "Passes",
-    unit: "count",
-    direction: "lower-is-better"
-  }
-];
+type DijkstraRuntimeState = {
+  distances: Record<string, number>;
+  settled: Set<string>;
+  frontier: Set<string>;
+  current: string | null;
+  activeEdge: string[];
+  path: string[];
+};
 
 const graphMetricDefinitions: TraceMetricDefinition[] = [
   {
@@ -198,7 +184,10 @@ function parseGraphInput(inputText: string): GraphInput {
   const nodes = Array.from(new Set(candidate.nodes.map((node) => String(node))));
   const edges = candidate.edges.map(normalizeEdge);
   const start = String(candidate.start);
-  const target = candidate.target === null || candidate.target === undefined ? null : String(candidate.target);
+  const target =
+    candidate.target === null || candidate.target === undefined
+      ? null
+      : String(candidate.target);
 
   if (!nodes.includes(start)) {
     throw new Error("The graph start node must exist in the nodes array.");
@@ -237,7 +226,44 @@ export const algorithms: ReplayAlgorithm[] = [
     name: "Bubble Sort",
     badge: "Sorting",
     accent: "ember",
-    description: "Adjacent swaps with explicit pass checkpoints and deterministic timeline scrubbing.",
+    description:
+      "Adjacent swaps with explicit pass checkpoints and deterministic timeline scrubbing.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
+    id: "selection-sort",
+    name: "Selection Sort",
+    badge: "Sorting",
+    accent: "gold",
+    description:
+      "Selection-driven passes expose how fewer swaps can still require broad scanning.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
+    id: "quick-sort",
+    name: "Quick Sort",
+    badge: "Sorting",
+    accent: "teal",
+    description:
+      "Partition-focused replay shows pivot locks, boundary scans, and deterministic recursive checkpoints.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
+    id: "merge-sort",
+    name: "Merge Sort",
+    badge: "Sorting",
+    accent: "ember",
+    description:
+      "Split-and-merge playback surfaces write-heavy merge windows and stable deterministic snapshots.",
     inputLabel: "Array Input",
     inputHint: "Comma-separated integers",
     defaultInput: "18, 7, 12, 3, 15, 4, 11",
@@ -248,7 +274,8 @@ export const algorithms: ReplayAlgorithm[] = [
     name: "Dijkstra",
     badge: "Graph",
     accent: "teal",
-    description: "Weighted shortest-path playback with visible frontier churn and route recovery.",
+    description:
+      "Weighted shortest-path playback with visible frontier churn and route recovery.",
     inputLabel: "Graph Input",
     inputHint: "JSON with nodes, edges, start, and target",
     defaultInput: JSON.stringify(
@@ -276,173 +303,83 @@ export const algorithms: ReplayAlgorithm[] = [
   }
 ];
 
-export function getAlgorithmById(algorithmId: string): ReplayAlgorithm {
-  return algorithms.find((algorithm) => algorithm.id === algorithmId) ?? algorithms[0];
+export const comparisonAlgorithms = algorithms.filter(
+  (algorithm): algorithm is SortingAlgorithm => algorithm.domain === "sorting"
+);
+
+const defaultAlgorithm = algorithms[0];
+const defaultComparisonAlgorithm = comparisonAlgorithms[0];
+
+if (!defaultAlgorithm || !defaultComparisonAlgorithm) {
+  throw new Error("TraceDeck requires seeded algorithms to build replay runs.");
 }
 
-function buildBubbleSortTrace(numbers: number[]): TraceEnvelope<SortingReplayState> {
-  const values = numbers.slice();
-  const steps: TraceEnvelope<SortingReplayState>["steps"] = [];
-  const metrics: SortingMetrics = {
-    comparisons: 0,
-    swaps: 0,
-    passes: 0
+const assuredDefaultAlgorithm = defaultAlgorithm;
+export function getAlgorithmById(algorithmId: string): ReplayAlgorithm {
+  return algorithms.find((algorithm) => algorithm.id === algorithmId) ?? assuredDefaultAlgorithm;
+}
+
+function cloneGraphState(state: GraphReplayState): GraphReplayState {
+  return {
+    distances: {
+      ...state.distances
+    },
+    settled: state.settled.slice(),
+    frontier: state.frontier.slice(),
+    current: state.current,
+    activeEdge: state.activeEdge.slice(),
+    path: state.path.slice()
   };
+}
 
-  function pushStep(
-    phase: string,
-    description: string,
-    state: SortingReplayState,
-    changedPaths: string[],
-    highlights: string[]
-  ) {
-    steps.push({
-      index: steps.length,
-      phase,
-      description,
-      changedPaths,
-      highlights,
-      metrics: {
-        comparisons: metrics.comparisons,
-        swaps: metrics.swaps,
-        passes: metrics.passes
-      },
-      state: {
-        array: state.array.slice(),
-        activeIndices: state.activeIndices.slice(),
-        swapPair: state.swapPair.slice(),
-        sortedIndices: state.sortedIndices.slice()
-      }
-    });
-  }
+function createGraphMetrics(metrics: GraphMetrics): Record<string, number> {
+  return {
+    settled: metrics.settled,
+    frontier: metrics.frontier,
+    relaxations: metrics.relaxations
+  };
+}
 
-  pushStep(
-    "Initialization",
-    "Replay begins from the seeded array snapshot. Every timeline jump restores directly from the recorded frame payload.",
-    {
-      array: values.slice(),
-      activeIndices: [],
-      swapPair: [],
-      sortedIndices: []
-    },
-    ["state.array"],
-    ["Loaded the editor input into the replay buffer.", "Prepared the first deterministic checkpoint."]
+function orderedFrontier(
+  frontier: ReadonlySet<string>,
+  distances: Record<string, number>
+): string[] {
+  return Array.from(frontier).sort(
+    (left, right) =>
+      (distances[left] ?? Number.POSITIVE_INFINITY) -
+        (distances[right] ?? Number.POSITIVE_INFINITY) || left.localeCompare(right)
   );
+}
 
-  for (let boundary = values.length - 1; boundary > 0; boundary -= 1) {
-    let swappedThisPass = false;
+function syncGraphMetrics(
+  metrics: GraphMetrics,
+  runtimeState: Pick<DijkstraRuntimeState, "frontier" | "settled">
+) {
+  metrics.frontier = runtimeState.frontier.size;
+  metrics.settled = runtimeState.settled.size;
+}
 
-    for (let index = 0; index < boundary; index += 1) {
-      metrics.comparisons += 1;
-      const activeIndices = [index, index + 1];
-      const sortedIndices = Array.from(
-        { length: values.length - boundary - 1 },
-        (_, offset) => values.length - 1 - offset
-      );
-
-      pushStep(
-        "Compare",
-        values[index] > values[index + 1]
-          ? `Values ${values[index]} and ${values[index + 1]} are out of order, so the shell schedules a swap.`
-          : `Values ${values[index]} and ${values[index + 1]} are already ordered, so replay advances without mutating the array.`,
-        {
-          array: values.slice(),
-          activeIndices,
-          swapPair: [],
-          sortedIndices
-        },
-        ["state.activeIndices", "metrics.comparisons"],
-        [
-          `Inspected indices ${index} and ${index + 1}.`,
-          values[index] > values[index + 1] ? "Swap path is active for this frame." : "No mutation is required for this frame."
-        ]
-      );
-
-      if (values[index] > values[index + 1]) {
-        [values[index], values[index + 1]] = [values[index + 1], values[index]];
-        metrics.swaps += 1;
-        swappedThisPass = true;
-
-        pushStep(
-          "Swap",
-          "The post-swap snapshot is recorded immediately so scrubbing to this frame never depends on incremental playback.",
-          {
-            array: values.slice(),
-            activeIndices,
-            swapPair: activeIndices,
-            sortedIndices
-          },
-          ["state.array", "metrics.swaps"],
-          [`Swapped indices ${index} and ${index + 1}.`, "Updated the lane ordering and swap counter."]
-        );
-      }
-    }
-
-    metrics.passes += 1;
-    const sortedIndices = Array.from(
-      { length: values.length - boundary },
-      (_, offset) => values.length - 1 - offset
-    );
-
-    pushStep(
-      "Checkpoint",
-      `Pass ${metrics.passes} seals lane ${boundary}. Timeline jumps can land here without replaying earlier comparisons.`,
-      {
-        array: values.slice(),
-        activeIndices: [boundary],
-        swapPair: [],
-        sortedIndices
-      },
-      ["state.sortedIndices", "metrics.passes"],
-      [`Pass ${metrics.passes} is now locked.`, "Published a deterministic checkpoint for the scrubber."]
-    );
-
-    if (!swappedThisPass) {
-      pushStep(
-        "Optimization",
-        "No swaps occurred in the latest pass, so the shell exits early with the array already sorted.",
-        {
-          array: values.slice(),
-          activeIndices: [],
-          swapPair: [],
-          sortedIndices: Array.from({ length: values.length }, (_, index) => index)
-        },
-        ["state.sortedIndices"],
-        ["Detected a stable pass.", "Closed the run without additional comparisons."]
-      );
-      break;
-    }
-  }
-
-  pushStep(
-    "Done",
-    "The final checkpoint marks the array as fully sorted and ready for comparison or saved-run handoff.",
-    {
-      array: values.slice(),
-      activeIndices: [],
-      swapPair: [],
-      sortedIndices: Array.from({ length: values.length }, (_, index) => index)
+function createGraphRecorder(graph: GraphInput) {
+  return createTraceRecorder<DijkstraRuntimeState, GraphReplayState, GraphMetrics>({
+    algorithmId: "dijkstra",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        distances: serializeDistances(graph.nodes, runtimeState.distances),
+        settled: Array.from(runtimeState.settled),
+        frontier: orderedFrontier(runtimeState.frontier, runtimeState.distances),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        path: runtimeState.path.slice()
+      });
     },
-    ["state.sortedIndices"],
-    ["Marked every lane as sorted.", "Published final metrics to the inspector cards."]
-  );
-
-  return createTraceEnvelope({
-    algorithm: {
-      id: "bubble-sort",
-      label: "Bubble Sort",
-      domain: "sorting",
-      implementationVersion: "seeded-local-0.1.0"
-    },
-    input: numbers,
-    steps,
-    metricDefinitions: sortingMetricDefinitions,
-    comparisonMetricKeys: ["comparisons", "swaps", "passes"]
+    projectMetrics: createGraphMetrics
   });
 }
 
 function buildAdjacency(graph: GraphInput): Map<string, Array<{ to: string; weight: number }>> {
-  const adjacency = new Map(graph.nodes.map((node) => [node, [] as Array<{ to: string; weight: number }>]));
+  const adjacency = new Map(
+    graph.nodes.map((node) => [node, [] as Array<{ to: string; weight: number }>])
+  );
 
   for (const [from, to, weight] of graph.edges) {
     adjacency.get(from)?.push({ to, weight });
@@ -459,8 +396,11 @@ function serializeDistances(
   distances: Record<string, number>
 ): Record<string, number | null> {
   return Object.fromEntries(
-    nodes.map((node) => [node, Number.isFinite(distances[node]) ? distances[node] : null])
-  );
+    nodes.map((node) => {
+      const distance = distances[node];
+      return [node, Number.isFinite(distance) ? distance : null];
+    })
+  ) as Record<string, number | null>;
 }
 
 function reconstructPath(
@@ -484,10 +424,11 @@ function reconstructPath(
   let cursor = target;
 
   while (cursor !== start) {
-    cursor = previousByNode[cursor];
-    if (!cursor) {
+    const previousNode = previousByNode[cursor];
+    if (!previousNode) {
       return [];
     }
+    cursor = previousNode;
     path.unshift(cursor);
   }
 
@@ -502,7 +443,7 @@ function buildDijkstraTrace(graph: GraphInput): TraceEnvelope<GraphReplayState> 
   const previousByNode: Record<string, string> = {};
   const frontier = new Set<string>([graph.start]);
   const settled = new Set<string>();
-  const steps: TraceEnvelope<GraphReplayState>["steps"] = [];
+  const recorder = createGraphRecorder(graph);
   const metrics: GraphMetrics = {
     settled: 0,
     frontier: 1,
@@ -510,70 +451,77 @@ function buildDijkstraTrace(graph: GraphInput): TraceEnvelope<GraphReplayState> 
   };
 
   distances[graph.start] = 0;
+  syncGraphMetrics(metrics, {
+    frontier,
+    settled
+  });
 
-  function orderedFrontier(): string[] {
-    return Array.from(frontier).sort(
-      (left, right) => distances[left] - distances[right] || left.localeCompare(right)
-    );
-  }
-
-  function pushStep(
-    phase: string,
-    description: string,
-    current: string | null,
-    activeEdge: string[],
-    path: string[],
-    changedPaths: string[],
-    highlights: string[]
-  ) {
-    metrics.frontier = frontier.size;
-    metrics.settled = settled.size;
-
-    steps.push({
-      index: steps.length,
-      phase,
-      description,
-      changedPaths,
-      highlights,
-      metrics: {
-        settled: metrics.settled,
-        frontier: metrics.frontier,
-        relaxations: metrics.relaxations
-      },
-      state: {
-        distances: serializeDistances(graph.nodes, distances),
-        settled: Array.from(settled),
-        frontier: orderedFrontier(),
-        current,
-        activeEdge: activeEdge.slice(),
-        path: path.slice()
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The graph replay starts with the source node in the frontier and every other distance unresolved.",
+    explanation: {
+      summary: "Seed the frontier with the source node and initialize every other distance to infinity.",
+      details:
+        "This first checkpoint gives the replay shell a full distance table before any edge inspections happen.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: {
+      distances,
+      settled,
+      frontier,
+      current: graph.start,
+      activeEdge: [],
+      path: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "dijkstra-start-node",
+        path: `state.distances.${graph.start}`,
+        kind: "node",
+        intent: "focus",
+        label: `Source node ${graph.start}`
       }
-    });
-  }
-
-  pushStep(
-    "Initialization",
-    "The graph replay starts with the source node in the frontier and every other distance unresolved.",
-    graph.start,
-    [],
-    [],
-    ["state.frontier", "state.distances"],
-    ["Initialized the frontier with the source node.", "Captured the baseline distance table."]
-  );
+    ]
+  });
 
   while (frontier.size > 0) {
-    const current = orderedFrontier()[0]!;
+    const current = orderedFrontier(frontier, distances)[0]!;
     frontier.delete(current);
+    syncGraphMetrics(metrics, {
+      frontier,
+      settled
+    });
 
-    pushStep(
-      "Extract",
-      `Node ${current} has the smallest tentative distance and becomes the active focus.`,
-      current,
-      [],
-      reconstructPath(previousByNode, graph.start, current),
-      ["state.current", "state.frontier"],
-      [`Removed ${current} from the frontier.`, "Pinned the active node for inspection."]
-    );
+    recorder.push({
+      phase: "Extract",
+      description: `Node ${current} has the smallest tentative distance and becomes the active focus.`,
+      explanation: {
+        summary: "Extract the lightest frontier node as the next relaxation source.",
+        details:
+          "Dijkstra always expands the frontier node with the smallest tentative distance.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: {
+        distances,
+        settled,
+        frontier,
+        current,
+        activeEdge: [],
+        path: reconstructPath(previousByNode, graph.start, current)
+      },
+      metrics,
+      highlights: [
+        {
+          key: `dijkstra-current-${current}`,
+          path: `state.distances.${current}`,
+          kind: "node",
+          intent: "active",
+          label: `Expand node ${current}`
+        }
+      ]
+    });
 
     for (const edge of adjacency.get(current) ?? []) {
       if (settled.has(edge.to)) {
@@ -581,8 +529,10 @@ function buildDijkstraTrace(graph: GraphInput): TraceEnvelope<GraphReplayState> 
       }
 
       metrics.relaxations += 1;
-      const candidateDistance = distances[current] + edge.weight;
-      const hasImproved = candidateDistance < distances[edge.to];
+      const currentDistance = distances[current] ?? Number.POSITIVE_INFINITY;
+      const previousDistance = distances[edge.to] ?? Number.POSITIVE_INFINITY;
+      const candidateDistance = currentDistance + edge.weight;
+      const hasImproved = candidateDistance < previousDistance;
 
       if (hasImproved) {
         distances[edge.to] = candidateDistance;
@@ -590,65 +540,145 @@ function buildDijkstraTrace(graph: GraphInput): TraceEnvelope<GraphReplayState> 
         frontier.add(edge.to);
       }
 
-      pushStep(
-        hasImproved ? "Relax" : "Inspect",
-        hasImproved
+      syncGraphMetrics(metrics, {
+        frontier,
+        settled
+      });
+
+      recorder.push({
+        phase: hasImproved ? "Relax" : "Inspect",
+        description: hasImproved
           ? `Distance to ${edge.to} improves to ${candidateDistance}; the node is promoted into the frontier.`
           : `The candidate distance ${candidateDistance} does not beat the current best route to ${edge.to}.`,
-        current,
-        [current, edge.to],
-        reconstructPath(previousByNode, graph.start, hasImproved ? edge.to : current),
-        hasImproved
-          ? ["state.distances", "state.frontier", "metrics.relaxations"]
-          : ["metrics.relaxations"],
-        [
-          `Traversed edge ${current} -> ${edge.to} with weight ${edge.weight}.`,
-          hasImproved
-            ? `Updated ${edge.to} to ${candidateDistance}.`
-            : `Kept ${edge.to} at ${formatDistanceValue(serializeDistances(graph.nodes, distances)[edge.to])}.`
+        explanation: {
+          summary: hasImproved
+            ? "Record an improved route and push the target node into the frontier."
+            : "Inspect the edge without changing the best-known route.",
+          details: hasImproved
+            ? `The path through ${current} is shorter than the previous route to ${edge.to}.`
+            : `The best-known route to ${edge.to} remains ${formatDistanceValue(
+                Number.isFinite(previousDistance) ? previousDistance : null
+              )}.`,
+          tags: ["edge", hasImproved ? "candidate" : "focus"]
+        },
+        runtimeState: {
+          distances,
+          settled,
+          frontier,
+          current,
+          activeEdge: [current, edge.to],
+          path: reconstructPath(previousByNode, graph.start, hasImproved ? edge.to : current)
+        },
+        metrics,
+        highlights: [
+          {
+            key: `dijkstra-edge-${current}-${edge.to}-${metrics.relaxations}`,
+            path: "state.activeEdge",
+            kind: "edge",
+            intent: hasImproved ? "candidate" : "focus",
+            label: `${current} -> ${edge.to} (${edge.weight})`
+          }
         ]
-      );
+      });
     }
 
     settled.add(current);
+    syncGraphMetrics(metrics, {
+      frontier,
+      settled
+    });
 
-    pushStep(
-      "Checkpoint",
-      `Node ${current} is now final. The scrubber can jump here without replaying frontier decisions.`,
-      current,
-      [],
-      reconstructPath(previousByNode, graph.start, current),
-      ["state.settled"],
-      [`Locked ${current} into the settled set.`, "Published the latest frontier and distance snapshot."]
-    );
+    recorder.push({
+      phase: "Checkpoint",
+      description:
+        `Node ${current} is now final. The scrubber can jump here without replaying frontier decisions.`,
+      explanation: {
+        summary: "Seal the current node into the settled set.",
+        details:
+          "Once settled, the node's shortest-path distance is final for the rest of the run.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: {
+        distances,
+        settled,
+        frontier,
+        current,
+        activeEdge: [],
+        path: reconstructPath(previousByNode, graph.start, current)
+      },
+      metrics,
+      highlights: [
+        {
+          key: `dijkstra-settled-${current}`,
+          path: "state.settled",
+          kind: "node",
+          intent: "visited",
+          label: `Settled ${current}`
+        }
+      ]
+    });
   }
 
   const finalPath = reconstructPath(previousByNode, graph.start, graph.target);
+  syncGraphMetrics(metrics, {
+    frontier,
+    settled
+  });
 
-  pushStep(
-    finalPath.length > 0 ? "Resolution" : "No Route",
-    finalPath.length > 0
-      ? `Recovered the shortest path ${finalPath.join(" -> ")}.`
-      : `No route reaches ${graph.target ?? "the requested target"}; the replay ends with the best-known frontier exhausted.`,
-    graph.target,
-    [],
-    finalPath,
-    ["state.path"],
-    [
-      finalPath.length > 0 ? "Highlighted the recovered shortest path." : "Left the path overlay empty.",
-      "Published the terminal route summary."
+  recorder.push({
+    phase: finalPath.length > 0 ? "Resolution" : "No Route",
+    description:
+      finalPath.length > 0
+        ? `Recovered the shortest path ${finalPath.join(" -> ")}.`
+        : `No route reaches ${graph.target ?? "the requested target"}; the replay ends with the best-known frontier exhausted.`,
+    explanation: {
+      summary:
+        finalPath.length > 0
+          ? "Publish the final shortest path for side-panel inspection."
+          : "Publish the exhausted search state with no route to the requested target.",
+      details:
+        finalPath.length > 0
+          ? "The route overlay is now stable because every required predecessor is already final."
+          : "The shell still records the terminal frontier state so saved runs can restore the failed search directly.",
+      tags: ["result", "path"]
+    },
+    runtimeState: {
+      distances,
+      settled,
+      frontier,
+      current: graph.target,
+      activeEdge: [],
+      path: finalPath
+    },
+    metrics,
+    highlights: [
+      {
+        key: "dijkstra-final-path",
+        path: "state.path",
+        kind: "path",
+        intent: "result",
+        label:
+          finalPath.length > 0 ? `Shortest path ${finalPath.join(" -> ")}` : "No route recovered"
+      }
+    ],
+    additionalChanges: [
+      {
+        path: "state.path",
+        op: "set",
+        nextValue: finalPath
+      }
     ]
-  );
+  });
 
   return createTraceEnvelope({
     algorithm: {
       id: "dijkstra",
       label: "Dijkstra",
       domain: "graph",
-      implementationVersion: "seeded-local-0.1.0"
+      implementationVersion: "seeded-local-0.2.0"
     },
     input: graph,
-    steps,
+    steps: recorder.getSteps(),
     metricDefinitions: graphMetricDefinitions,
     comparisonMetricKeys: ["settled", "relaxations"]
   });
@@ -662,24 +692,63 @@ export function formatDistance(distance: number | null): string {
   return formatDistanceValue(distance);
 }
 
+function buildSortingRunFromValues(
+  algorithm: SortingAlgorithm,
+  values: number[],
+  normalizedInputText = serializeSortingInput(values)
+): SortingRun {
+  return {
+    algorithm,
+    input: values.slice(),
+    normalizedInputText,
+    trace: buildSortingTrace(algorithm.id, values)
+  };
+}
+
+function buildGraphRunFromInput(
+  algorithm: GraphAlgorithm,
+  graph: GraphInput,
+  normalizedInputText = serializeGraphInput(graph)
+): GraphRun {
+  return {
+    algorithm,
+    input: graph,
+    normalizedInputText,
+    trace: buildDijkstraTrace(graph)
+  };
+}
+
+export function buildComparisonRuns(inputText: string): SortingRun[] {
+  const input = parseSortingInput(inputText);
+  const normalizedInputText = serializeSortingInput(input);
+
+  return comparisonAlgorithms.map((algorithm) =>
+    buildSortingRunFromValues(algorithm, input, normalizedInputText)
+  );
+}
+
 export function buildRun(algorithmId: string, inputText: string): ReplayRun {
   const algorithm = getAlgorithmById(algorithmId);
 
   if (algorithm.domain === "sorting") {
     const input = parseSortingInput(inputText);
-    return {
-      algorithm,
-      input,
-      normalizedInputText: serializeSortingInput(input),
-      trace: buildBubbleSortTrace(input)
-    };
+    return buildSortingRunFromValues(algorithm, input);
   }
 
   const input = parseGraphInput(inputText);
-  return {
-    algorithm,
-    input,
-    normalizedInputText: serializeGraphInput(input),
-    trace: buildDijkstraTrace(input)
-  };
+  return buildGraphRunFromInput(algorithm, input);
+}
+
+export function describeInputFootprint(run: ReplayRun): string {
+  if (Array.isArray(run.input)) {
+    return `${run.input.length} lanes`;
+  }
+
+  return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
+}
+
+export function getTraceStepPaths<State extends JsonObject>(
+  step: TraceStep<State> | TraceStep
+): string[] {
+  return Array.from(new Set(step.changes.map((change) => change.path)));
 }

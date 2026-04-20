@@ -5,7 +5,7 @@
 TraceDeck runs a single GitHub Actions workflow on pull requests and on pushes to `main`, `feature/*`, and `fix/*` branches.
 
 - `Docs Guard` resolves the diff range first and blocks merges when implementation or workflow changes land without both `CHANGELOG.md` and a repository-facing doc update in `README.md` or `docs/`.
-- `Build Verification` installs workspace dependencies and runs `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build`.
+- `Build Verification` installs workspace dependencies, validates internal workspace links with `npm run verify:workspaces`, and then runs `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build`.
 
 The workflow lives in `.github/workflows/ci.yml` and uses `.nvmrc` to keep the GitHub Actions Node version aligned with local development.
 
@@ -22,6 +22,20 @@ You can also validate explicit file lists when you only need to check a targeted
 ```bash
 node scripts/check-docs.mjs --file .github/workflows/ci.yml --file docs/ci-cd.md --file CHANGELOG.md
 ```
+
+## Local workspace integrity guard
+
+Run the workspace guard after `npm install` when you need to confirm that internal TraceDeck packages are linked correctly:
+
+```bash
+npm run verify:workspaces
+```
+
+The guard fails when:
+
+- a workspace package is declared but missing from the root workspace map
+- `package-lock.json` does not record the workspace link metadata
+- `node_modules/@tracedeck/*` does not point at the expected local workspace directory
 
 ## Enforcement scope
 

@@ -11,6 +11,7 @@
   --teal: #58d0c8;
   --teal-soft: rgba(88, 208, 200, 0.18);
   --gold: #f5c978;
+  --gold-soft: rgba(245, 201, 120, 0.16);
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
   color-scheme: dark;
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
@@ -62,7 +63,7 @@ button {
 .shell {
   position: relative;
   z-index: 1;
-  width: min(1440px, calc(100vw - 32px));
+  width: min(1480px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0 48px;
 }
@@ -93,12 +94,12 @@ button {
 
 .hero-band h1 {
   max-width: 16ch;
-  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  font-size: clamp(2.4rem, 5vw, 4.4rem);
   line-height: 0.94;
 }
 
 .hero-copy {
-  max-width: 58ch;
+  max-width: 60ch;
   margin: 0;
   color: var(--muted);
   font-size: 1rem;
@@ -107,7 +108,13 @@ button {
 
 .hero-status {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .workspace-grid {
@@ -139,7 +146,9 @@ button {
 }
 
 .panel-heading,
-.visual-heading {
+.visual-heading,
+.compare-stage-header,
+.trend-card-header {
   display: flex;
   justify-content: space-between;
   align-items: start;
@@ -154,7 +163,10 @@ button {
 .checkpoint span,
 .algorithm-card p,
 .note-banner,
-.error-banner {
+.error-banner,
+.compare-stage-copy,
+.metric-caption,
+.trend-card-header span {
   color: var(--muted);
 }
 
@@ -232,6 +244,10 @@ button {
   background: linear-gradient(180deg, rgba(255, 142, 85, 0.13), rgba(255, 255, 255, 0.04));
 }
 
+.algorithm-card-static:hover {
+  transform: none;
+}
+
 .algorithm-badge {
   width: fit-content;
   padding: 6px 10px;
@@ -250,6 +266,11 @@ button {
 .algorithm-badge-teal {
   background: var(--teal-soft);
   color: #abf7f1;
+}
+
+.algorithm-badge-gold {
+  background: var(--gold-soft);
+  color: #ffe9b7;
 }
 
 .input-label {
@@ -290,7 +311,11 @@ button {
 .transport-button,
 .segmented,
 .checkpoint {
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
 }
 
 .launch-button {
@@ -309,13 +334,14 @@ button {
 .stage-panel,
 .transport-panel,
 .timeline-panel,
-.summary-panel {
+.summary-panel,
+.compare-panel {
   padding: 22px;
 }
 
 .stage-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px);
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
   gap: 18px;
 }
 
@@ -457,24 +483,42 @@ button {
 .mini-grid,
 .metric-grid,
 .distance-grid,
-.summary-grid {
+.summary-grid,
+.compare-summary-grid,
+.compare-metric-grid,
+.compare-trend-grid {
   display: grid;
   gap: 12px;
 }
 
-.mini-grid {
+.mini-grid,
+.summary-grid,
+.compare-summary-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.summary-grid {
+.metric-grid,
+.compare-metric-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compare-trend-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compare-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .mini-card,
 .metric-card,
 .state-panel,
 .inspector-panel,
-.summary-card {
+.summary-card,
+.compare-stage-card,
+.trend-card {
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.03);
@@ -482,8 +526,27 @@ button {
 
 .mini-card,
 .metric-card,
-.summary-card {
+.summary-card,
+.trend-card {
   padding: 14px 16px;
+}
+
+.compare-stage-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.compare-stage-card.accent-ember {
+  border-color: rgba(255, 142, 85, 0.34);
+}
+
+.compare-stage-card.accent-teal {
+  border-color: rgba(88, 208, 200, 0.34);
+}
+
+.compare-stage-card.accent-gold {
+  border-color: rgba(245, 201, 120, 0.34);
 }
 
 .mini-card span,
@@ -497,12 +560,21 @@ button {
 
 .mini-card strong,
 .metric-card strong,
-.metric-inline strong {
+.metric-inline strong,
+.trend-card strong {
   font-size: 1.02rem;
 }
 
+.metric-caption {
+  margin: 8px 0 0;
+  font-size: 0.84rem;
+}
+
 .pill-row,
-.number-grid {
+.number-grid,
+.tag-row,
+.compare-pill-row,
+.compare-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -546,9 +618,8 @@ button {
   line-height: 1.55;
 }
 
-.metric-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 18px;
+.tag-row {
+  margin-bottom: 4px;
 }
 
 .distance-grid {
@@ -610,6 +681,7 @@ button {
 .timeline-labels {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   margin-top: 8px;
   font-size: 0.84rem;
 }
@@ -639,10 +711,101 @@ button {
   font-size: 0.8rem;
 }
 
+.comparison-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compare-stage-copy {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.trend-card {
+  display: grid;
+  gap: 14px;
+}
+
+.trend-card-header strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.trend-chart {
+  width: 100%;
+  height: auto;
+}
+
+.trend-baseline {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+}
+
+.trend-line {
+  fill: none;
+  stroke-width: 3;
+}
+
+.trend-line.accent-ember,
+.trend-marker.accent-ember,
+.legend-swatch.accent-ember {
+  color: var(--ember);
+  stroke: var(--ember);
+  fill: var(--ember);
+  background: var(--ember);
+}
+
+.trend-line.accent-teal,
+.trend-marker.accent-teal,
+.legend-swatch.accent-teal {
+  color: var(--teal);
+  stroke: var(--teal);
+  fill: var(--teal);
+  background: var(--teal);
+}
+
+.trend-line.accent-gold,
+.trend-marker.accent-gold,
+.legend-swatch.accent-gold {
+  color: var(--gold);
+  stroke: var(--gold);
+  fill: var(--gold);
+  background: var(--gold);
+}
+
+.compare-legend {
+  gap: 12px;
+}
+
+.compare-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+@media (max-width: 1280px) {
+  .compare-stage-grid,
+  .compare-trend-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1180px) {
   .workspace-grid,
   .stage-layout,
-  .summary-grid {
+  .summary-grid,
+  .compare-summary-grid,
+  .compare-metric-grid {
     grid-template-columns: 1fr;
   }
 
@@ -662,14 +825,23 @@ button {
   .stage-panel,
   .transport-panel,
   .timeline-panel,
-  .summary-panel {
+  .summary-panel,
+  .compare-panel {
     padding: 18px;
     border-radius: 24px;
   }
 
+  .panel-heading,
+  .visual-heading,
+  .compare-stage-header,
+  .trend-card-header {
+    flex-direction: column;
+  }
+
   .mini-grid,
   .metric-grid,
-  .distance-grid {
+  .distance-grid,
+  .comparison-metric-strip {
     grid-template-columns: 1fr;
   }
 
@@ -683,6 +855,10 @@ button {
   }
 
   .checkpoint {
+    min-width: 100%;
+  }
+
+  .metric-inline {
     min-width: 100%;
   }
 }

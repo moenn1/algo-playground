@@ -225,6 +225,55 @@ describe("createTraceEnvelope", () => {
       })
     ).toThrow('Final step metrics must include comparison metric "swaps".');
   });
+
+  it("rejects duplicate step keys and duplicate highlight keys", () => {
+    expect(() =>
+      createTraceEnvelope({
+        algorithm: {
+          id: "bubble-sort",
+          label: "Bubble Sort",
+          domain: "sorting",
+          implementationVersion: "0.1.0"
+        },
+        input: [5, 1, 3],
+        steps: [
+          steps[0],
+          {
+            ...steps[1],
+            key: "start"
+          }
+        ],
+        metricDefinitions,
+        comparisonMetricKeys: ["comparisons"]
+      })
+    ).toThrow('Trace steps must not reuse the key "start".');
+
+    expect(() =>
+      createTraceEnvelope({
+        algorithm: {
+          id: "bubble-sort",
+          label: "Bubble Sort",
+          domain: "sorting",
+          implementationVersion: "0.1.0"
+        },
+        input: [5, 1, 3],
+        steps: [
+          {
+            ...steps[0],
+            highlights: [
+              steps[0].highlights[0],
+              {
+                ...steps[0].highlights[0],
+                path: "pointers.right"
+              }
+            ]
+          }
+        ],
+        metricDefinitions,
+        comparisonMetricKeys: ["comparisons"]
+      })
+    ).toThrow('Trace step 0 must not repeat the highlight key "cursor-left".');
+  });
 });
 
 describe("JSON canonicalization helpers", () => {
@@ -257,5 +306,50 @@ describe("JSON canonicalization helpers", () => {
         }
       })
     ).toBe('{"alpha":{"delta":4,"gamma":3},"beta":2}');
+  });
+
+  it("canonicalizes change payloads and highlight metadata", () => {
+    const trace = createTraceEnvelope({
+      algorithm: {
+        id: "bubble-sort",
+        label: "Bubble Sort",
+        domain: "sorting",
+        implementationVersion: "0.1.0"
+      },
+      input: [5, 1, 3],
+      steps: [
+        {
+          ...steps[0],
+          changes: [
+            {
+              path: "pointers",
+              op: "set",
+              nextValue: {
+                right: 1,
+                left: 0
+              }
+            }
+          ],
+          highlights: [
+            {
+              ...steps[0].highlights[0],
+              metadata: {
+                zebra: 2,
+                alpha: 1
+              }
+            }
+          ]
+        }
+      ],
+      metricDefinitions,
+      comparisonMetricKeys: ["comparisons"]
+    });
+
+    expect(
+      Object.keys(trace.steps[0].changes[0].nextValue as Record<string, unknown>)
+    ).toEqual(["left", "right"]);
+    expect(
+      Object.keys(trace.steps[0].highlights[0].metadata as Record<string, unknown>)
+    ).toEqual(["alpha", "zebra"]);
   });
 });
