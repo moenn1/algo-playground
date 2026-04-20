@@ -1,0 +1,35 @@
+{
+  "name": "tracedeck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm run dev --workspace @tracedeck/web",
+    "dev:api": "npm run dev --workspace @tracedeck/api",
+    "build": "npm run build --workspace @tracedeck/trace-core && npm run build --workspace @tracedeck/api && npm run build --workspace @tracedeck/web",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspace @tracedeck/trace-core && npm run typecheck --workspace @tracedeck/api && npm run typecheck --workspace @tracedeck/web",
+    "test": "npm run test --workspace @tracedeck/trace-core && npm run test --workspace @tracedeck/api && npm run test --workspace @tracedeck/web",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "smoke": "npm run check && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.15.0",
+    "globals": "^15.12.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.13.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}
