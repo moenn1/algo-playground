@@ -2,6 +2,7 @@
 
 ## 2026-04-20
 
+- Added an install-free `preflight` verification path plus a dedicated testing-strategy document for contract, API, and replay coverage.
 - Added a local quality-baseline document covering verification layers, dependency hygiene, determinism expectations, and secure defaults.
 - Added focused root scripts for trace-contract verification and explicit engine requirements for supported Node.js and npm versions.
 - Changed the API default listen host to `127.0.0.1` and added tests for the secure local default plus explicit overrides.

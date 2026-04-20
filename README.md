@@ -52,12 +52,14 @@ The web app runs on `http://localhost:5173` and proxies `/api` to the local API 
 - `docs/trace-contract.md` defines the replay and comparison contract semantics.
 - `docs/roadmap.md` captures milestone sequencing, benchmark suites, and extensibility gates.
 - `docs/quality-baseline.md` defines local verification layers, dependency hygiene, and secure defaults.
+- `docs/testing-strategy.md` maps the contract, API, and replay testing layers plus determinism checks.
 - `docs/contribution-standards.md` sets implementation, testing, and documentation expectations.
 - `docs/diagrams.md` contains mermaid diagrams for system boundaries and trace flow.
 
 ## Verification
 
 ```bash
+npm run preflight
 npm run check
 npm run smoke
 ```

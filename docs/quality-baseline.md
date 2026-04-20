@@ -8,6 +8,7 @@ This document defines the local quality baseline for TraceDeck before broader CI
 
 ### Workspace Health
 
+- `npm run preflight` performs install-free structural checks on critical source files, required docs, and root package policy.
 - `npm run lint` validates the shared TypeScript and JavaScript surface.
 - `npm run typecheck` verifies the API, web, and trace-contract workspaces together.
 - `npm run build` ensures the API, web, and shared contract compile as production artifacts.
@@ -21,6 +22,7 @@ This document defines the local quality baseline for TraceDeck before broader CI
 
 ### Full Smoke Pass
 
+- `npm run preflight` is the fastest repo-level guardrail when npm dependencies are unavailable or not installed yet.
 - `npm run smoke` remains the local pre-push gate for a full lint, typecheck, test, and build pass.
 
 ## Determinism Expectations

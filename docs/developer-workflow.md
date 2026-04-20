@@ -36,6 +36,12 @@ The web app proxies `/api/*` requests to the local API on port `4000`.
 
 ## Verification
 
+Run the install-free preflight first when you want a fast structural check:
+
+```bash
+npm run preflight
+```
+
 Run the full local smoke check:
 
 ```bash
@@ -53,6 +59,7 @@ npm run build
 ```
 
 `npm run verify:contracts` is the focused gate for trace-contract and determinism-sensitive changes.
+`npm run preflight` checks critical source syntax, required docs, and root package policy before dependency-backed validation begins.
 
 ## Package Conventions
 
@@ -67,3 +74,4 @@ npm run build
 - Keep `CHANGELOG.md` aligned with each reviewable change set.
 - Use the docs in this repo as the product and contributor entrypoint rather than relying on source discovery alone.
 - Keep `docs/quality-baseline.md` aligned with any change to local verification scripts, dependency policy, or secure defaults.
+- Keep `docs/testing-strategy.md` aligned with new test layers, deterministic fixture policy, or replay-validation expectations.
