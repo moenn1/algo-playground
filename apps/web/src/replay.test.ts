@@ -10,6 +10,7 @@ import {
   getTraceStepPaths,
   type DynamicProgrammingRun,
   type SearchRun,
+  type StackRun,
   type SortingRun,
   type WindowRun
 } from "./replay.js";
@@ -178,6 +179,32 @@ describe("buildRun", () => {
     expect(finalStep.state.resultLength).toBe(4);
     expect(finalStep.state.resultSequence).toBe("MJAU");
     expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.resultSequence");
+  });
+
+  it("builds stack replay runs from the shared stack engine", () => {
+    const run = buildRun(
+      "valid-parentheses",
+      JSON.stringify(
+        {
+          expression: "({[]})[]"
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "stack") {
+      throw new Error("Expected a stack run.");
+    }
+
+    const stackRun = run as StackRun;
+    const finalStep = stackRun.trace.steps[stackRun.trace.steps.length - 1]!;
+
+    expect(stackRun.algorithm.id).toBe("valid-parentheses");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.valid).toBe(true);
+    expect(finalStep.state.stackTokens).toEqual([]);
+    expect(finalStep.state.matchedPairs).toHaveLength(4);
   });
 });
 

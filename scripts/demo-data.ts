@@ -95,6 +95,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "dynamic-programming", "no-overlap"]
   },
   {
+    key: "stack-reference-valid",
+    algorithmId: "valid-parentheses",
+    presetId: "stack.reference-valid",
+    recordedAt: "2026-04-20T09:07:58.000Z",
+    tags: ["seeded-demo", "stack", "reference-valid"]
+  },
+  {
+    key: "stack-early-mismatch",
+    algorithmId: "valid-parentheses",
+    presetId: "stack.early-mismatch",
+    recordedAt: "2026-04-20T09:07:59.000Z",
+    tags: ["seeded-demo", "stack", "early-mismatch"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

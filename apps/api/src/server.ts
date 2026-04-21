@@ -44,10 +44,10 @@ export function buildServer(options: BuildServerOptions = {}) {
   app.get("/api/foundation", async () => ({
     product: "TraceDeck",
     priorities: [
-      "deterministic replay",
-      "persisted traces",
-      "validated input presets",
-      "stable comparison semantics"
+      "trace playback",
+      "saved runs",
+      "input presets",
+      "comparison metrics"
     ],
     services: foundationServices
   }));

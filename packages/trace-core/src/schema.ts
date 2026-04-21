@@ -12,7 +12,8 @@ export type AlgorithmDomain =
   | "graph"
   | "search"
   | "window"
-  | "dynamic-programming";
+  | "dynamic-programming"
+  | "stack";
 export type MetricUnit = "count" | "milliseconds" | "bytes" | "ratio" | "items";
 export type ComparisonDirection = "lower-is-better" | "higher-is-better" | "neutral";
 export type TraceChangeOperation = "set" | "insert" | "remove" | "move";

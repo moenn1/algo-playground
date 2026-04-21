@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared stack-validation runtime for Valid Parentheses, including deterministic push, match, reject, and unclosed terminal checkpoints with stable `comparisons`, `pushes`, and `pops` metrics.
+- Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new stack domain so TraceDeck now includes a famous stack-based interview problem alongside search, sliding window, and dynamic programming.
+- Reworked the algorithm library into a browseable discovery surface with route-backed filters, curated progression paths, saved-run-aware ordering, richer catalog cards, and reference pages that carry progression cues forward.
 - Reworked `apps/web` into a route-based product shell with distinct overview, replay playground, algorithm library, algorithm detail, history, and comparison surfaces, and documented the new navigation model in the README and replay-shell notes.
 - Added a shared dynamic-programming runtime for Longest Common Subsequence, including deterministic row-major table fill, up-first traceback ties, and stable `cellsComputed`, `matches`, and `tracebackSteps` metrics.
 - Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new dynamic-programming domain so TraceDeck now includes its first table-driven algorithm family.

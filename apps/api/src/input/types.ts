@@ -8,6 +8,7 @@ export const supportedAlgorithmIds = [
   "binary-search",
   "minimum-size-subarray-sum",
   "longest-common-subsequence",
+  "valid-parentheses",
   "bfs",
   "dijkstra"
 ] as const;
@@ -41,6 +42,10 @@ export interface WindowInputPayload extends JsonObject {
 export interface DynamicProgrammingInputPayload extends JsonObject {
   left: string;
   right: string;
+}
+
+export interface StackInputPayload extends JsonObject {
+  expression: string;
 }
 
 export interface InputPresetSummary {

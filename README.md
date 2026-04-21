@@ -11,7 +11,7 @@ apps/
   api/            Fastify service for persistence, input, comparison, and foundation APIs
   web/            React replay shell and visualization UX
 packages/
-  execution-engine/ Shared sorting and graph runtimes plus trace emitters
+  execution-engine/ Shared sorting, search, window, dynamic-programming, stack, and graph runtimes plus trace emitters
   trace-core/     Shared trace schema, replay invariants, and validation helpers
 docs/             Architecture and workflow notes
 ```
@@ -53,7 +53,7 @@ The web app is organized into distinct navigation surfaces instead of one vertic
 
 - `#/` overview landing with product context, recent activity, and route selection
 - `#/playground/:algorithmId?` single-run replay workspace
-- `#/library` algorithm catalog
+- `#/library` algorithm catalog with shareable browse state for domain, stage, goal, sort, and search filters
 - `#/algorithms/:algorithmId` focused reference pages for each algorithm
 - `#/history` saved runs and saved comparison records
 - `#/compare` synchronized sorting comparison studio
@@ -88,13 +88,13 @@ The API also exposes a deterministic input-service layer for preset scenarios an
 - `POST /api/input-presets/:presetId/resolve`
 - `POST /api/inputs/validate`
 
-The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, sliding-window cases, dynamic-programming references, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
+The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, sliding-window cases, dynamic-programming references, stack-validation cases, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
 
 ## Current Foundation
 
-- `apps/web` exposes the multi-surface product shell: overview, replay playground, algorithm library and detail pages, saved-run history, and a dedicated comparison studio backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, and synchronized sorting matchups.
+- `apps/web` exposes the multi-surface product shell: overview, replay playground, a browseable algorithm library with progression paths and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison studio backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
-- `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Breadth-First Search, and Dijkstra.
+- `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, stack, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.
 - `docs/` captures the architecture, execution-engine, workflow, persistence-model, and input-service decisions that shape execution and replay work.
 - `docs/operator-runbook.md` captures the local orchestration and seeded-demo operating flow.

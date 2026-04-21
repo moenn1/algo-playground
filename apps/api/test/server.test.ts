@@ -586,6 +586,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "7 x 7 table"
     });
 
+    const stackPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/stack.reference-valid/resolve",
+      payload: {
+        algorithmId: "valid-parentheses"
+      }
+    });
+
+    expect(stackPreset.statusCode).toBe(200);
+    expect(stackPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "stack.reference-valid"
+      },
+      algorithm: {
+        id: "valid-parentheses",
+        domain: "stack"
+      },
+      footprint: "8 tokens"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -683,6 +704,30 @@ describe("TraceDeck API foundation", () => {
         right: "ATANA"
       },
       footprint: "6 x 5 table"
+    });
+
+    const validateStackInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "valid-parentheses",
+        payload: {
+          expression: "([]{})"
+        }
+      }
+    });
+
+    expect(validateStackInput.statusCode).toBe(200);
+    expect(validateStackInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "valid-parentheses",
+        domain: "stack"
+      },
+      input: {
+        expression: "([]{})"
+      },
+      footprint: "6 tokens"
     });
   });
 

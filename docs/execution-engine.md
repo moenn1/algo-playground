@@ -4,7 +4,7 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, window, dynamic-programming, and graph runtimes:
+The current package covers shared sorting, search, window, dynamic-programming, stack, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
@@ -13,6 +13,7 @@ The current package covers shared sorting, search, window, dynamic-programming, 
 - `binary-search`
 - `minimum-size-subarray-sum`
 - `longest-common-subsequence`
+- `valid-parentheses`
 - `bfs`
 - `dijkstra`
 
@@ -98,6 +99,29 @@ Shared dynamic-programming metrics keep the table fill and recovery phases reada
 
 The runtime records explicit `Initialization`, per-cell `Match` and `Carry`, `Table Complete`, traceback, and terminal `Done` checkpoints so replay can jump between recurrence work and result recovery without recomputing the table in the browser.
 
+## Stack Runtime Model
+
+Valid Parentheses establishes the first stack-validation runtime shape:
+
+- `state.expression`: the bracket string under validation
+- `state.cursor`: the current token index, or `null` outside active token work
+- `state.currentChar`: the bracket token under inspection for the current frame
+- `state.stackTokens`: the opening brackets still waiting for a closer
+- `state.stackIndices`: the source indices for those opening brackets
+- `state.processedIndices`: the token slots already consumed by the validator
+- `state.matchedPairs`: the opener/closer index pairs already validated successfully
+- `state.expectedCloser`: the closer currently required by the stack top, or `null` when the stack is empty
+- `state.failureIndex` and `state.failureReason`: the first invalid token and the explicit reason it failed
+- `state.valid`: `true` for a terminal success, `false` for a terminal failure, and `null` while validation is still in progress
+
+Shared stack metrics keep validation work legible across future stack problems:
+
+- `comparisons`: closer checks performed so far
+- `pushes`: opening tokens pushed onto the stack so far
+- `pops`: matched opening tokens popped so far
+
+The runtime records explicit `Initialization`, per-token `Push` and `Match`, and terminal `Reject`, `Unclosed`, or `Done` checkpoints so replay can jump directly to the first mismatch or the empty-stack finish without replay-time inference.
+
 ## Graph Runtime Model
 
 Breadth-First Search and Dijkstra share one replay-safe graph state shape:
@@ -127,11 +151,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
+- Valid Parentheses records opener pushes, closer matches, and terminal mismatch frames explicitly so replay can restore the exact stack and failure reason for any token boundary.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, longest-common-subsequence replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting, search, window, dynamic-programming, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, window, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -10,6 +10,7 @@ import type {
   ResolveInputPresetInput,
   ResolvedInputPreset,
   SearchInputPayload,
+  StackInputPayload,
   SupportedAlgorithmDescriptor,
   SupportedAlgorithmId,
   ValidateCustomInputInput,
@@ -53,6 +54,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Longest Common Subsequence",
     domain: "dynamic-programming"
   },
+  "valid-parentheses": {
+    id: "valid-parentheses",
+    label: "Valid Parentheses",
+    domain: "stack"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -74,6 +80,7 @@ const sortingAlgorithms = [
 const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
+const stackAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
@@ -87,6 +94,9 @@ const defaultWindowInput: WindowInputPayload = {
 const defaultDynamicProgrammingInput: DynamicProgrammingInputPayload = {
   left: "XMJYAUZ",
   right: "MZJAWXU"
+};
+const defaultStackInput: StackInputPayload = {
+  expression: "({[]})[]"
 };
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -390,6 +400,53 @@ function serializeWindowInput(input: WindowInputPayload) {
   );
 }
 
+function normalizeStackInput(payload: unknown): StackInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Stack input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Stack input must be an object with an expression string.");
+  }
+
+  const value = candidate as {
+    expression?: unknown;
+  };
+
+  if (typeof value.expression !== "string" || value.expression.length === 0) {
+    throw new HttpError(400, "Stack input expression must be a non-empty string.");
+  }
+
+  if (value.expression.length > 32) {
+    throw new HttpError(400, "Stack input expressions must be 32 characters or fewer.");
+  }
+
+  if (!/^[()[\]{}]+$/.test(value.expression)) {
+    throw new HttpError(400, "Stack input expression must contain only bracket tokens: (), [], {}.");
+  }
+
+  return {
+    expression: value.expression
+  };
+}
+
+function serializeStackInput(input: StackInputPayload) {
+  return JSON.stringify(
+    {
+      expression: input.expression
+    },
+    null,
+    2
+  );
+}
+
 function normalizeDynamicProgrammingInput(payload: unknown): DynamicProgrammingInputPayload {
   const candidate =
     typeof payload === "string"
@@ -618,6 +675,16 @@ function normalizeAlgorithmInput(
       input: dynamicProgramming,
       normalizedInputText: serializeDynamicProgrammingInput(dynamicProgramming),
       footprint: `${dynamicProgramming.left.length} x ${dynamicProgramming.right.length} table`
+    };
+  }
+
+  if (algorithm.domain === "stack") {
+    const stack = normalizeStackInput(payload);
+
+    return {
+      input: stack,
+      normalizedInputText: serializeStackInput(stack),
+      footprint: `${stack.expression.length} tokens`
     };
   }
 
@@ -970,6 +1037,42 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         left: "ABC",
         right: "XYZ"
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.reference-valid",
+      label: "Reference valid bracket string",
+      description:
+        "Use a balanced bracket expression so replay can show pushes, matches, and a clean empty-stack finish.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "stack",
+      algorithms: stackAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultStackInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.early-mismatch",
+      label: "Early mismatch bracket string",
+      description:
+        "Introduce a classic crossing mismatch so replay ends on the first invalid closer with the expected token still visible.",
+      scenario: "mismatch",
+      kind: "curated",
+      domain: "stack",
+      algorithms: stackAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        expression: "([)]"
       },
       options: {}
     })

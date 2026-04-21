@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { startTransition, useDeferredValue, useEffect, useState, type ReactNode } from "react";
 
 import {
   buildRouteHref,
@@ -8,9 +8,22 @@ import {
   type AppRoute
 } from "./appRoutes.js";
 import {
+  defaultLibraryFilters,
+  getLibraryFocusArea,
+  getLibraryProfile,
+  getLibraryStage,
+  libraryFocusAreas,
+  libraryPathways,
+  librarySortModes,
+  libraryStages,
+  resolveLibraryAlgorithms,
+  type LibraryFilters
+} from "./libraryCatalog.js";
+import {
   GraphStage,
   SearchStage,
-  SortingStage
+  SortingStage,
+  StackStage
 } from "./components/ReplayVisualizations.js";
 import {
   fetchPersistedRunDetail,
@@ -38,6 +51,7 @@ import {
   type ReplayAlgorithm,
   type ReplayRun,
   type SearchRun,
+  type StackRun,
   type SortingRun,
   type WindowRun
 } from "./replay.js";
@@ -79,6 +93,7 @@ const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
   search: "Search systems",
   window: "Window systems",
   "dynamic-programming": "Dynamic-programming systems",
+  stack: "Stack systems",
   graph: "Graph systems"
 };
 
@@ -115,6 +130,12 @@ const domainReference: Record<
     metrics: "DP metrics track `cellsComputed`, `matches`, and `tracebackSteps` so recurrence work stays comparable across future table-driven algorithms.",
     checkpoints: "Checkpoint stops separate table fill from traceback so large grids still stay readable in replay."
   },
+  stack: {
+    lens: "Track opener pushes, closer checks, matched segments, and the first invalid token without hidden stack mutation.",
+    flow: "Stack playback records the active token, full stack contents, matched pairs, and failure reason directly in each snapshot.",
+    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so validator work stays readable across future stack problems.",
+    checkpoints: "Storyboard stops call out the first mismatch or the clean empty-stack finish instead of inferring terminal validity."
+  },
   graph: {
     lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
     flow: "Graph playback is shared between BFS and Dijkstra so queue order and weighted frontier order stay deterministic.",
@@ -122,6 +143,66 @@ const domainReference: Record<
     checkpoints: "Checkpoint windows anchor around frontier shifts so graph playback stays navigable even with larger traces."
   }
 };
+
+const libraryDomainOrder = [
+  "sorting",
+  "search",
+  "window",
+  "dynamic-programming",
+  "stack",
+  "graph"
+] as const;
+
+type LibraryRouteState = Extract<AppRoute, { page: "library" }>;
+
+function getLibraryFilters(route: LibraryRouteState): LibraryFilters {
+  return {
+    domain: route.domain ?? defaultLibraryFilters.domain,
+    stage: route.stage ?? defaultLibraryFilters.stage,
+    focus: route.focus ?? defaultLibraryFilters.focus,
+    sort: route.sort ?? defaultLibraryFilters.sort,
+    q: route.q ?? defaultLibraryFilters.q
+  };
+}
+
+function buildLibraryRoute(filters: LibraryFilters): LibraryRouteState {
+  const route: LibraryRouteState = { page: "library" };
+
+  if (filters.domain !== "all") {
+    route.domain = filters.domain;
+  }
+
+  if (filters.stage !== "all") {
+    route.stage = filters.stage;
+  }
+
+  if (filters.focus !== "all") {
+    route.focus = filters.focus;
+  }
+
+  if (filters.sort !== defaultLibraryFilters.sort) {
+    route.sort = filters.sort;
+  }
+
+  const trimmedQuery = filters.q.trim();
+
+  if (trimmedQuery.length > 0) {
+    route.q = trimmedQuery;
+  }
+
+  return route;
+}
+
+function getRouteScrollKey(route: AppRoute): string {
+  switch (route.page) {
+    case "playground":
+      return `${route.page}:${route.algorithmId ?? ""}`;
+    case "algorithm-detail":
+      return `${route.page}:${route.algorithmId}`;
+    default:
+      return route.page;
+  }
+}
 
 function isSortingRun(run: ReplayRun): run is SortingRun {
   return run.algorithm.domain === "sorting";
@@ -141,6 +222,10 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
 
 function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
   return run.algorithm.domain === "dynamic-programming";
+}
+
+function isStackRun(run: ReplayRun): run is StackRun {
+  return run.algorithm.domain === "stack";
 }
 
 function formatGridCoordinate(cell: number[]): string | null {
@@ -393,6 +478,28 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return `Seed ${step.state.left.length + 1} x ${step.state.right.length + 1} matrix`;
   }
 
+  if (isStackRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.valid === true) {
+      return `Validated ${step.state.expression.length} tokens`;
+    }
+
+    if (step.state.failureIndex !== null) {
+      return `Mismatch at slot ${step.state.failureIndex}`;
+    }
+
+    if (step.state.currentChar !== null && step.state.cursor !== null) {
+      return `Inspect slot ${step.state.cursor} = ${step.state.currentChar}`;
+    }
+
+    if (step.state.stackTokens.length > 0) {
+      return `Stack depth ${step.state.stackTokens.length}`;
+    }
+
+    return "Awaiting first token";
+  }
+
   const step = getRunStep(run, stepIndex);
 
   if (Array.isArray(step.state.path) && step.state.path.length > 0) {
@@ -490,6 +597,8 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
       return "Expansions, shrinks, and best updates";
     case "dynamic-programming":
       return "Cells, matches, and traceback steps";
+    case "stack":
+      return "Closer checks, pushes, and pops";
     case "graph":
       return "Settled progress and recovered route";
     default:
@@ -560,7 +669,7 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             return "Window waiting for first hit";
           })()
-        : isDynamicProgrammingRun(run)
+      : isDynamicProgrammingRun(run)
           ? (() => {
               const dynamicProgrammingStep = getRunStep(run, stepIndex);
               const activeCoordinate = formatGridCoordinate(dynamicProgrammingStep.state.activeCell);
@@ -578,6 +687,24 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               }
 
               return `${dynamicProgrammingStep.state.left.length} by ${dynamicProgrammingStep.state.right.length} character grid`;
+            })()
+        : isStackRun(run)
+          ? (() => {
+              const stackStep = getRunStep(run, stepIndex);
+
+              if (stackStep.state.valid === true) {
+                return "Expression validated";
+              }
+
+              if (stackStep.state.failureIndex !== null) {
+                return `Mismatch at slot ${stackStep.state.failureIndex}`;
+              }
+
+              if (stackStep.state.stackTokens.length > 0) {
+                return `${stackStep.state.stackTokens.length} opener(s) pending`;
+              }
+
+              return `${stackStep.state.processedIndices.length} tokens processed`;
             })()
         : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
@@ -852,6 +979,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
     return <DynamicProgrammingStage run={run} stepIndex={stepIndex} />;
   }
 
+  if (isStackRun(run)) {
+    return <StackStage run={run} stepIndex={stepIndex} />;
+  }
+
   return <GraphStage run={run} stepIndex={stepIndex} />;
 }
 
@@ -982,6 +1113,46 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
           <span className="number-pill">
             Dependencies: {step.state.dependencyCells.length}
           </span>
+        </div>
+      </>
+    );
+  }
+
+  if (isStackRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Current token</span>
+            <strong>
+              {step.state.currentChar !== null && step.state.cursor !== null
+                ? `${step.state.cursor}:${step.state.currentChar}`
+                : "None"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Expected closer</span>
+            <strong>{step.state.expectedCloser ?? "None"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Stack depth</span>
+            <strong>{step.state.stackTokens.length}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Verdict</span>
+            <strong>
+              {step.state.valid === null ? "Pending" : step.state.valid ? "Valid" : "Invalid"}
+            </strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.expression.split("").map((token, index) => (
+            <span className="number-pill" key={`stack-pill-${index}`}>
+              {index}:{token}
+            </span>
+          ))}
         </div>
       </>
     );
@@ -1224,8 +1395,7 @@ function ProductNav({
           <strong>{foundation?.product ?? "Algorithm Replay"}</strong>
         </a>
         <p className="product-nav-copy">
-          Deterministic algorithm playback split across overview, replay, library, history, and
-          comparison surfaces.
+          Local tool for replaying traces, checking reference notes, and reopening saved runs.
         </p>
       </div>
       <nav aria-label="Primary" className="product-nav-links">
@@ -1253,10 +1423,52 @@ function ProductNav({
               : "Loading"}
         </span>
         <span className="status-chip status-chip--accent">
-          {route.page === "algorithm-detail" ? "Reference page" : route.page}
+          {route.page === "algorithm-detail"
+            ? "Reference"
+            : route.page === "playground"
+              ? "Replay"
+              : route.page.charAt(0).toUpperCase() + route.page.slice(1)}
         </span>
       </div>
     </header>
+  );
+}
+
+function WorkspaceHeader({
+  eyebrow,
+  title,
+  summary,
+  actions,
+  details
+}: {
+  eyebrow: string;
+  title: string;
+  summary: string;
+  actions?: ReactNode;
+  details: Array<{
+    label: string;
+    value: string;
+  }>;
+}) {
+  return (
+    <section className="workspace-header">
+      <div className="workspace-header-main">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+        </div>
+        <p className="panel-copy workspace-header-copy">{summary}</p>
+      </div>
+      <div className="workspace-header-meta">
+        {details.map((detail) => (
+          <div className="workspace-header-detail" key={detail.label}>
+            <span>{detail.label}</span>
+            <strong>{detail.value}</strong>
+          </div>
+        ))}
+      </div>
+      {actions ? <div className="workspace-header-actions">{actions}</div> : null}
+    </section>
   );
 }
 
@@ -1311,7 +1523,8 @@ function TransportPanel({
   onBack,
   onTogglePlay,
   onForward,
-  onEnd
+  onEnd,
+  embedded = false
 }: {
   mode: "single" | "compare";
   isPlaying: boolean;
@@ -1324,9 +1537,14 @@ function TransportPanel({
   onTogglePlay: () => void;
   onForward: () => void;
   onEnd: () => void;
+  embedded?: boolean;
 }) {
   return (
-    <section className={`panel transport-panel ${isPlaying ? "transport-panel-live" : ""}`}>
+    <section
+      className={`${embedded ? "dock-section transport-panel-embedded" : "panel transport-panel"} ${
+        isPlaying ? "transport-panel-live" : ""
+      }`}
+    >
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Transport</p>
@@ -1411,7 +1629,8 @@ function TimelinePanel({
   storyboardStops,
   checkpointWindow,
   onSelectStep,
-  renderCheckpoint
+  renderCheckpoint,
+  embedded = false
 }: {
   mode: "single" | "compare";
   currentStepIndex: number;
@@ -1423,9 +1642,10 @@ function TimelinePanel({
   checkpointWindow: number[];
   onSelectStep: (stepIndex: number) => void;
   renderCheckpoint: (stepIndex: number) => ReactNode;
+  embedded?: boolean;
 }) {
   return (
-    <section className="panel timeline-panel">
+    <section className={embedded ? "dock-section timeline-panel-embedded" : "panel timeline-panel"}>
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Timeline</p>
@@ -1494,9 +1714,9 @@ function OverviewPage({
 }) {
   const heroStats = [
     {
-      label: "Pages",
+      label: "Views",
       value: `${navigationSurfaces.length}`,
-      detail: "Overview, replay, library, history, and compare now stand apart."
+      detail: "Overview, replay, library, history, and compare are separated."
     },
     {
       label: "Algorithms",
@@ -1507,12 +1727,12 @@ function OverviewPage({
     {
       label: "Saved runs",
       value: `${persistence?.counts.runs ?? 0}`,
-      detail: "Persisted playback can now be browsed away from the replay workspace."
+      detail: "Saved traces can be reviewed without reopening the active replay."
     },
     {
       label: "Comparisons",
       value: `${persistence?.counts.comparisons ?? 0}`,
-      detail: "Dedicated comparison space keeps side-by-side analysis out of the main replay page."
+      detail: "Saved comparison records are listed separately from the active replay."
     }
   ];
 
@@ -1521,32 +1741,31 @@ function OverviewPage({
       <section className="hero-band hero-band-overview">
         <div>
           <p className="eyebrow">TraceDeck</p>
-          <h1>Deterministic algorithm playback now lives in distinct product surfaces.</h1>
+          <h1>Algorithm replay, references, and saved runs are split into focused views.</h1>
           <p className="hero-copy">
-            The experience is split into a landing overview, a dedicated replay playground, an
-            algorithm library with reference pages, and separated history and comparison surfaces.
-            The result is a navigable product shell instead of one vertically compressed studio.
+            Use the overview to move into replay, references, saved runs, or comparison without
+            forcing everything into one long screen.
           </p>
         </div>
         <div className="hero-command">
           <div className="hero-command-panel">
             <div className="panel-heading hero-command-header">
               <div>
-                <p className="eyebrow">Product Layout</p>
-                <h2>Five surface model</h2>
+                <p className="eyebrow">Workspace Layout</p>
+                <h2>Available views</h2>
               </div>
               <span className="phase-badge">{status === "ready" ? "Ready" : "Offline-safe"}</span>
             </div>
             <p className="hero-copy hero-command-copy">
-              Navigation now separates overview, reference, live replay, saved activity, and
-              synchronized comparison work so each surface can breathe on desktop and mobile.
+              Replay, reference material, saved activity, and comparison are separated so each
+              view can stay focused on one task.
             </p>
             <div className="hero-meter">
               <div className="hero-meter-bar">
                 <span style={{ width: "100%" }} />
               </div>
               <div className="hero-meter-labels">
-                <span>Landing</span>
+                <span>Overview</span>
                 <span>Replay + Reference</span>
                 <span>History + Compare</span>
               </div>
@@ -1562,15 +1781,6 @@ function OverviewPage({
             ))}
           </div>
         </div>
-        {foundation?.priorities.length ? (
-          <div className="priority-row">
-            {foundation.priorities.map((priority) => (
-              <span className="priority-pill" key={priority}>
-                {priority}
-              </span>
-            ))}
-          </div>
-        ) : null}
         <div className="hero-status">
           <div className="status-row">
             <span className={`status-chip status-chip--${status}`}>
@@ -1588,7 +1798,7 @@ function OverviewPage({
             <span className="status-chip">
               {persistedAlgorithms.length} tracked algorithms in persistence
             </span>
-            <span className="status-chip">{recentRuns.length} recent runs on deck</span>
+            <span className="status-chip">{recentRuns.length} recent saved runs</span>
             <span className="status-chip">Contract-driven replay</span>
           </div>
         </div>
@@ -1621,17 +1831,15 @@ function OverviewPage({
             </div>
           </div>
           <div className="overview-domain-grid">
-            {(["sorting", "search", "window", "dynamic-programming", "graph"] as const).map(
-              (domain) => (
-                <article className="overview-domain-card" key={domain}>
-                  <span>{domainLabels[domain]}</span>
-                  <strong>
-                    {algorithms.filter((algorithm) => algorithm.domain === domain).length} surfaces
-                  </strong>
-                  <p>{domainReference[domain].lens}</p>
-                </article>
-              )
-            )}
+            {libraryDomainOrder.map((domain) => (
+              <article className="overview-domain-card" key={domain}>
+                <span>{domainLabels[domain]}</span>
+                <strong>
+                  {algorithms.filter((algorithm) => algorithm.domain === domain).length} algorithms
+                </strong>
+                <p>{domainReference[domain].lens}</p>
+              </article>
+            ))}
           </div>
         </article>
 
@@ -1674,8 +1882,8 @@ function OverviewPage({
         <section className="panel summary-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Product Focus</p>
-              <h3>Execution seams visible across the product shell</h3>
+              <p className="eyebrow">Modules</p>
+              <h3>Core parts of the local stack</h3>
             </div>
           </div>
           <div className="summary-grid">
@@ -1693,15 +1901,43 @@ function OverviewPage({
 }
 
 function LibraryPage({
+  route,
   persistedAlgorithms,
-  onOpenPlayground
+  onOpenPlayground,
+  onBrowse
 }: {
+  route: LibraryRouteState;
   persistedAlgorithms: PersistedAlgorithmRecord[];
   onOpenPlayground: (algorithmId: string) => void;
+  onBrowse: (filters: LibraryFilters) => void;
 }) {
   const statsByAlgorithmId = new Map(
     persistedAlgorithms.map((algorithm) => [algorithm.id, algorithm] as const)
   );
+  const savedRunCounts = new Map(
+    persistedAlgorithms.map((algorithm) => [algorithm.id, algorithm.runCount] as const)
+  );
+  const filters = getLibraryFilters(route);
+  const deferredQuery = useDeferredValue(filters.q);
+  const deferredFilters = { ...filters, q: deferredQuery };
+  const filteredAlgorithms = resolveLibraryAlgorithms(algorithms, deferredFilters, savedRunCounts);
+  const visibleSavedRuns = filteredAlgorithms.reduce(
+    (total, algorithm) => total + (statsByAlgorithmId.get(algorithm.id)?.runCount ?? 0),
+    0
+  );
+  const activeStage = filters.stage !== "all" ? getLibraryStage(filters.stage) : null;
+  const activeFocus = filters.focus !== "all" ? getLibraryFocusArea(filters.focus) : null;
+
+  function updateFilters(nextPatch: Partial<LibraryFilters>) {
+    const nextFilters = {
+      ...filters,
+      ...nextPatch
+    };
+
+    startTransition(() => {
+      onBrowse(nextFilters);
+    });
+  }
 
   return (
     <>
@@ -1710,95 +1946,353 @@ function LibraryPage({
         actions={
           <>
             <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
-              Open comparison studio
+              Open comparison view
             </a>
             <a className="segmented segmented-active" href={buildRouteHref({ page: "history" })}>
               Review saved runs
             </a>
           </>
         }
-        copy="Browse the algorithm catalog by domain, open reference pages for input and replay guidance, and jump directly into the dedicated playground from the same shelf."
+        copy="Browse algorithms by domain, progression stage, or learning goal, then move into references or replay without mixing discovery into the active workspace."
         eyebrow="Algorithm Library"
         stats={[
           {
-            label: "Catalog size",
-            value: `${algorithms.length}`,
-            detail: "Reference pages exist for every replayable algorithm."
+            label: "Visible systems",
+            value: `${filteredAlgorithms.length}`,
+            detail:
+              filteredAlgorithms.length === algorithms.length
+                ? "The full library is in view."
+                : "Results update as you refine the browse state."
           },
           {
-            label: "Persisted coverage",
-            value: `${persistedAlgorithms.length}`,
-            detail: "Saved runs feed real usage signals back into the library."
+            label: "Saved runs in view",
+            value: `${visibleSavedRuns}`,
+            detail: "Saved activity highlights algorithms you have already replayed."
           },
           {
-            label: "Shared contract",
-            value: "1 trace model",
-            detail: "Reference, replay, history, and compare read the same deterministic envelopes."
+            label: "Progression",
+            value: activeStage?.label ?? "All stages",
+            detail:
+              activeFocus?.description ??
+              "Discovery spans foundation walkthroughs, dense-state systems, and compare-ready sorting decks."
           }
         ]}
-        title="Algorithm reference lives on its own surface."
+        title="Browse algorithms without crowding the replay workspace."
       />
 
-      <div className="library-sections">
-        {(["sorting", "search", "window", "dynamic-programming", "graph"] as const).map(
-          (domain) => {
-            const domainAlgorithms = algorithms.filter(
-              (algorithm) => algorithm.domain === domain
-            );
+      <section className="panel library-discovery-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Discovery Controls</p>
+            <h2>Search, narrow, and reorder the library.</h2>
+          </div>
+          <p className="panel-copy">
+            Browse state now lives in the route so filtered library views stay shareable and
+            recoverable.
+          </p>
+        </div>
+
+        <div className="library-discovery-grid">
+          <label className="library-search-shell" htmlFor="library-search">
+            <span>Search algorithms</span>
+            <input
+              id="library-search"
+              onChange={(event) => {
+                updateFilters({ q: event.target.value });
+              }}
+              placeholder="Search by algorithm, metric, or learning goal"
+              type="search"
+              value={filters.q}
+            />
+          </label>
+
+          <div className="library-discovery-summary">
+            <div className="metric-inline">
+              <span>Browse state</span>
+              <strong>
+                {filters.domain === "all" ? "All domains" : domainLabels[filters.domain]}
+              </strong>
+            </div>
+            <div className="metric-inline">
+              <span>Learning stage</span>
+              <strong>{activeStage?.label ?? "Any stage"}</strong>
+            </div>
+            <div className="metric-inline">
+              <span>Primary goal</span>
+              <strong>{activeFocus?.label ?? "Any goal"}</strong>
+            </div>
+            <button
+              className="segmented"
+              onClick={() => {
+                updateFilters(defaultLibraryFilters);
+              }}
+              type="button"
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
+
+        <div className="library-domain-rail">
+          <button
+            className={`library-domain-card ${filters.domain === "all" ? "library-domain-card-active" : ""}`}
+            onClick={() => {
+              updateFilters({ domain: "all" });
+            }}
+            type="button"
+          >
+            <span>All domains</span>
+            <strong>{filteredAlgorithms.length}</strong>
+            <p>Keep the full catalog in view while stage and goal filters do the narrowing.</p>
+          </button>
+          {libraryDomainOrder.map((domain) => {
+            const domainCount = resolveLibraryAlgorithms(
+              algorithms,
+              { ...deferredFilters, domain },
+              savedRunCounts
+            ).length;
 
             return (
-              <section className="panel library-panel" key={domain}>
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">{domainLabels[domain]}</p>
-                    <h2>{domainReference[domain].lens}</h2>
-                  </div>
-                  <p className="panel-copy">{domainReference[domain].flow}</p>
-                </div>
-                <div className="library-grid">
-                  {domainAlgorithms.map((algorithm) => {
-                    const persistedRecord = statsByAlgorithmId.get(algorithm.id);
-
-                    return (
-                      <article className="library-card" key={algorithm.id}>
-                        <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
-                          {algorithm.badge}
-                        </span>
-                        <h3>{algorithm.name}</h3>
-                        <p>{algorithm.description}</p>
-                        <div className="library-card-meta">
-                          <span>{algorithm.inputLabel}</span>
-                          <strong>{persistedRecord?.runCount ?? 0} saved runs</strong>
-                        </div>
-                        <div className="library-card-actions">
-                          <a
-                            className="segmented"
-                            href={buildRouteHref({
-                              page: "algorithm-detail",
-                              algorithmId: algorithm.id
-                            })}
-                          >
-                            Reference
-                          </a>
-                          <button
-                            className="launch-button"
-                            onClick={() => {
-                              onOpenPlayground(algorithm.id);
-                            }}
-                            type="button"
-                          >
-                            Open playground
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
+              <button
+                className={`library-domain-card ${
+                  filters.domain === domain ? "library-domain-card-active" : ""
+                }`}
+                key={domain}
+                onClick={() => {
+                  updateFilters({ domain });
+                }}
+                type="button"
+              >
+                <span>{domainLabels[domain]}</span>
+                <strong>{domainCount}</strong>
+                <p>{domainReference[domain].lens}</p>
+              </button>
             );
-          }
+          })}
+        </div>
+
+        <div className="library-filter-stack">
+          <div className="filter-row">
+            <span className="filter-label">Stage</span>
+            <div className="filter-chip-row">
+              <button
+                className={`segmented ${filters.stage === "all" ? "segmented-active" : ""}`}
+                onClick={() => {
+                  updateFilters({ stage: "all" });
+                }}
+                type="button"
+              >
+                All
+              </button>
+              {libraryStages.map((stage) => (
+                <button
+                  className={`segmented ${filters.stage === stage.id ? "segmented-active" : ""}`}
+                  key={stage.id}
+                  onClick={() => {
+                    updateFilters({ stage: stage.id });
+                  }}
+                  type="button"
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="filter-row">
+            <span className="filter-label">Learning goal</span>
+            <div className="filter-chip-row">
+              <button
+                className={`segmented ${filters.focus === "all" ? "segmented-active" : ""}`}
+                onClick={() => {
+                  updateFilters({ focus: "all" });
+                }}
+                type="button"
+              >
+                All
+              </button>
+              {libraryFocusAreas.map((focus) => (
+                <button
+                  className={`segmented ${filters.focus === focus.id ? "segmented-active" : ""}`}
+                  key={focus.id}
+                  onClick={() => {
+                    updateFilters({ focus: focus.id });
+                  }}
+                  type="button"
+                >
+                  {focus.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="filter-row">
+            <span className="filter-label">Sort</span>
+            <div className="filter-chip-row">
+              {librarySortModes.map((sortMode) => (
+                <button
+                  className={`segmented ${filters.sort === sortMode.id ? "segmented-active" : ""}`}
+                  key={sortMode.id}
+                  onClick={() => {
+                    updateFilters({ sort: sortMode.id });
+                  }}
+                  type="button"
+                >
+                  {sortMode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="library-pathway-grid">
+        {libraryPathways.map((pathway) => {
+          const previewNames = pathway.previewAlgorithmIds.map(
+            (algorithmId) => getAlgorithmById(algorithmId).name
+          );
+          const isActive = Object.entries(pathway.filters).every(
+            ([key, value]) => filters[key as keyof LibraryFilters] === value
+          );
+
+          return (
+            <article
+              className={`panel library-pathway-card ${
+                isActive ? "library-pathway-card-active" : ""
+              }`}
+              key={pathway.id}
+            >
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Curated Path</p>
+                  <h2>{pathway.label}</h2>
+                </div>
+              </div>
+              <p className="panel-copy">{pathway.description}</p>
+              <div className="compare-pill-row">
+                {previewNames.map((name) => (
+                  <span className="compare-pill" key={`${pathway.id}-${name}`}>
+                    {name}
+                  </span>
+                ))}
+              </div>
+              <button
+                className="segmented segmented-active"
+                onClick={() => {
+                  updateFilters({
+                    ...defaultLibraryFilters,
+                    ...pathway.filters
+                  });
+                }}
+                type="button"
+              >
+                Browse this path
+              </button>
+            </article>
+          );
+        })}
+      </section>
+
+      <section className="panel library-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Catalog Results</p>
+            <h2>
+              {filteredAlgorithms.length === 1
+                ? "1 algorithm matches this browse state."
+                : `${filteredAlgorithms.length} algorithms match this browse state.`}
+            </h2>
+          </div>
+          <p className="panel-copy">
+            Results carry progression cues, saved-run activity, and next-step recommendations so
+            the library stays useful before you ever hit play.
+          </p>
+        </div>
+
+        {filteredAlgorithms.length > 0 ? (
+          <div className="library-grid library-grid-rich">
+            {filteredAlgorithms.map((algorithm) => {
+              const persistedRecord = statsByAlgorithmId.get(algorithm.id);
+              const profile = getLibraryProfile(algorithm.id);
+              const stage = getLibraryStage(profile.stage);
+              const focus = getLibraryFocusArea(profile.focus);
+              const nextNames = profile.nextAlgorithmIds.map(
+                (algorithmId) => getAlgorithmById(algorithmId).name
+              );
+
+              return (
+                <article className="library-card" key={algorithm.id}>
+                  <div className="library-card-header">
+                    <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
+                      {algorithm.badge}
+                    </span>
+                    <span className="library-stage-pill">{stage.label}</span>
+                  </div>
+                  <h3>{algorithm.name}</h3>
+                  <p>{algorithm.description}</p>
+                  <p className="library-card-highlight">{profile.outcome}</p>
+                  <div className="library-card-meta library-card-meta-grid">
+                    <div>
+                      <span>Learning goal</span>
+                      <strong>{focus.label}</strong>
+                    </div>
+                    <div>
+                      <span>Saved runs</span>
+                      <strong>{persistedRecord?.runCount ?? 0}</strong>
+                    </div>
+                    <div>
+                      <span>Explore time</span>
+                      <strong>{profile.timeToExplore}</strong>
+                    </div>
+                    <div>
+                      <span>Trace lens</span>
+                      <strong>{algorithm.inputLabel}</strong>
+                    </div>
+                  </div>
+                  <div className="library-skill-row">
+                    {profile.skills.map((skill) => (
+                      <span className="library-skill-pill" key={`${algorithm.id}-${skill}`}>
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="library-next-step">
+                    <span>Next up</span>
+                    <strong>{nextNames.join(" -> ")}</strong>
+                    <p>{profile.spotlight}</p>
+                  </div>
+                  <div className="library-card-actions">
+                    <a
+                      className="segmented"
+                      href={buildRouteHref({
+                        page: "algorithm-detail",
+                        algorithmId: algorithm.id
+                      })}
+                    >
+                      Reference
+                    </a>
+                    <button
+                      className="launch-button"
+                      onClick={() => {
+                        onOpenPlayground(algorithm.id);
+                      }}
+                      type="button"
+                    >
+                      Open replay
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <span>Empty browse state</span>
+            <strong>No algorithms match this filter set yet.</strong>
+            <p>Reset the current filters or widen the search terms to bring the catalog back into view.</p>
+          </div>
         )}
-      </div>
+      </section>
     </>
   );
 }
@@ -1814,6 +2308,10 @@ function AlgorithmDetailPage({
 }) {
   const persistedRecord = persistedAlgorithms.find((entry) => entry.id === algorithm.id);
   const reference = domainReference[algorithm.domain];
+  const profile = getLibraryProfile(algorithm.id);
+  const stage = getLibraryStage(profile.stage);
+  const focus = getLibraryFocusArea(profile.focus);
+  const nextAlgorithms = profile.nextAlgorithmIds.map((algorithmId) => getAlgorithmById(algorithmId));
 
   return (
     <>
@@ -1828,9 +2326,16 @@ function AlgorithmDetailPage({
               }}
               type="button"
             >
-              Open in playground
+              Open replay
             </button>
-            <a className="segmented" href={buildRouteHref({ page: "library" })}>
+            <a
+              className="segmented"
+              href={buildRouteHref({
+                page: "library",
+                domain: algorithm.domain,
+                stage: profile.stage
+              })}
+            >
               Back to library
             </a>
             {algorithm.domain === "sorting" ? (
@@ -1840,18 +2345,23 @@ function AlgorithmDetailPage({
             ) : null}
           </>
         }
-        copy={`${algorithm.description} This reference page captures the input contract, replay focus, and metric language that the dedicated playground, history, and comparison surfaces depend on.`}
+        copy={`${algorithm.description} This reference page captures the input contract, replay focus, and metric language used by replay, history, and comparison views.`}
         eyebrow={`${algorithm.badge} Reference`}
         stats={[
           {
-            label: "Default input",
-            value: algorithm.inputLabel,
-            detail: algorithm.inputHint
+            label: "Progression stage",
+            value: stage.label,
+            detail: stage.description
+          },
+          {
+            label: "Learning goal",
+            value: focus.label,
+            detail: profile.spotlight
           },
           {
             label: "Replay lens",
             value: getAlgorithmMetricsLabel(algorithm),
-            detail: reference.metrics
+            detail: profile.metricsLens
           },
           {
             label: "Saved activity",
@@ -1869,7 +2379,7 @@ function AlgorithmDetailPage({
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Reference Brief</p>
-              <h2>What this replay surface needs to reveal</h2>
+              <h2>What the replay view needs to reveal</h2>
             </div>
           </div>
           <div className="detail-copy-grid">
@@ -1886,7 +2396,33 @@ function AlgorithmDetailPage({
             <article className="detail-note">
               <span>Surface expectation</span>
               <strong>{reference.lens}</strong>
-              <p>Replay, saved-run, and comparison surfaces should all read from the same snapshots.</p>
+              <p>Replay, saved runs, and comparison should all read from the same snapshots.</p>
+            </article>
+          </div>
+        </article>
+
+        <article className="panel detail-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Progression Notes</p>
+              <h2>How this algorithm fits the broader library</h2>
+            </div>
+          </div>
+          <div className="detail-copy-grid">
+            <article className="detail-note">
+              <span>Complexity profile</span>
+              <strong>{profile.complexity}</strong>
+              <p>{profile.outcome}</p>
+            </article>
+            <article className="detail-note">
+              <span>Skills to watch</span>
+              <strong>{profile.skills.join(" · ")}</strong>
+              <p>{profile.metricsLens}</p>
+            </article>
+            <article className="detail-note">
+              <span>Next algorithms</span>
+              <strong>{nextAlgorithms.map((entry) => entry.name).join(" -> ")}</strong>
+              <p>{reference.checkpoints}</p>
             </article>
           </div>
         </article>
@@ -1962,8 +2498,7 @@ function PlaygroundPage({
 
   return (
     <>
-      <PageBanner
-        accent="gold"
+      <WorkspaceHeader
         actions={
           <>
             <a
@@ -1973,57 +2508,57 @@ function PlaygroundPage({
                 algorithmId: selectedAlgorithm.id
               })}
             >
-              Open reference page
+              Reference
             </a>
-            <a className="segmented segmented-active" href={buildRouteHref({ page: "history" })}>
-              Review saved runs
+            <a className="segmented" href={buildRouteHref({ page: "history" })}>
+              Saved runs
             </a>
             {selectedAlgorithm.domain === "sorting" ? (
-              <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
-                Compare sorting runs
+              <a className="segmented segmented-active" href={buildRouteHref({ page: "compare" })}>
+                Compare
               </a>
             ) : null}
           </>
         }
-        copy="The dedicated playground keeps algorithm selection, input editing, transport, timeline scrubbing, and step inspection on one route instead of sharing vertical space with the rest of the product."
-        eyebrow="Replay Playground"
-        stats={[
+        details={[
           {
             label: "Algorithm",
-            value: run.algorithm.name,
-            detail: run.algorithm.description
+            value: run.algorithm.name
           },
           {
-            label: "Input footprint",
-            value: describeInputFootprint(run),
-            detail: selectedAlgorithm.inputHint
+            label: "Input",
+            value: describeInputFootprint(run)
           },
           {
-            label: "Run source",
-            value: runSource.label,
-            detail: runSource.detail
+            label: "Source",
+            value: runSource.label
+          },
+          {
+            label: "Frame",
+            value: `${currentStep.index + 1} / ${run.trace.steps.length}`
           }
         ]}
-        title="Single-run replay has its own workspace."
+        eyebrow="Single Run"
+        summary="Select an algorithm, load an input, and inspect recorded state frame by frame."
+        title="Replay"
       />
 
-      <div className="workspace-grid">
-        <aside className="sidebar panel">
+      <div className="workspace-grid workspace-grid-replay">
+        <aside className="sidebar panel tool-rail">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Scenario</p>
-              <h2>Choose an algorithm</h2>
+              <h2>Algorithm and input</h2>
             </div>
             <p className="panel-copy">
-              The selected algorithm owns its input format and trace builder so playback stays
-              domain-aware.
+              The selected algorithm controls parsing and trace generation.
             </p>
           </div>
           <div className="status-row">
             <span className={`status-chip status-chip--${status}`}>
               {status === "ready" ? "API connected" : status === "offline" ? "Offline" : "Loading"}
             </span>
-            <span className="status-chip">{foundation?.product ?? "TraceDeck"} replay</span>
+            <span className="status-chip">replay</span>
           </div>
           <div className="algorithm-list">
             {algorithms.map((algorithm) => (
@@ -2084,110 +2619,116 @@ function PlaygroundPage({
             </div>
           )}
           <button className="launch-button" onClick={onLaunchRun} type="button">
-            Launch Run
+            Rebuild trace
           </button>
         </aside>
 
-        <div className="main-column">
-          <section className="panel stage-panel">
-            <SingleReplayBriefing run={run} stepIndex={currentStepIndex} />
-            <div className="stage-layout">
-              <div className="visual-panel">{renderSingleStage(run, currentStepIndex)}</div>
-              <div className="inspector-column">
-                <section className="panel inspector-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Step Narrative</p>
-                      <h3>{currentStep.phase}</h3>
+        <div className="main-column workspace-main">
+          <div className="workspace-body">
+            <section className="panel stage-panel workspace-stage">
+              <SingleReplayBriefing run={run} stepIndex={currentStepIndex} />
+              <div className="stage-layout">
+                <div className="visual-panel">{renderSingleStage(run, currentStepIndex)}</div>
+                <div className="inspector-column workspace-inspector">
+                  <section className="inspector-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">Step Narrative</p>
+                        <h3>{currentStep.phase}</h3>
+                      </div>
+                      <span className="phase-badge">Frame {currentStep.index + 1}</span>
                     </div>
-                    <span className="phase-badge">Frame {currentStep.index + 1}</span>
-                  </div>
-                  <p className="step-detail">{currentStep.explanation.summary}</p>
-                  {currentStep.explanation.details ? (
-                    <p className="step-detail">{currentStep.explanation.details}</p>
-                  ) : null}
-                  {currentStep.explanation.tags?.length ? (
-                    <div className="tag-row">
-                      {currentStep.explanation.tags.map((tag) => (
-                        <span className="number-pill" key={tag}>
-                          {tag}
+                    <p className="step-detail">{currentStep.explanation.summary}</p>
+                    {currentStep.explanation.details ? (
+                      <p className="step-detail">{currentStep.explanation.details}</p>
+                    ) : null}
+                    {currentStep.explanation.tags?.length ? (
+                      <div className="tag-row">
+                        {currentStep.explanation.tags.map((tag) => (
+                          <span className="number-pill" key={tag}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    <ul className="change-list">
+                      {currentStep.highlights.map((highlight) => (
+                        <li key={highlight.key}>
+                          {formatHighlightLabel(highlight.label, highlight.key)}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="metric-grid">{renderMetricCards(run, currentStepIndex)}</div>
+                  </section>
+
+                  <section className="state-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">Changed Paths</p>
+                        <h3>Recorded deltas</h3>
+                      </div>
+                    </div>
+                    <div className="number-grid">
+                      {getTraceStepPaths(currentStep).map((path) => (
+                        <span className="number-pill" key={path}>
+                          {path}
                         </span>
                       ))}
                     </div>
-                  ) : null}
-                  <ul className="change-list">
-                    {currentStep.highlights.map((highlight) => (
-                      <li key={highlight.key}>
-                        {formatHighlightLabel(highlight.label, highlight.key)}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="metric-grid">{renderMetricCards(run, currentStepIndex)}</div>
-                </section>
-
-                <section className="panel state-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Changed Paths</p>
-                      <h3>Recorded deltas</h3>
-                    </div>
-                  </div>
-                  <div className="number-grid">
-                    {getTraceStepPaths(currentStep).map((path) => (
-                      <span className="number-pill" key={path}>
-                        {path}
-                      </span>
-                    ))}
-                  </div>
-                  {renderStateSnapshot(run, currentStep.index)}
-                </section>
+                    {renderStateSnapshot(run, currentStep.index)}
+                  </section>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <TransportPanel
-            isPlaying={isPlaying}
-            mode="single"
-            onBack={onBack}
-            onEnd={onEnd}
-            onForward={onForward}
-            onSpeedSelect={onSpeedSelect}
-            onStart={onStart}
-            onTogglePlay={onTogglePlay}
-            primaryValue={currentStep.phase}
-            secondaryValue={describeInputFootprint(run)}
-            speedId={speedId}
-          />
+            <section className="panel workspace-dock">
+              <TransportPanel
+                embedded
+                isPlaying={isPlaying}
+                mode="single"
+                onBack={onBack}
+                onEnd={onEnd}
+                onForward={onForward}
+                onSpeedSelect={onSpeedSelect}
+                onStart={onStart}
+                onTogglePlay={onTogglePlay}
+                primaryValue={currentStep.phase}
+                secondaryValue={describeInputFootprint(run)}
+                speedId={speedId}
+              />
 
-          <TimelinePanel
-            activeStepCount={run.trace.steps.length}
-            checkpointWindow={checkpointWindow}
-            currentStepIndex={currentStepIndex}
-            detail={describeRunSnapshot(run, currentStep.index)}
-            mode="single"
-            onSelectStep={onSelectStep}
-            renderCheckpoint={(stepIndex) => {
-              const step = getRunStep(run, stepIndex);
+              <TimelinePanel
+                activeStepCount={run.trace.steps.length}
+                checkpointWindow={checkpointWindow}
+                currentStepIndex={currentStepIndex}
+                detail={describeRunSnapshot(run, currentStep.index)}
+                embedded
+                mode="single"
+                onSelectStep={onSelectStep}
+                renderCheckpoint={(stepIndex) => {
+                  const step = getRunStep(run, stepIndex);
 
-              return (
-                <button
-                  className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
-                  key={step.key}
-                  onClick={() => {
-                    onSelectStep(stepIndex);
-                  }}
-                  type="button"
-                >
-                  <span className="checkpoint-index">{step.index + 1}</span>
-                  <strong>{step.phase}</strong>
-                  <span>{step.explanation.summary}</span>
-                </button>
-              );
-            }}
-            storyboardStops={storyboardStops}
-            summary={currentStep.explanation.summary}
-            syncProgress={syncProgress}
-          />
+                  return (
+                    <button
+                      className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
+                      key={step.key}
+                      onClick={() => {
+                        onSelectStep(stepIndex);
+                      }}
+                      type="button"
+                    >
+                      <span className="checkpoint-index">{step.index + 1}</span>
+                      <strong>{step.phase}</strong>
+                      <span>{step.explanation.summary}</span>
+                    </button>
+                  );
+                }}
+                storyboardStops={storyboardStops}
+                summary={currentStep.explanation.summary}
+                syncProgress={syncProgress}
+              />
+            </section>
+          </div>
         </div>
       </div>
     </>
@@ -2251,50 +2792,49 @@ function ComparePage({
 
   return (
     <>
-      <PageBanner
-        accent="ember"
+      <WorkspaceHeader
         actions={
           <>
             <a className="segmented" href={buildRouteHref({ page: "history" })}>
-              Review saved comparisons
+              Saved comparisons
             </a>
             <a className="segmented segmented-active" href={buildRouteHref({ page: "playground" })}>
-              Return to single replay
+              Single run
             </a>
           </>
         }
-        copy="Comparison has its own route so synchronized stage cards, metric leaders, and trend charts no longer compete with the single-run playground for space."
-        eyebrow="Comparison Studio"
-        stats={[
+        details={[
           {
-            label: "Algorithms",
-            value: `${comparisonRuns.length}`,
-            detail: comparisonRuns.map((run) => run.algorithm.name.split(" ")[0]).join(" / ")
+            label: "Matchup",
+            value: comparisonRuns.map((run) => run.algorithm.name.split(" ")[0]).join(" / ")
           },
           {
-            label: "Shared input",
-            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending",
-            detail: "Every sorting lane replays the same normalized array."
+            label: "Input",
+            value: comparisonRuns[0] ? describeInputFootprint(comparisonRuns[0]) : "Pending"
           },
           {
-            label: "Saved comparisons",
-            value: `${recentComparisons.length}`,
-            detail: "History previews persist without forcing the comparison deck onto the landing page."
+            label: "Frame",
+            value: `${currentStepIndex + 1} / ${activeStepCount}`
+          },
+          {
+            label: "Saved",
+            value: `${recentComparisons.length}`
           }
         ]}
-        title="Synchronized sorting analysis stands on its own surface."
+        eyebrow="Comparison"
+        summary="Run the shared sorting deck on one normalized array and inspect progress on a common timeline."
+        title="Compare"
       />
 
-      <div className="workspace-grid">
-        <aside className="sidebar panel">
+      <div className="workspace-grid workspace-grid-replay">
+        <aside className="sidebar panel tool-rail">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Comparison Deck</p>
-              <h2>Build a shared-input matchup</h2>
+              <h2>Shared input and lanes</h2>
             </div>
             <p className="panel-copy">
-              The comparison deck regenerates every sorting trace from the same array and keeps
-              playback aligned by normalized progress.
+              Every sorting trace is rebuilt from the same array and aligned by normalized progress.
             </p>
           </div>
           <div className="algorithm-list">
@@ -2337,69 +2877,75 @@ function ComparePage({
             </div>
           )}
           <button className="launch-button" onClick={onLaunchComparison} type="button">
-            Build Deck
+            Rebuild deck
           </button>
         </aside>
 
-        <div className="main-column">
-          <ComparisonWorkspace
-            currentStepIndex={currentStepIndex}
-            runs={comparisonRuns}
-            stepCount={activeStepCount}
-          />
+        <div className="main-column workspace-main">
+          <div className="workspace-body">
+            <ComparisonWorkspace
+              currentStepIndex={currentStepIndex}
+              runs={comparisonRuns}
+              stepCount={activeStepCount}
+            />
 
-          <TransportPanel
-            isPlaying={isPlaying}
-            mode="compare"
-            onBack={onBack}
-            onEnd={onEnd}
-            onForward={onForward}
-            onSpeedSelect={onSpeedSelect}
-            onStart={onStart}
-            onTogglePlay={onTogglePlay}
-            primaryValue={`${syncProgress}%`}
-            secondaryValue={`${comparisonRuns.length} algorithms`}
-            speedId={speedId}
-          />
+            <section className="panel workspace-dock">
+              <TransportPanel
+                embedded
+                isPlaying={isPlaying}
+                mode="compare"
+                onBack={onBack}
+                onEnd={onEnd}
+                onForward={onForward}
+                onSpeedSelect={onSpeedSelect}
+                onStart={onStart}
+                onTogglePlay={onTogglePlay}
+                primaryValue={`${syncProgress}%`}
+                secondaryValue={`${comparisonRuns.length} algorithms`}
+                speedId={speedId}
+              />
 
-          <TimelinePanel
-            activeStepCount={activeStepCount}
-            checkpointWindow={checkpointWindow}
-            currentStepIndex={currentStepIndex}
-            detail={compareLaneSignals.join(" · ")}
-            mode="compare"
-            onSelectStep={onSelectStep}
-            renderCheckpoint={(stepIndex) => {
-              const phaseSummary = comparisonRuns.map((comparisonRun) => {
-                const syncedIndex = getSyncedStepIndex(
-                  comparisonRun.trace.steps.length,
-                  stepIndex,
-                  activeStepCount
-                );
-                return getRunStep(comparisonRun, syncedIndex).phase;
-              });
+              <TimelinePanel
+                activeStepCount={activeStepCount}
+                checkpointWindow={checkpointWindow}
+                currentStepIndex={currentStepIndex}
+                detail={compareLaneSignals.join(" · ")}
+                embedded
+                mode="compare"
+                onSelectStep={onSelectStep}
+                renderCheckpoint={(stepIndex) => {
+                  const phaseSummary = comparisonRuns.map((comparisonRun) => {
+                    const syncedIndex = getSyncedStepIndex(
+                      comparisonRun.trace.steps.length,
+                      stepIndex,
+                      activeStepCount
+                    );
+                    return getRunStep(comparisonRun, syncedIndex).phase;
+                  });
 
-              return (
-                <button
-                  className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
-                  key={`compare-${stepIndex}`}
-                  onClick={() => {
-                    onSelectStep(stepIndex);
-                  }}
-                  type="button"
-                >
-                  <span className="checkpoint-index">
-                    {Math.round((stepIndex / Math.max(1, activeStepCount - 1)) * 100)}%
-                  </span>
-                  <strong>{phaseSummary.join(" / ")}</strong>
-                  <span>Synchronized frame {stepIndex + 1}</span>
-                </button>
-              );
-            }}
-            storyboardStops={storyboardStops}
-            summary={`${syncProgress}% synchronized`}
-            syncProgress={syncProgress}
-          />
+                  return (
+                    <button
+                      className={`checkpoint ${stepIndex === currentStepIndex ? "checkpoint-active" : ""}`}
+                      key={`compare-${stepIndex}`}
+                      onClick={() => {
+                        onSelectStep(stepIndex);
+                      }}
+                      type="button"
+                    >
+                      <span className="checkpoint-index">
+                        {Math.round((stepIndex / Math.max(1, activeStepCount - 1)) * 100)}%
+                      </span>
+                      <strong>{phaseSummary.join(" / ")}</strong>
+                      <span>Synchronized frame {stepIndex + 1}</span>
+                    </button>
+                  );
+                }}
+                storyboardStops={storyboardStops}
+                summary={`${syncProgress}% synchronized`}
+                syncProgress={syncProgress}
+              />
+            </section>
+          </div>
         </div>
       </div>
     </>
@@ -2433,11 +2979,11 @@ function HistoryPage({
               Refresh saved activity
             </button>
             <a className="segmented segmented-active" href={buildRouteHref({ page: "compare" })}>
-              Open comparison studio
+              Open comparison view
             </a>
           </>
         }
-        copy="Saved runs and saved comparisons now live on a separate surface so operators can inspect persistence output without collapsing back into the live playground."
+        copy="Saved runs and comparisons are listed separately from the live replay so persistence output can be reviewed without reopening the active workspace."
         eyebrow="History"
         stats={[
           {
@@ -2456,7 +3002,7 @@ function HistoryPage({
             detail: persistence?.dataFile ?? "Persistence metadata unavailable"
           }
         ]}
-        title="Saved activity has a dedicated browse surface."
+        title="Saved activity"
       />
 
       {status === "offline" ? (
@@ -2579,7 +3125,7 @@ function HistoryPage({
                   </div>
                   <div className="history-card-actions">
                     <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
-                      Open compare surface
+                      Open comparison view
                     </a>
                   </div>
                 </article>
@@ -2587,7 +3133,7 @@ function HistoryPage({
             ) : (
               <div className="empty-state">
                 <strong>No saved comparisons yet.</strong>
-                <p>Build persisted comparisons through the API or demo seed to populate this surface.</p>
+                <p>Build persisted comparisons through the API or demo seed to populate this view.</p>
               </div>
             )}
           </div>
@@ -2650,7 +3196,7 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
-  }, [route]);
+  }, [getRouteScrollKey(route)]);
 
   useEffect(() => {
     if (route.page !== "playground" || !route.algorithmId) {
@@ -2814,8 +3360,12 @@ export default function App() {
 
       {route.page === "library" ? (
         <LibraryPage
+          onBrowse={(filters) => {
+            navigate(buildLibraryRoute(filters));
+          }}
           onOpenPlayground={openAlgorithmPlayground}
           persistedAlgorithms={persistedAlgorithms}
+          route={route}
         />
       ) : null}
 

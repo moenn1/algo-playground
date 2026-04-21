@@ -2,6 +2,7 @@ import {
   buildDynamicProgrammingTrace,
   buildGraphTrace,
   buildSearchTrace,
+  buildStackTrace,
   buildSortingTrace,
   buildWindowTrace,
   defaultLongestCommonSubsequenceInput,
@@ -9,14 +10,17 @@ import {
   defaultBinarySearchInput,
   defaultDijkstraInput,
   defaultMinimumSizeSubarrayInput,
+  defaultValidParenthesesInput,
   parseDynamicProgrammingInputText,
   formatGraphDistance,
   parseGraphInputText,
   parseSearchInputText,
+  parseStackInputText,
   parseWindowInputText,
   serializeDynamicProgrammingInput,
   serializeGraphInput,
   serializeSearchInput,
+  serializeStackInput,
   serializeWindowInput,
   type DynamicProgrammingAlgorithmId,
   type DynamicProgrammingExecutionState,
@@ -27,6 +31,9 @@ import {
   type SearchAlgorithmId,
   type SearchExecutionState,
   type SearchInput,
+  type StackAlgorithmId,
+  type StackExecutionState,
+  type StackInput,
   type WindowAlgorithmId,
   type WindowExecutionState,
   type WindowInput,
@@ -77,17 +84,24 @@ export type DynamicProgrammingAlgorithm = ReplayAlgorithmBase & {
   domain: "dynamic-programming";
 };
 
+export type StackAlgorithm = ReplayAlgorithmBase & {
+  id: StackAlgorithmId;
+  domain: "stack";
+};
+
 export type ReplayAlgorithm =
   | SortingAlgorithm
   | GraphAlgorithm
   | SearchAlgorithm
   | WindowAlgorithm
-  | DynamicProgrammingAlgorithm;
+  | DynamicProgrammingAlgorithm
+  | StackAlgorithm;
 
 export type SortingReplayState = SortingExecutionState;
 export type GraphReplayState = GraphExecutionState;
 export type SearchReplayState = SearchExecutionState;
 export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
+export type StackReplayState = StackExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -124,7 +138,20 @@ export type DynamicProgrammingRun = {
   trace: TraceEnvelope<DynamicProgrammingReplayState>;
 };
 
-export type ReplayRun = SortingRun | GraphRun | SearchRun | WindowRun | DynamicProgrammingRun;
+export type StackRun = {
+  algorithm: StackAlgorithm;
+  input: StackInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<StackReplayState>;
+};
+
+export type ReplayRun =
+  | SortingRun
+  | GraphRun
+  | SearchRun
+  | WindowRun
+  | DynamicProgrammingRun
+  | StackRun;
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
@@ -136,6 +163,10 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
 
 function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
   return run.algorithm.domain === "dynamic-programming";
+}
+
+function isStackRun(run: ReplayRun): run is StackRun {
+  return run.algorithm.domain === "stack";
 }
 
 function parseSortingInput(inputText: string): number[] {
@@ -250,6 +281,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "dynamic-programming"
   },
   {
+    id: "valid-parentheses",
+    name: "Valid Parentheses",
+    badge: "Stack",
+    accent: "gold",
+    description:
+      "Bracket-validation replay records push, match, and reject checkpoints over one deterministic stack timeline.",
+    inputLabel: "Stack Input",
+    inputHint: "JSON with a bracket expression using only (), [], and {}.",
+    defaultInput: serializeStackInput(defaultValidParenthesesInput),
+    domain: "stack"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -361,6 +404,19 @@ function buildDynamicProgrammingRunFromInput(
   };
 }
 
+function buildStackRunFromInput(
+  algorithm: StackAlgorithm,
+  input: StackInput,
+  normalizedInputText = serializeStackInput(input)
+): StackRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildStackTrace(algorithm.id, input)
+  };
+}
+
 export function buildComparisonRuns(inputText: string): SortingRun[] {
   const input = parseSortingInput(inputText);
   const normalizedInputText = serializeSortingInput(input);
@@ -393,6 +449,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildDynamicProgrammingRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "stack") {
+    const input = parseStackInputText(inputText);
+    return buildStackRunFromInput(algorithm, input);
+  }
+
   const input = parseGraphInputText(inputText);
   return buildGraphRunFromInput(algorithm, input);
 }
@@ -412,6 +473,10 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   if (isDynamicProgrammingRun(run)) {
     return `${run.input.left.length} x ${run.input.right.length} table`;
+  }
+
+  if (isStackRun(run)) {
+    return `${run.input.expression.length} tokens`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;

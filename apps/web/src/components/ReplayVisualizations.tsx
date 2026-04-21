@@ -4,7 +4,13 @@ import {
 } from "@tracedeck/execution-engine";
 import { type JsonObject, type TraceStep } from "@tracedeck/trace-core";
 
-import { formatDistance, type GraphRun, type SearchRun, type SortingRun } from "../replay.js";
+import {
+  formatDistance,
+  type GraphRun,
+  type SearchRun,
+  type SortingRun,
+  type StackRun
+} from "../replay.js";
 
 type SortingStageDensity = "detailed" | "compact";
 type GraphPoint = { x: number; y: number };
@@ -192,6 +198,52 @@ function formatActiveEdge(activeEdge: string[]): string {
   }
 
   return `${activeEdge[0]} -> ${activeEdge[1]}`;
+}
+
+function getStackTokenTone(
+  index: number,
+  step: StackRun["trace"]["steps"][number]
+): "current" | "failed" | "stacked" | "matched" | "processed" | "idle" {
+  if (step.state.failureIndex === index) {
+    return "failed";
+  }
+
+  if (step.state.cursor === index) {
+    return "current";
+  }
+
+  if (step.state.stackIndices.includes(index)) {
+    return "stacked";
+  }
+
+  if (step.state.matchedPairs.some((pair) => pair.includes(index))) {
+    return "matched";
+  }
+
+  if (step.state.processedIndices.includes(index)) {
+    return "processed";
+  }
+
+  return "idle";
+}
+
+function formatStackTokenStatus(
+  tone: ReturnType<typeof getStackTokenTone>
+): string {
+  switch (tone) {
+    case "failed":
+      return "Mismatch";
+    case "current":
+      return "Current";
+    case "stacked":
+      return "On stack";
+    case "matched":
+      return "Matched";
+    case "processed":
+      return "Cleared";
+    default:
+      return "Pending";
+  }
 }
 
 export function SortingStage({
@@ -515,6 +567,100 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               ? `${step.state.path.length} nodes on the recovered route`
               : "The trace has not recovered a target route yet."}
           </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {
+  const step = getStep(run.trace.steps, stepIndex);
+  const verdict =
+    step.state.valid === true
+      ? "Valid expression"
+      : step.state.valid === false
+        ? "Invalid expression"
+        : "Validation in progress";
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} stack</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="stack-stage">
+        <div className="stack-banner">
+          <span>{step.state.expression.length} tokens queued</span>
+          <strong>
+            {step.state.currentChar !== null
+              ? `Inspect slot ${step.state.cursor} = ${step.state.currentChar}`
+              : verdict}
+          </strong>
+          <p>
+            {step.state.failureReason
+              ? step.state.failureReason
+              : step.state.expectedCloser
+                ? `Next closer must be ${step.state.expectedCloser}.`
+                : "The stack is empty, so the next opener starts a fresh segment."}
+          </p>
+        </div>
+        <div className="stack-visual-grid">
+          <div className="stack-token-grid" aria-label="Bracket expression state">
+            {step.state.expression.split("").map((token, index) => {
+              const tone = getStackTokenTone(index, step);
+
+              return (
+                <article className={`stack-char stack-char-${tone}`} key={`stack-token-${index}`}>
+                  <span className="stack-char-index">Slot {index}</span>
+                  <strong className="stack-char-value">{token}</strong>
+                  <span className="stack-char-status">{formatStackTokenStatus(tone)}</span>
+                </article>
+              );
+            })}
+          </div>
+          <div className="stack-stack-rail">
+            <article className="mini-card">
+              <span>Expected closer</span>
+              <strong>{step.state.expectedCloser ?? "None"}</strong>
+              <p>{step.state.stackTokens.length} opener(s) on the stack</p>
+            </article>
+            <div className="stack-stack-grid">
+              {step.state.stackTokens.length > 0 ? (
+                [...step.state.stackTokens]
+                  .map((token, index) => ({
+                    token,
+                    stackIndex: step.state.stackIndices[index] ?? null
+                  }))
+                  .reverse()
+                  .map(({ token, stackIndex }, index) => (
+                    <article className="stack-frame-card" key={`stack-frame-${index}-${stackIndex}`}>
+                      <span>{index === 0 ? "Top" : `Depth ${index}`}</span>
+                      <strong>{token}</strong>
+                      <p>{stackIndex !== null ? `Opened at slot ${stackIndex}` : "Pending slot"}</p>
+                    </article>
+                  ))
+              ) : (
+                <div className="stack-frame-empty">Stack empty</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Stack depth</span>
+          <strong>{step.state.stackTokens.length}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Matched pairs</span>
+          <strong>{step.state.matchedPairs.length}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Verdict</span>
+          <strong>{verdict}</strong>
         </div>
       </div>
     </>

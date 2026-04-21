@@ -32,6 +32,8 @@ The demo seed currently materializes:
 - Minimum Size Subarray Sum on `window.no-solution`
 - Longest Common Subsequence on `dynamic-programming.reference-overlap`
 - Longest Common Subsequence on `dynamic-programming.no-overlap`
+- Valid Parentheses on `stack.reference-valid`
+- Valid Parentheses on `stack.early-mismatch`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

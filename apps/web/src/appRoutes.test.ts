@@ -29,9 +29,32 @@ describe("appRoutes", () => {
     expect(buildRouteHref({ page: "playground", algorithmId: "bfs" })).toBe(
       "#/playground/bfs"
     );
+    expect(
+      buildRouteHref({
+        page: "library",
+        domain: "sorting",
+        stage: "core",
+        sort: "most-saved",
+        q: "merge"
+      })
+    ).toBe("#/library?domain=sorting&stage=core&sort=most-saved&q=merge");
     expect(buildRouteHref({ page: "algorithm-detail", algorithmId: "merge-sort" })).toBe(
       "#/algorithms/merge-sort"
     );
+  });
+
+  it("parses library browse state from hash query params", () => {
+    expect(
+      parseHashRoute("#/library?domain=graph&stage=advanced&focus=pathfinding&sort=name&q=frontier")
+    ).toEqual({
+      page: "library",
+      domain: "graph",
+      stage: "advanced",
+      focus: "pathfinding",
+      sort: "name",
+      q: "frontier"
+    });
+    expect(parseHashRoute("#/library?domain=nope&sort=invalid")).toEqual({ page: "library" });
   });
 
   it("keeps the library navigation active on algorithm reference pages", () => {
