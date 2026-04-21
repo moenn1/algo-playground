@@ -7,6 +7,7 @@ import { type JsonObject, type TraceStep } from "@tracedeck/trace-core";
 import {
   formatDistance,
   type GraphRun,
+  type IntervalRun,
   type SearchRun,
   type SortingRun,
   type StackRun
@@ -198,6 +199,14 @@ function formatActiveEdge(activeEdge: string[]): string {
   }
 
   return `${activeEdge[0]} -> ${activeEdge[1]}`;
+}
+
+function formatInterval(interval: number[]): string {
+  if (interval.length !== 2) {
+    return "Pending";
+  }
+
+  return `[${interval[0]}, ${interval[1]}]`;
 }
 
 function getStackTokenTone(
@@ -661,6 +670,77 @@ export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: numbe
         <div className="mini-card">
           <span>Verdict</span>
           <strong>{verdict}</strong>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function IntervalStage({ run, stepIndex }: { run: IntervalRun; stepIndex: number }) {
+  const step = getStep(run.trace.steps, stepIndex);
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} ranges</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="window-stage">
+        <div className="window-banner">
+          <span>{step.state.orderedIntervals.length} sorted intervals</span>
+          <strong>
+            {step.state.comparisonInterval.length === 2
+              ? `Compare ${formatInterval(step.state.comparisonInterval)} against ${formatInterval(step.state.activeInterval)}`
+              : step.state.activeInterval.length === 2
+                ? `Active merged span ${formatInterval(step.state.activeInterval)}`
+                : `${step.state.mergedIntervals.length} merged outputs ready`}
+          </strong>
+          <p>
+            {step.state.overlapRange.length === 2
+              ? `Current overlap spans ${formatInterval(step.state.overlapRange)}.`
+              : step.state.mergedIntervals.length > 0
+                ? `Committed outputs: ${step.state.mergedIntervals.map((interval) => formatInterval(interval)).join(" · ")}`
+                : "The scan is ordering and comparing ranges before committing merged output."}
+          </p>
+        </div>
+        <div className="window-grid">
+          {step.state.orderedIntervals.map((interval, index) => {
+            const isActive = step.state.activeGroupIndices.includes(index);
+            const isCurrent = step.state.currentIndex === index;
+            const isCommitted = step.state.consumedIndices.includes(index) && !isActive;
+            const className = [
+              "window-cell",
+              isActive ? "window-cell-active" : "",
+              isCurrent ? "window-cell-candidate" : "",
+              isCommitted ? "window-cell-best" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div className={className} key={`interval-card-${index}`}>
+                <span className="window-cell-index">#{index}</span>
+                <strong className="window-cell-value">{formatInterval(interval)}</strong>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Active span</span>
+          <strong>{formatInterval(step.state.activeInterval)}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Overlap</span>
+          <strong>{formatInterval(step.state.overlapRange)}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Merged outputs</span>
+          <strong>{step.state.mergedIntervals.length}</strong>
         </div>
       </div>
     </>

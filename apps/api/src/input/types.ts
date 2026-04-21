@@ -7,6 +7,7 @@ export const supportedAlgorithmIds = [
   "merge-sort",
   "binary-search",
   "minimum-size-subarray-sum",
+  "merge-intervals",
   "longest-common-subsequence",
   "valid-parentheses",
   "bfs",
@@ -37,6 +38,10 @@ export interface SearchInputPayload extends JsonObject {
 export interface WindowInputPayload extends JsonObject {
   array: number[];
   target: number;
+}
+
+export interface IntervalInputPayload extends JsonObject {
+  intervals: number[][];
 }
 
 export interface DynamicProgrammingInputPayload extends JsonObject {

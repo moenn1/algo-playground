@@ -565,6 +565,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 lanes / target 7"
     });
 
+    const intervalPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/interval.reference-overlap/resolve",
+      payload: {
+        algorithmId: "merge-intervals"
+      }
+    });
+
+    expect(intervalPreset.statusCode).toBe(200);
+    expect(intervalPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "interval.reference-overlap"
+      },
+      algorithm: {
+        id: "merge-intervals",
+        domain: "interval"
+      },
+      footprint: "4 intervals"
+    });
+
     const dynamicProgrammingPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/dynamic-programming.reference-overlap/resolve",
@@ -678,6 +699,38 @@ describe("TraceDeck API foundation", () => {
         target: 15
       },
       footprint: "6 lanes / target 15"
+    });
+
+    const validateIntervalInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "merge-intervals",
+        payload: {
+          intervals: [
+            [1, 4],
+            [4, 5],
+            [9, 11]
+          ]
+        }
+      }
+    });
+
+    expect(validateIntervalInput.statusCode).toBe(200);
+    expect(validateIntervalInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "merge-intervals",
+        domain: "interval"
+      },
+      input: {
+        intervals: [
+          [1, 4],
+          [4, 5],
+          [9, 11]
+        ]
+      },
+      footprint: "3 intervals"
     });
 
     const validateDynamicProgrammingInput = await server.inject({

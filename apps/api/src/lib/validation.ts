@@ -40,7 +40,9 @@ const algorithmDomains = new Set<AlgorithmDomain>([
   "graph",
   "search",
   "window",
-  "dynamic-programming"
+  "dynamic-programming",
+  "stack",
+  "interval"
 ]);
 const algorithmIds = new Set(supportedAlgorithmIds);
 const metricUnits = new Set<MetricUnit>([

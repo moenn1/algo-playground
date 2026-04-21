@@ -185,7 +185,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons, pushes, and pops expose validator effort while keeping the rejection point explicit.",
     skills: ["stack discipline", "token validation", "failure checkpoints"],
     spotlight: "A compact bridge from linear scans into stateful replay because every bracket change is visible.",
-    nextAlgorithmIds: ["minimum-size-subarray-sum", "longest-common-subsequence"]
+    nextAlgorithmIds: ["minimum-size-subarray-sum", "merge-intervals"]
   },
   "selection-sort": {
     stage: "core",
@@ -209,12 +209,24 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Expansions, shrinks, and best updates summarize how hard the window had to work.",
     skills: ["moving bounds", "candidate windows", "best-hit updates"],
     spotlight: "Good for learning replay surfaces where the active region moves even when the result stays the same.",
-    nextAlgorithmIds: ["longest-common-subsequence", "binary-search"]
+    nextAlgorithmIds: ["merge-intervals", "binary-search"]
+  },
+  "merge-intervals": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 7,
+    timeToExplore: "6 min",
+    complexity: "Sorted range order keeps the scan linear while the active merge span still changes meaningfully over time.",
+    outcome: "See exactly when a range extends the active span, when a gap forces an output commit, and how the final interval list forms.",
+    metricsLens: "Overlap checks, merges, and outputs show how many comparisons the interval sweep needed before each result span locked in.",
+    skills: ["interval sorting", "overlap detection", "range commits"],
+    spotlight: "One of the most recognizable interview problems in the catalog and a strong bridge from arrays into interval reasoning.",
+    nextAlgorithmIds: ["longest-common-subsequence", "dijkstra"]
   },
   "merge-sort": {
     stage: "core",
     focus: "partitioning",
-    order: 7,
+    order: 8,
     timeToExplore: "6 min",
     complexity: "Split and merge phases ask the viewer to connect multiple local windows.",
     outcome: "Track recursive decomposition and the write-heavy merge path back to a stable final ordering.",
@@ -226,7 +238,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "quick-sort": {
     stage: "advanced",
     focus: "partitioning",
-    order: 8,
+    order: 9,
     timeToExplore: "7 min",
     complexity: "Pivot locks and recursive partitions create dense local transitions across the deck.",
     outcome: "Inspect how partition boundaries move and why one pivot choice can reshape the next trace segment.",
@@ -238,7 +250,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "longest-common-subsequence": {
     stage: "advanced",
     focus: "dependencies",
-    order: 9,
+    order: 10,
     timeToExplore: "8 min",
     complexity: "A full table plus traceback shifts the user from linear scans to dependency-heavy state.",
     outcome: "Separate matrix fill work from traceback recovery while keeping the current cell and dependencies visible.",
@@ -250,7 +262,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   dijkstra: {
     stage: "advanced",
     focus: "pathfinding",
-    order: 10,
+    order: 11,
     timeToExplore: "8 min",
     complexity: "Weighted frontier ordering makes every inspection and update more consequential.",
     outcome: "Read tentative distances, inspected edges, and recovered shortest paths without hidden queue state.",

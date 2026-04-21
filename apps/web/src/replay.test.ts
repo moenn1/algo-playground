@@ -9,6 +9,7 @@ import {
   buildRun,
   getTraceStepPaths,
   type DynamicProgrammingRun,
+  type IntervalRun,
   type SearchRun,
   type StackRun,
   type SortingRun,
@@ -179,6 +180,40 @@ describe("buildRun", () => {
     expect(finalStep.state.resultLength).toBe(4);
     expect(finalStep.state.resultSequence).toBe("MJAU");
     expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.resultSequence");
+  });
+
+  it("builds interval replay runs from the shared interval engine", () => {
+    const run = buildRun(
+      "merge-intervals",
+      JSON.stringify(
+        {
+          intervals: [
+            [1, 3],
+            [2, 6],
+            [8, 10],
+            [15, 18]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "interval") {
+      throw new Error("Expected an interval run.");
+    }
+
+    const intervalRun = run as IntervalRun;
+    const finalStep = intervalRun.trace.steps[intervalRun.trace.steps.length - 1]!;
+
+    expect(intervalRun.algorithm.id).toBe("merge-intervals");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.mergedIntervals).toEqual([
+      [1, 6],
+      [8, 10],
+      [15, 18]
+    ]);
+    expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.mergedIntervals");
   });
 
   it("builds stack replay runs from the shared stack engine", () => {

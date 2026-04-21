@@ -5,6 +5,7 @@ import { HttpError } from "../lib/http.js";
 import type {
   DynamicProgrammingInputPayload,
   GraphInputPayload,
+  IntervalInputPayload,
   InputPresetListQuery,
   InputPresetSummary,
   ResolveInputPresetInput,
@@ -49,6 +50,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Minimum Size Subarray Sum",
     domain: "window"
   },
+  "merge-intervals": {
+    id: "merge-intervals",
+    label: "Merge Intervals",
+    domain: "interval"
+  },
   "longest-common-subsequence": {
     id: "longest-common-subsequence",
     label: "Longest Common Subsequence",
@@ -79,6 +85,7 @@ const sortingAlgorithms = [
 ] as const;
 const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
+const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
 const stackAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
@@ -90,6 +97,14 @@ const defaultSearchInput: SearchInputPayload = {
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
   target: 7
+};
+const defaultIntervalInput: IntervalInputPayload = {
+  intervals: [
+    [1, 3],
+    [2, 6],
+    [8, 10],
+    [15, 18]
+  ]
 };
 const defaultDynamicProgrammingInput: DynamicProgrammingInputPayload = {
   left: "XMJYAUZ",
@@ -378,6 +393,65 @@ function normalizeWindowInput(payload: unknown): WindowInputPayload {
   };
 }
 
+function normalizeIntervalInput(payload: unknown): IntervalInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Interval input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Interval input must be an object with an intervals array.");
+  }
+
+  const value = candidate as {
+    intervals?: unknown;
+  };
+
+  if (!Array.isArray(value.intervals) || value.intervals.length === 0) {
+    throw new HttpError(400, "Interval input must include at least one interval.");
+  }
+
+  if (value.intervals.length > 12) {
+    throw new HttpError(400, "Interval input must contain 12 intervals or fewer.");
+  }
+
+  const intervals = value.intervals.map((interval, index) => {
+    if (!Array.isArray(interval) || interval.length !== 2) {
+      throw new HttpError(
+        400,
+        `intervals[${index}] must contain exactly two integer boundaries.`
+      );
+    }
+
+    const start = interval[0];
+    const end = interval[1];
+
+    if (typeof start !== "number" || !Number.isInteger(start)) {
+      throw new HttpError(400, `intervals[${index}][0] must be an integer.`);
+    }
+
+    if (typeof end !== "number" || !Number.isInteger(end)) {
+      throw new HttpError(400, `intervals[${index}][1] must be an integer.`);
+    }
+
+    if (start > end) {
+      throw new HttpError(400, `intervals[${index}] must satisfy start <= end.`);
+    }
+
+    return [start, end];
+  });
+
+  return {
+    intervals
+  };
+}
+
 function serializeSearchInput(input: SearchInputPayload) {
   return JSON.stringify(
     {
@@ -394,6 +468,16 @@ function serializeWindowInput(input: WindowInputPayload) {
     {
       array: input.array,
       target: input.target
+    },
+    null,
+    2
+  );
+}
+
+function serializeIntervalInput(input: IntervalInputPayload) {
+  return JSON.stringify(
+    {
+      intervals: input.intervals
     },
     null,
     2
@@ -665,6 +749,16 @@ function normalizeAlgorithmInput(
       input: window,
       normalizedInputText: serializeWindowInput(window),
       footprint: `${window.array.length} lanes / target ${window.target}`
+    };
+  }
+
+  if (algorithm.domain === "interval") {
+    const interval = normalizeIntervalInput(payload);
+
+    return {
+      input: interval,
+      normalizedInputText: serializeIntervalInput(interval),
+      footprint: `${interval.intervals.length} intervals`
     };
   }
 
@@ -1000,6 +1094,47 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [1, 1, 1, 1, 1, 1],
         target: 9
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "interval.reference-overlap",
+      label: "Reference overlap chain",
+      description:
+        "Use the classic Merge Intervals example so replay shows sorting, overlap checks, and multi-range output commits.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "interval",
+      algorithms: intervalAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultIntervalInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "interval.touching-ranges",
+      label: "Touching interval boundaries",
+      description:
+        "Include touching ranges so replay makes the inclusive overlap rule visible at the boundary itself.",
+      scenario: "touching",
+      kind: "curated",
+      domain: "interval",
+      algorithms: intervalAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        intervals: [
+          [1, 4],
+          [4, 5],
+          [7, 9],
+          [8, 12]
+        ]
       },
       options: {}
     })

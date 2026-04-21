@@ -81,6 +81,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "window", "no-solution"]
   },
   {
+    key: "interval-reference-overlap",
+    algorithmId: "merge-intervals",
+    presetId: "interval.reference-overlap",
+    recordedAt: "2026-04-20T09:07:52.000Z",
+    tags: ["seeded-demo", "interval", "reference-overlap"]
+  },
+  {
+    key: "interval-touching-ranges",
+    algorithmId: "merge-intervals",
+    presetId: "interval.touching-ranges",
+    recordedAt: "2026-04-20T09:07:53.000Z",
+    tags: ["seeded-demo", "interval", "touching-ranges"]
+  },
+  {
     key: "dp-reference-overlap",
     algorithmId: "longest-common-subsequence",
     presetId: "dynamic-programming.reference-overlap",

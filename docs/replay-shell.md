@@ -41,7 +41,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 
 - Route choices, recent activity, and persistence state are visible in the overview index.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, sliding-window, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, sliding-window, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like a discovery surface, not a flattened appendix: category rails, progression cues, and saved-activity signals should help users understand breadth before they open a replay.
@@ -52,6 +52,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
+- The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
 - The stack stage renders token-by-token validation status, the live opener stack, expected closers, and first-failure context directly from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.

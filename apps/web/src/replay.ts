@@ -1,6 +1,7 @@
 import {
   buildDynamicProgrammingTrace,
   buildGraphTrace,
+  buildIntervalTrace,
   buildSearchTrace,
   buildStackTrace,
   buildSortingTrace,
@@ -9,16 +10,19 @@ import {
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultDijkstraInput,
+  defaultMergeIntervalsInput,
   defaultMinimumSizeSubarrayInput,
   defaultValidParenthesesInput,
   parseDynamicProgrammingInputText,
   formatGraphDistance,
   parseGraphInputText,
+  parseIntervalInputText,
   parseSearchInputText,
   parseStackInputText,
   parseWindowInputText,
   serializeDynamicProgrammingInput,
   serializeGraphInput,
+  serializeIntervalInput,
   serializeSearchInput,
   serializeStackInput,
   serializeWindowInput,
@@ -28,6 +32,9 @@ import {
   type GraphAlgorithmId,
   type GraphExecutionState,
   type GraphInput,
+  type IntervalAlgorithmId,
+  type IntervalExecutionState,
+  type IntervalInput,
   type SearchAlgorithmId,
   type SearchExecutionState,
   type SearchInput,
@@ -79,6 +86,11 @@ export type WindowAlgorithm = ReplayAlgorithmBase & {
   domain: "window";
 };
 
+export type IntervalAlgorithm = ReplayAlgorithmBase & {
+  id: IntervalAlgorithmId;
+  domain: "interval";
+};
+
 export type DynamicProgrammingAlgorithm = ReplayAlgorithmBase & {
   id: DynamicProgrammingAlgorithmId;
   domain: "dynamic-programming";
@@ -94,6 +106,7 @@ export type ReplayAlgorithm =
   | GraphAlgorithm
   | SearchAlgorithm
   | WindowAlgorithm
+  | IntervalAlgorithm
   | DynamicProgrammingAlgorithm
   | StackAlgorithm;
 
@@ -102,6 +115,7 @@ export type GraphReplayState = GraphExecutionState;
 export type SearchReplayState = SearchExecutionState;
 export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
 export type StackReplayState = StackExecutionState;
+export type IntervalReplayState = IntervalExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -131,6 +145,13 @@ export type WindowRun = {
   trace: TraceEnvelope<WindowExecutionState>;
 };
 
+export type IntervalRun = {
+  algorithm: IntervalAlgorithm;
+  input: IntervalInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<IntervalReplayState>;
+};
+
 export type DynamicProgrammingRun = {
   algorithm: DynamicProgrammingAlgorithm;
   input: DynamicProgrammingInput;
@@ -150,6 +171,7 @@ export type ReplayRun =
   | GraphRun
   | SearchRun
   | WindowRun
+  | IntervalRun
   | DynamicProgrammingRun
   | StackRun;
 
@@ -159,6 +181,10 @@ function isSearchRun(run: ReplayRun): run is SearchRun {
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
+}
+
+function isIntervalRun(run: ReplayRun): run is IntervalRun {
+  return run.algorithm.domain === "interval";
 }
 
 function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
@@ -267,6 +293,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with a positive integer array and a target sum.",
     defaultInput: serializeWindowInput(defaultMinimumSizeSubarrayInput),
     domain: "window"
+  },
+  {
+    id: "merge-intervals",
+    name: "Merge Intervals",
+    badge: "Intervals",
+    accent: "teal",
+    description:
+      "Classic range-merging replay records sort order, overlap checks, and explicit output commits.",
+    inputLabel: "Interval Input",
+    inputHint: "JSON with an intervals array of [start, end] integer pairs.",
+    defaultInput: serializeIntervalInput(defaultMergeIntervalsInput),
+    domain: "interval"
   },
   {
     id: "longest-common-subsequence",
@@ -391,6 +429,19 @@ function buildWindowRunFromInput(
   };
 }
 
+function buildIntervalRunFromInput(
+  algorithm: IntervalAlgorithm,
+  input: IntervalInput,
+  normalizedInputText = serializeIntervalInput(input)
+): IntervalRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildIntervalTrace(algorithm.id, input)
+  };
+}
+
 function buildDynamicProgrammingRunFromInput(
   algorithm: DynamicProgrammingAlgorithm,
   input: DynamicProgrammingInput,
@@ -444,6 +495,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildWindowRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "interval") {
+    const input = parseIntervalInputText(inputText);
+    return buildIntervalRunFromInput(algorithm, input);
+  }
+
   if (algorithm.domain === "dynamic-programming") {
     const input = parseDynamicProgrammingInputText(inputText);
     return buildDynamicProgrammingRunFromInput(algorithm, input);
@@ -469,6 +525,10 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   if (isWindowRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isIntervalRun(run)) {
+    return `${run.input.intervals.length} intervals`;
   }
 
   if (isDynamicProgrammingRun(run)) {

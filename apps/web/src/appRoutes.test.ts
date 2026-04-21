@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { buildRouteHref, isRouteActive, parseHashRoute } from "./appRoutes.js";
 
 describe("appRoutes", () => {
-  it("maps empty hashes to the overview surface", () => {
-    expect(parseHashRoute("")).toEqual({ page: "overview" });
-    expect(parseHashRoute("#/")).toEqual({ page: "overview" });
+  it("maps empty hashes to the default replay surface", () => {
+    expect(parseHashRoute("")).toEqual({ page: "playground", algorithmId: "bubble-sort" });
+    expect(parseHashRoute("#/")).toEqual({ page: "playground", algorithmId: "bubble-sort" });
   });
 
   it("parses algorithm detail and playground routes for known algorithms", () => {
@@ -25,7 +25,7 @@ describe("appRoutes", () => {
   });
 
   it("builds stable hash hrefs for product surfaces", () => {
-    expect(buildRouteHref({ page: "overview" })).toBe("#/");
+    expect(buildRouteHref({ page: "overview" })).toBe("#/overview");
     expect(buildRouteHref({ page: "playground", algorithmId: "bfs" })).toBe(
       "#/playground/bfs"
     );

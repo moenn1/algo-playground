@@ -9,6 +9,7 @@ The service currently covers the supported algorithms already present in the wor
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`
 - Window: `minimum-size-subarray-sum`
+- Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`
 - Graph: `bfs`, `dijkstra`
@@ -131,6 +132,13 @@ Both search presets currently resolve for Binary Search through the same `algori
 
 Both window presets currently resolve for Minimum Size Subarray Sum through the same `algorithmId` field.
 
+### Interval presets
+
+- `interval.reference-overlap`: curated classic Merge Intervals chain with one large early merge and two preserved disjoint outputs
+- `interval.touching-ranges`: curated boundary-touching case that shows inclusive overlap at exact shared endpoints
+
+Both interval presets currently resolve for Merge Intervals through the same `algorithmId` field.
+
 ### Dynamic-programming presets
 
 - `dynamic-programming.reference-overlap`: curated pair of strings with a non-trivial shared subsequence and visible traceback
@@ -150,12 +158,14 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 - Sorting payloads accept either integer arrays or comma-separated integer strings.
 - Search payloads accept either JSON objects or JSON strings.
 - Window payloads accept either JSON objects or JSON strings.
+- Interval payloads accept either JSON objects or JSON strings.
 - Dynamic-programming payloads accept either JSON objects or JSON strings.
 - Stack payloads accept either JSON objects or JSON strings.
 - Graph payloads accept either JSON objects or JSON strings.
 - Sorting inputs must contain between 2 and 24 integers.
 - Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Window payloads must define between 2 and 32 positive integers plus a positive integer target.
+- Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.
 - Stack payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.

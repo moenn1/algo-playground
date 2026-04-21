@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared interval runtime for Merge Intervals, including deterministic sort-first range scans, explicit overlap and commit checkpoints, and stable `comparisons`, `merges`, and `outputs` metrics.
+- Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new interval domain so TraceDeck now includes another famous interview problem with dedicated range-merging playback.
 - Reworked the replay-first interface around a tighter tool layout: the empty hash now opens replay, overview moved to an explicit route directory, replay and comparison use a docked transport-and-timeline rail, and library/history surfaces lean on ledgers and lists instead of repeated card grids.
 - Tightened desktop and tablet framing for the main replay surface so laptop-width layouts avoid rightward page scrolling, reduce above-the-fold sprawl, and keep core controls visible without promotional banner treatment.
 - Added a shared stack-validation runtime for Valid Parentheses, including deterministic push, match, reject, and unclosed terminal checkpoints with stable `comparisons`, `pushes`, and `pops` metrics.

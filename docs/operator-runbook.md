@@ -30,6 +30,8 @@ The demo seed currently materializes:
 - Binary Search on `search.missing-target`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
+- Merge Intervals on `interval.reference-overlap`
+- Merge Intervals on `interval.touching-ranges`
 - Longest Common Subsequence on `dynamic-programming.reference-overlap`
 - Longest Common Subsequence on `dynamic-programming.no-overlap`
 - Valid Parentheses on `stack.reference-valid`

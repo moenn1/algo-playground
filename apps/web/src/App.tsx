@@ -481,6 +481,24 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return "Target not reached";
   }
 
+  if (isIntervalRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.comparisonInterval.length === 2 && step.state.activeInterval.length === 2) {
+      return `Compare ${formatIntervalValue(step.state.activeInterval)} with ${formatIntervalValue(step.state.comparisonInterval)}`;
+    }
+
+    if (step.state.activeInterval.length === 2) {
+      return `Active span ${formatIntervalValue(step.state.activeInterval)}`;
+    }
+
+    if (step.state.mergedIntervals.length > 0) {
+      return `${step.state.mergedIntervals.length} merged interval${step.state.mergedIntervals.length === 1 ? "" : "s"}`;
+    }
+
+    return `${step.state.orderedIntervals.length} intervals queued`;
+  }
+
   if (isDynamicProgrammingRun(run)) {
     const step = getRunStep(run, stepIndex);
     const activeCoordinate = formatGridCoordinate(step.state.activeCell);
@@ -617,6 +635,8 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
       return "Probes and comparisons";
     case "window":
       return "Expansions, shrinks, and best updates";
+    case "interval":
+      return "Overlap checks, merges, and outputs";
     case "dynamic-programming":
       return "Cells, matches, and traceback steps";
     case "stack":
@@ -691,6 +711,20 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             return "Window waiting for first hit";
           })()
+        : isIntervalRun(run)
+          ? (() => {
+              const intervalStep = getRunStep(run, stepIndex);
+
+              if (intervalStep.state.comparisonInterval.length === 2 && intervalStep.state.currentIndex !== null) {
+                return `Checking interval ${intervalStep.state.currentIndex}`;
+              }
+
+              if (intervalStep.state.activeGroupIndices.length > 0) {
+                return `${intervalStep.state.activeGroupIndices.length} interval(s) in the active merge span`;
+              }
+
+              return `${intervalStep.state.mergedIntervals.length} merged outputs committed`;
+            })()
       : isDynamicProgrammingRun(run)
           ? (() => {
               const dynamicProgrammingStep = getRunStep(run, stepIndex);
@@ -997,6 +1031,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
     return <WindowStage run={run} stepIndex={stepIndex} />;
   }
 
+  if (isIntervalRun(run)) {
+    return <IntervalStage run={run} stepIndex={stepIndex} />;
+  }
+
   if (isDynamicProgrammingRun(run)) {
     return <DynamicProgrammingStage run={run} stepIndex={stepIndex} />;
   }
@@ -1099,6 +1137,46 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
               {index}:{value}
             </span>
           ))}
+        </div>
+      </>
+    );
+  }
+
+  if (isIntervalRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Active span</span>
+            <strong>{formatIntervalValue(step.state.activeInterval)}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Current compare</span>
+            <strong>{formatIntervalValue(step.state.comparisonInterval)}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Overlap</span>
+            <strong>{formatIntervalValue(step.state.overlapRange)}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Outputs</span>
+            <strong>{step.state.mergedIntervals.length}</strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.mergedIntervals.length > 0
+            ? step.state.mergedIntervals.map((interval, index) => (
+                <span className="number-pill" key={`interval-output-${index}`}>
+                  {formatIntervalValue(interval)}
+                </span>
+              ))
+            : step.state.orderedIntervals.map((interval, index) => (
+                <span className="number-pill" key={`interval-pill-${index}`}>
+                  {index}:{formatIntervalValue(interval)}
+                </span>
+              ))}
         </div>
       </>
     );
@@ -2490,7 +2568,6 @@ function AlgorithmDetailPage({
 }
 
 function PlaygroundPage({
-  foundation,
   status,
   run,
   runSource,
@@ -2512,7 +2589,6 @@ function PlaygroundPage({
   onEnd,
   onSelectStep
 }: {
-  foundation: FoundationResponse | null;
   status: DataStatus;
   run: ReplayRun;
   runSource: RunSource;
@@ -3426,7 +3502,6 @@ export default function App() {
       {route.page === "playground" ? (
         <PlaygroundPage
           currentStepIndex={currentStepIndex}
-          foundation={foundation}
           isPlaying={isPlaying}
           onBack={() => {
             setIsPlaying(false);

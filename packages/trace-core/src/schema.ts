@@ -13,7 +13,8 @@ export type AlgorithmDomain =
   | "search"
   | "window"
   | "dynamic-programming"
-  | "stack";
+  | "stack"
+  | "interval";
 export type MetricUnit = "count" | "milliseconds" | "bytes" | "ratio" | "items";
 export type ComparisonDirection = "lower-is-better" | "higher-is-better" | "neutral";
 export type TraceChangeOperation = "set" | "insert" | "remove" | "move";

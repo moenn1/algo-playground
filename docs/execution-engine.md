@@ -4,7 +4,7 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, window, dynamic-programming, stack, and graph runtimes:
+The current package covers shared sorting, search, window, interval, dynamic-programming, stack, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
@@ -12,6 +12,7 @@ The current package covers shared sorting, search, window, dynamic-programming, 
 - `merge-sort`
 - `binary-search`
 - `minimum-size-subarray-sum`
+- `merge-intervals`
 - `longest-common-subsequence`
 - `valid-parentheses`
 - `bfs`
@@ -99,6 +100,27 @@ Shared dynamic-programming metrics keep the table fill and recovery phases reada
 
 The runtime records explicit `Initialization`, per-cell `Match` and `Carry`, `Table Complete`, traceback, and terminal `Done` checkpoints so replay can jump between recurrence work and result recovery without recomputing the table in the browser.
 
+## Interval Runtime Model
+
+Merge Intervals establishes the first range-merging runtime shape:
+
+- `state.orderedIntervals`: the intervals after deterministic start-boundary sorting
+- `state.currentIndex`: the interval currently being compared against the active span
+- `state.activeInterval`: the live merged span that may still absorb later ranges
+- `state.comparisonInterval`: the next interval under inspection
+- `state.mergedIntervals`: the committed output intervals published so far
+- `state.activeGroupIndices`: the sorted interval slots already absorbed into the active span
+- `state.consumedIndices`: source intervals that have already been folded into either the active span or committed output
+- `state.overlapRange`: the currently overlapping sub-range when the active span and comparison interval intersect
+
+Shared interval metrics keep the sweep and output phases readable:
+
+- `comparisons`: overlap checks performed so far
+- `merges`: overlapping ranges collapsed into the active span so far
+- `outputs`: merged intervals committed to the result so far
+
+The runtime records explicit `Initialization`, `Sort`, `Seed Active`, `Compare`, `Merge`, `Commit`, `Start New`, `Final Commit`, and `Done` checkpoints so replay can jump between sort-time preparation and output commits without recomputing the active span in the browser.
+
 ## Stack Runtime Model
 
 Valid Parentheses establishes the first stack-validation runtime shape:
@@ -150,6 +172,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
+- Merge Intervals records sorted range order, active-span merges, and committed outputs explicitly so replay can jump between overlap checks and result commits without recomputing interval groups.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
 - Valid Parentheses records opener pushes, closer matches, and terminal mismatch frames explicitly so replay can restore the exact stack and failure reason for any token boundary.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
@@ -157,6 +180,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting, search, window, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, window, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.
