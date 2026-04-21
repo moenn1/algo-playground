@@ -24,6 +24,7 @@ import {
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
   defaultNumberOfIslandsInput,
+  defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
@@ -291,6 +292,17 @@ export function isNumberOfIslandsInput(
     "grid" in input &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "string" && (cell === "0" || cell === "1"))
+    )
+  );
+}
+
+export function isPacificAtlanticWaterFlowInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && cell >= 0)
     )
   );
 }
@@ -744,6 +756,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: 'JSON with a grid using "0" for water and "1" for land.',
     defaultInput: serializeGraphInput(defaultNumberOfIslandsInput),
+    domain: "graph"
+  },
+  {
+    id: "pacific-atlantic-water-flow",
+    name: "Pacific Atlantic Water Flow",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Dual-ocean replay records Pacific and Atlantic border seeding, uphill reverse-flow reachability, and the final shared coastline intersection.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid of non-negative integer heights.",
+    defaultInput: serializeGraphInput(defaultPacificAtlanticWaterFlowInput),
     domain: "graph"
   },
   {

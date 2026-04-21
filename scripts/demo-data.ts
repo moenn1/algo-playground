@@ -445,6 +445,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "diagonal-islands"]
   },
   {
+    key: "graph-reference-flow",
+    algorithmId: "pacific-atlantic-water-flow",
+    presetId: "graph.reference-flow",
+    recordedAt: "2026-04-20T09:16:15.000Z",
+    tags: ["seeded-demo", "graph", "reference-flow"]
+  },
+  {
+    key: "graph-interior-sink",
+    algorithmId: "pacific-atlantic-water-flow",
+    presetId: "graph.interior-sink",
+    recordedAt: "2026-04-20T09:16:20.000Z",
+    tags: ["seeded-demo", "graph", "interior-sink"]
+  },
+  {
     key: "graph-reference-capture",
     algorithmId: "surrounded-regions",
     presetId: "graph.reference-capture",

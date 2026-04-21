@@ -12,6 +12,7 @@ import type {
   IntervalInputPayload,
   InputPresetListQuery,
   NumberOfIslandsInputPayload,
+  PacificAtlanticWaterFlowInputPayload,
   PathfindingGraphInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
@@ -180,6 +181,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Number of Islands",
     domain: "graph"
   },
+  "pacific-atlantic-water-flow": {
+    id: "pacific-atlantic-water-flow",
+    label: "Pacific Atlantic Water Flow",
+    domain: "graph"
+  },
   "surrounded-regions": {
     id: "surrounded-regions",
     label: "Surrounded Regions",
@@ -234,6 +240,7 @@ const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as co
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
+const pacificAtlanticAlgorithms = [supportedAlgorithms["pacific-atlantic-water-flow"]] as const;
 const surroundedRegionsAlgorithms = [supportedAlgorithms["surrounded-regions"]] as const;
 const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
@@ -364,6 +371,15 @@ const defaultNumberOfIslandsInput: NumberOfIslandsInputPayload = {
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInputPayload = {
+  grid: [
+    [1, 2, 2, 3, 5],
+    [3, 2, 3, 4, 4],
+    [2, 4, 5, 3, 1],
+    [6, 7, 1, 4, 5],
+    [5, 1, 1, 2, 4]
   ]
 };
 const defaultSurroundedRegionsInput: SurroundedRegionsInputPayload = {
@@ -1825,6 +1841,77 @@ function normalizeNumberOfIslandsInput(payload: unknown): NumberOfIslandsInputPa
   };
 }
 
+function normalizePacificAtlanticWaterFlowInput(
+  payload: unknown
+): PacificAtlanticWaterFlowInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Pacific Atlantic Water Flow input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "Pacific Atlantic Water Flow input must be an object with a grid field."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Pacific Atlantic Water Flow input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Pacific Atlantic Water Flow input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty heights row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0) {
+        throw new HttpError(
+          400,
+          `grid[${rowIndex}][${columnIndex}] must be a non-negative integer height.`
+        );
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(
+      400,
+      "Pacific Atlantic Water Flow input rows must all be the same length."
+    );
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(payload: unknown): SurroundedRegionsInputPayload {
   const candidate =
     typeof payload === "string"
@@ -1971,6 +2058,8 @@ function normalizeGraphInput(
       return normalizeRottingOrangesInput(payload);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(payload);
+    case "pacific-atlantic-water-flow":
+      return normalizePacificAtlanticWaterFlowInput(payload);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(payload);
     case "walls-and-gates":
@@ -1993,6 +2082,7 @@ function isGridGraphPayload(
 ): graph is
   | RottingOrangesInputPayload
   | NumberOfIslandsInputPayload
+  | PacificAtlanticWaterFlowInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload {
   return "grid" in graph && Array.isArray(graph.grid);
@@ -3257,6 +3347,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["1", "0", "1"],
           ["0", "1", "0"],
           ["1", "0", "1"]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-flow",
+      label: "Reference dual-ocean flow",
+      description:
+        "Use the canonical heights grid so replay shows Pacific and Atlantic border seeding, uphill reverse-flow reachability, and the final dual-ocean intersection.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: pacificAtlanticAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultPacificAtlanticWaterFlowInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.interior-sink",
+      label: "Interior sink basin",
+      description:
+        "Trap one low cell inside a high ring so replay can show that edge cells still reach both oceans while the interior sink never joins either ocean frontier.",
+      scenario: "interior-sink",
+      kind: "curated",
+      domain: "graph",
+      algorithms: pacificAtlanticAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [10, 10, 10],
+          [10, 1, 10],
+          [10, 10, 10]
         ]
       },
       options: {}

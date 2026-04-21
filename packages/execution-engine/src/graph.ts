@@ -15,6 +15,7 @@ export type GraphAlgorithmId =
   | "course-schedule"
   | "rotting-oranges"
   | "number-of-islands"
+  | "pacific-atlantic-water-flow"
   | "surrounded-regions"
   | "walls-and-gates";
 
@@ -27,6 +28,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
+  "pacific-atlantic-water-flow",
   "surrounded-regions",
   "walls-and-gates"
 ];
@@ -57,6 +59,10 @@ export interface NumberOfIslandsInput extends JsonObject {
   grid: string[][];
 }
 
+export interface PacificAtlanticWaterFlowInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInput extends JsonObject {
   grid: string[][];
 }
@@ -71,6 +77,7 @@ export type GraphInput =
   | CourseScheduleInput
   | RottingOrangesInput
   | NumberOfIslandsInput
+  | PacificAtlanticWaterFlowInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
 
@@ -164,6 +171,21 @@ export interface NumberOfIslandsExecutionState extends JsonObject {
   remainingLand: string[];
 }
 
+export interface PacificAtlanticWaterFlowExecutionState extends JsonObject {
+  kind: "pacific-atlantic-water-flow";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "pacific" | "atlantic" | "resolved";
+  pacificSeeds: string[];
+  atlanticSeeds: string[];
+  pacificReachable: string[];
+  atlanticReachable: string[];
+  dualReachable: string[];
+}
+
 export interface SurroundedRegionsExecutionState extends JsonObject {
   kind: "surrounded-regions";
   grid: string[][];
@@ -202,6 +224,7 @@ export type GraphExecutionState =
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
+  | PacificAtlanticWaterFlowExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
@@ -315,6 +338,20 @@ interface NumberOfIslandsRuntimeState {
   remainingLand: Set<string>;
 }
 
+interface PacificAtlanticWaterFlowRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "pacific" | "atlantic" | "resolved";
+  pacificSeeds: string[];
+  atlanticSeeds: string[];
+  pacificReachable: Set<string>;
+  atlanticReachable: Set<string>;
+  dualReachable: Set<string>;
+}
+
 interface SurroundedRegionsRuntimeState {
   grid: string[][];
   settled: string[];
@@ -384,6 +421,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "number-of-islands",
     label: "Number of Islands",
     implementationVersion: "graph-engine-0.4.0"
+  },
+  "pacific-atlantic-water-flow": {
+    id: "pacific-atlantic-water-flow",
+    label: "Pacific Atlantic Water Flow",
+    implementationVersion: "graph-engine-0.9.0"
   },
   "surrounded-regions": {
     id: "surrounded-regions",
@@ -504,6 +546,16 @@ export const defaultNumberOfIslandsInput: NumberOfIslandsInput = {
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+
+export const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInput = {
+  grid: [
+    [1, 2, 2, 3, 5],
+    [3, 2, 3, 4, 4],
+    [2, 4, 5, 3, 1],
+    [6, 7, 1, 4, 5],
+    [5, 1, 1, 2, 4]
   ]
 };
 
@@ -629,6 +681,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
         ...state.cellIslands
       },
       remainingLand: state.remainingLand.slice()
+    };
+  }
+
+  if (state.kind === "pacific-atlantic-water-flow") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      pacificSeeds: state.pacificSeeds.slice(),
+      atlanticSeeds: state.atlanticSeeds.slice(),
+      pacificReachable: state.pacificReachable.slice(),
+      atlanticReachable: state.atlanticReachable.slice(),
+      dualReachable: state.dualReachable.slice()
     };
   }
 
@@ -995,6 +1064,56 @@ function normalizeNumberOfIslandsInput(candidate: unknown): NumberOfIslandsInput
   };
 }
 
+function normalizePacificAtlanticWaterFlowInput(
+  candidate: unknown
+): PacificAtlanticWaterFlowInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Pacific Atlantic Water Flow input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Pacific Atlantic Water Flow input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Pacific Atlantic Water Flow input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty heights row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0) {
+        throw new Error(
+          `grid[${rowIndex}][${columnIndex}] must be a non-negative integer height.`
+        );
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Pacific Atlantic Water Flow input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Surrounded Regions input must be an object with a grid field.");
@@ -1122,6 +1241,8 @@ export function parseGraphInputText(
       return normalizeRottingOrangesInput(parsed);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(parsed);
+    case "pacific-atlantic-water-flow":
+      return normalizePacificAtlanticWaterFlowInput(parsed);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
@@ -1146,6 +1267,8 @@ export function normalizeGraphInput(
       return normalizeRottingOrangesInput(input);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(input);
+    case "pacific-atlantic-water-flow":
+      return normalizePacificAtlanticWaterFlowInput(input);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
@@ -1572,6 +1695,33 @@ function createNumberOfIslandsRecorder() {
   });
 }
 
+function createPacificAtlanticWaterFlowRecorder() {
+  return createTraceRecorder<
+    PacificAtlanticWaterFlowRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "pacific-atlantic-water-flow",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "pacific-atlantic-water-flow",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        pacificSeeds: runtimeState.pacificSeeds.slice(),
+        atlanticSeeds: runtimeState.atlanticSeeds.slice(),
+        pacificReachable: Array.from(runtimeState.pacificReachable).sort(compareCellIds),
+        atlanticReachable: Array.from(runtimeState.atlanticReachable).sort(compareCellIds),
+        dualReachable: Array.from(runtimeState.dualReachable).sort(compareCellIds)
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createSurroundedRegionsRecorder() {
   return createTraceRecorder<
     SurroundedRegionsRuntimeState,
@@ -1639,6 +1789,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
+    | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
@@ -3811,6 +3962,333 @@ export function buildNumberOfIslandsTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildPacificAtlanticWaterFlowTrace(
+  input: PacificAtlanticWaterFlowInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["pacific-atlantic-water-flow"];
+  const normalizedInput = normalizePacificAtlanticWaterFlowInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const pacificSeeds: string[] = [];
+  const atlanticSeeds: string[] = [];
+  const pacificReachable = new Set<string>();
+  const atlanticReachable = new Set<string>();
+  const dualReachable = new Set<string>();
+  const recorder = createPacificAtlanticWaterFlowRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "pacific" | "atlantic" | "resolved" = "pacific";
+
+  const addDualReachable = (cell: string) => {
+    if (pacificReachable.has(cell) && atlanticReachable.has(cell)) {
+      dualReachable.add(cell);
+    }
+  };
+
+  const createRuntimeState = (): PacificAtlanticWaterFlowRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    phaseMode,
+    pacificSeeds,
+    atlanticSeeds,
+    pacificReachable,
+    atlanticReachable,
+    dualReachable
+  });
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+
+      if ((row === 0 || column === 0) && !pacificReachable.has(cell)) {
+        pacificReachable.add(cell);
+        pacificSeeds.push(cell);
+        frontier.push(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+  metrics.updates = pacificSeeds.length;
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Seed the Pacific border first so replay can record reverse-flow reachability from the top and left edges in deterministic row-major order.",
+    explanation: {
+      summary: "Publish the Pacific ocean seeds before any reverse-flow expansion begins.",
+      details:
+        "The opening frame stores the border seed queue directly, so replay can explain why later reachability grows from edge-adjacent cells instead of reconstructing ocean contact on demand.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "pacific-atlantic-initial",
+        path: "state.pacificSeeds",
+        kind: "collection",
+        intent: "focus",
+        label: `${pacificSeeds.length} Pacific seed${pacificSeeds.length === 1 ? "" : "s"} ready`
+      }
+    ]
+  });
+
+  const runOceanPhase = (ocean: "pacific" | "atlantic") => {
+    const currentReachable = ocean === "pacific" ? pacificReachable : atlanticReachable;
+    const otherReachable = ocean === "pacific" ? atlanticReachable : pacificReachable;
+    const oceanLabel = ocean === "pacific" ? "Pacific" : "Atlantic";
+
+    while (frontier.length > 0) {
+      const currentCell = frontier.shift();
+
+      if (!currentCell) {
+        break;
+      }
+
+      current = currentCell;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Extract",
+        description: `${formatCellLabel(currentCell)} leaves the ${oceanLabel} frontier and becomes the next reverse-flow source.`,
+        explanation: {
+          summary: `Expand the next ${oceanLabel} reachable cell in deterministic queue order.`,
+          details:
+            "Replay stores the active flow source before neighbor checks begin so the reachability frontier stays explicit across both ocean phases.",
+          tags: ["frontier", "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `pacific-atlantic-current-${ocean}-${currentCell}`,
+            path: "state.current",
+            kind: "node",
+            intent: "active",
+            label: `${oceanLabel} expands ${formatCellLabel(currentCell)}`
+          }
+        ]
+      });
+
+      const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+      const currentHeight = grid[currentRow]![currentColumn]!;
+
+      for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+        const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+        const neighborHeight = grid[neighborRow]![neighborColumn]!;
+        activeEdge = [currentCell, neighbor];
+        metrics.inspections += 1;
+
+        if (neighborHeight < currentHeight) {
+          recorder.push({
+            phase: "Inspect",
+            description: `Inspect ${formatCellLabel(neighbor)} and stop because height ${neighborHeight} cannot reverse-flow uphill from ${currentHeight} toward the ${oceanLabel} edge.`,
+            explanation: {
+              summary: "Reject a downhill neighbor during reverse-flow expansion.",
+              details:
+                "Pacific Atlantic reachability is computed in reverse, so only neighbors with height greater than or equal to the current cell can be marked reachable from the same ocean.",
+              tags: ["edge", "focus"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `pacific-atlantic-blocked-${ocean}-${currentCell}-${neighbor}-${metrics.inspections}`,
+                path: `state.grid.${neighborRow}.${neighborColumn}`,
+                kind: "node",
+                intent: "candidate",
+                label: `Blocked by height at ${formatCellLabel(neighbor)}`
+              }
+            ]
+          });
+          continue;
+        }
+
+        if (currentReachable.has(neighbor)) {
+          recorder.push({
+            phase: "Inspect",
+            description: `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because the ${oceanLabel} phase already marked it reachable.`,
+            explanation: {
+              summary: "Inspect a previously reached cell without re-enqueuing it.",
+              details:
+                "This keeps the ocean-specific reachability ledger deterministic and prevents replay from inferring deduplication from hidden visited state.",
+              tags: ["edge", "visited"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `pacific-atlantic-known-${ocean}-${currentCell}-${neighbor}-${metrics.inspections}`,
+                path: ocean === "pacific" ? "state.pacificReachable" : "state.atlanticReachable",
+                kind: "collection",
+                intent: "visited",
+                label: `${formatCellLabel(neighbor)} already reaches ${oceanLabel}`
+              }
+            ]
+          });
+          continue;
+        }
+
+        currentReachable.add(neighbor);
+        frontier.push(neighbor);
+        metrics.frontier = frontier.length;
+        metrics.updates += 1;
+
+        const reachedBoth = otherReachable.has(neighbor);
+
+        if (reachedBoth) {
+          addDualReachable(neighbor);
+        }
+
+        recorder.push({
+          phase: "Mark Reachable",
+          description: reachedBoth
+            ? `${formatCellLabel(neighbor)} now reaches both oceans after the ${oceanLabel} reverse-flow frontier climbs to height ${neighborHeight}.`
+            : `${formatCellLabel(neighbor)} now reaches the ${oceanLabel} edge because reverse-flow can climb from height ${currentHeight} to ${neighborHeight}.`,
+          explanation: {
+            summary: reachedBoth
+              ? "Mark one cell reachable from the current ocean and publish its dual-ocean intersection immediately."
+              : `Mark one neighboring cell reachable from the ${oceanLabel} edge.`,
+            details:
+              "The recorded state updates the ocean-specific reachability set, frontier queue, and dual-ocean ledger in the same frame so replay can explain intersection cells without recomputation.",
+            tags: ["edge", "frontier"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `pacific-atlantic-mark-${ocean}-${currentCell}-${neighbor}-${metrics.updates}`,
+              path: reachedBoth ? "state.dualReachable" : ocean === "pacific" ? "state.pacificReachable" : "state.atlanticReachable",
+              kind: "collection",
+              intent: reachedBoth ? "result" : "frontier",
+              label: reachedBoth
+                ? `${formatCellLabel(neighbor)} reaches both oceans`
+                : `${oceanLabel} reaches ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+      }
+
+      settled.push(currentCell);
+      activeEdge = [];
+      metrics.settled = settled.length;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Checkpoint",
+        description: `${formatCellLabel(currentCell)} is fully processed for the ${oceanLabel} reachability phase.`,
+        explanation: {
+          summary: "Seal one reverse-flow source after all of its neighbor checks are recorded.",
+          details:
+            "This checkpoint preserves the ocean reachability ledgers and frontier queue directly so replay can jump to any boundary between reachability updates.",
+          tags: ["checkpoint", "visited"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `pacific-atlantic-settled-${ocean}-${currentCell}`,
+            path: "state.settled",
+            kind: "collection",
+            intent: "visited",
+            label: `${formatCellLabel(currentCell)} settled for ${oceanLabel}`
+          }
+        ]
+      });
+    }
+  };
+
+  runOceanPhase("pacific");
+
+  phaseMode = "atlantic";
+  current = null;
+  activeEdge = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+
+      if ((row === rowCount - 1 || column === columnCount - 1) && !atlanticReachable.has(cell)) {
+        atlanticReachable.add(cell);
+        atlanticSeeds.push(cell);
+        frontier.push(cell);
+        addDualReachable(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+  metrics.updates += atlanticSeeds.length;
+
+  recorder.push({
+    phase: "Atlantic Phase",
+    description:
+      "Switch to Atlantic border seeds so replay can record the second reverse-flow pass from the bottom and right edges before taking the intersection.",
+    explanation: {
+      summary: "Publish the Atlantic seed queue and any immediate overlap with the Pacific reachability ledger.",
+      details:
+        "The second-phase opening frame stores both ocean reachability sets directly, so dual-ocean cells do not depend on recomputation when replay jumps into the Atlantic pass.",
+      tags: ["checkpoint", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "pacific-atlantic-atlantic-phase",
+        path: "state.atlanticSeeds",
+        kind: "collection",
+        intent: "focus",
+        label: `${atlanticSeeds.length} Atlantic seed${atlanticSeeds.length === 1 ? "" : "s"} queued`
+      }
+    ]
+  });
+
+  runOceanPhase("atlantic");
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `${dualReachable.size} cell${dualReachable.size === 1 ? "" : "s"} can reverse-flow to both oceans after both border passes complete.`,
+    explanation: {
+      summary: "Publish the dual-ocean intersection once Pacific and Atlantic reachability are both complete.",
+      details:
+        "The terminal frame preserves both ocean reachability ledgers and their final intersection directly, so replay can justify every dual-ocean cell without re-running either flood fill.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "pacific-atlantic-final",
+        path: "state.dualReachable",
+        kind: "collection",
+        intent: "result",
+        label: `${dualReachable.size} dual-ocean cell${dualReachable.size === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildSurroundedRegionsTrace(
   input: SurroundedRegionsInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -4490,6 +4968,8 @@ export function buildGraphTrace(
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
     case "number-of-islands":
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
+    case "pacific-atlantic-water-flow":
+      return buildPacificAtlanticWaterFlowTrace(graph as PacificAtlanticWaterFlowInput);
     case "surrounded-regions":
       return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":

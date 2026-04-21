@@ -930,6 +930,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const pacificAtlanticPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-flow/resolve",
+      payload: {
+        algorithmId: "pacific-atlantic-water-flow"
+      }
+    });
+
+    expect(pacificAtlanticPreset.statusCode).toBe(200);
+    expect(pacificAtlanticPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-flow"
+      },
+      algorithm: {
+        id: "pacific-atlantic-water-flow",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
+    const interiorSinkPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.interior-sink/resolve",
+      payload: {
+        algorithmId: "pacific-atlantic-water-flow"
+      }
+    });
+
+    expect(interiorSinkPreset.statusCode).toBe(200);
+    expect(interiorSinkPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.interior-sink"
+      },
+      algorithm: {
+        id: "pacific-atlantic-water-flow",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const surroundedRegionsPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-capture/resolve",
@@ -1745,6 +1787,42 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validatePacificAtlanticInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "pacific-atlantic-water-flow",
+        payload: {
+          grid: [
+            [1, 2, 2, 3, 5],
+            [3, 2, 3, 4, 4],
+            [2, 4, 5, 3, 1],
+            [6, 7, 1, 4, 5],
+            [5, 1, 1, 2, 4]
+          ]
+        }
+      }
+    });
+
+    expect(validatePacificAtlanticInput.statusCode).toBe(200);
+    expect(validatePacificAtlanticInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "pacific-atlantic-water-flow",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [1, 2, 2, 3, 5],
+          [3, 2, 3, 4, 4],
+          [2, 4, 5, 3, 1],
+          [6, 7, 1, 4, 5],
+          [5, 1, 1, 2, 4]
+        ]
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const validateSurroundedRegionsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -1941,6 +2019,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: 'grid[1][1] must be "0" or "1".'
+    });
+  });
+
+  it("rejects pacific-atlantic-water-flow payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "pacific-atlantic-water-flow",
+        payload: {
+          grid: [
+            [1, 2, 3],
+            [4, -1, 6]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "grid[1][1] must be a non-negative integer height."
     });
   });
 

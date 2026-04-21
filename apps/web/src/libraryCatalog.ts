@@ -451,6 +451,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong graph continuation because it reuses the grid replay surface from contagion-style BFS while shifting the goal to deterministic component counting.",
     nextAlgorithmIds: ["rotting-oranges", "course-schedule"]
   },
+  "pacific-atlantic-water-flow": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.93,
+    timeToExplore: "7 min",
+    complexity: "The trace runs two border-seeded reverse-flow passes and then intersects them, so the viewer has to track one shared grid through two different ocean frontiers.",
+    outcome: "See exactly when a height becomes Pacific-reachable, Atlantic-reachable, or part of the final dual-ocean coastline.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much uphill reverse-flow work happened before the two-ocean intersection stabilized.",
+    skills: ["reverse flow", "dual reachability", "border seeding"],
+    spotlight: "A strong grid-graph follow-up because it reuses deterministic frontier instrumentation while adding a clean two-phase intersection model.",
+    nextAlgorithmIds: ["surrounded-regions", "walls-and-gates"]
+  },
   "surrounded-regions": {
     stage: "core",
     focus: "state-tracking",

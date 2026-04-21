@@ -322,6 +322,50 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds pacific-atlantic-water-flow replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "pacific-atlantic-water-flow",
+      JSON.stringify(
+        {
+          grid: [
+            [1, 2, 2, 3, 5],
+            [3, 2, 3, 4, 4],
+            [2, 4, 5, 3, 1],
+            [6, 7, 1, 4, 5],
+            [5, 1, 1, 2, 4]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("pacific-atlantic-water-flow");
+    expect(finalStep.state.kind).toBe("pacific-atlantic-water-flow");
+    if (finalStep.state.kind !== "pacific-atlantic-water-flow") {
+      throw new Error("Expected the pacific-atlantic-water-flow graph state.");
+    }
+    expect(finalStep.state.phaseMode).toBe("resolved");
+    expect(finalStep.state.dualReachable).toEqual([
+      "0,4",
+      "1,3",
+      "1,4",
+      "2,2",
+      "3,0",
+      "3,1",
+      "4,0"
+    ]);
+    expect(
+      run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.dualReachable"))
+    ).toBe(true);
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

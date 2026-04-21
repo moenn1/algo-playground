@@ -242,6 +242,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("surrounded-regions");
   });
 
+  it("surfaces pacific-atlantic-water-flow study paths through dual-ocean metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "dual ocean reverse flow"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("pacific-atlantic-water-flow");
+  });
+
   it("surfaces dfs study paths through depth-first stack metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

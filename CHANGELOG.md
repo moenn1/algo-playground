@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Pacific Atlantic Water Flow, including deterministic dual-ocean border seeding, uphill reverse-flow reachability, immediate dual-ocean intersection tracking, and replay-safe coastline state without hidden flood-fill reconstruction.
+- Wired Pacific Atlantic Water Flow through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct dual-ocean reachability problem alongside traversal, Union-Find, scheduling, infection, component counting, capture, and room-filling replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 33 algorithms with runs, 66 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Surrounded Regions, including deterministic border-seed discovery, explicit safe-region ledgers, row-major enclosed-cell capture order, and replay-safe preserve-versus-capture state without hidden flood-fill bookkeeping.
 - Wired Surrounded Regions through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct border-capture graph problem alongside traversal, Union-Find, scheduling, infection, component counting, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 32 algorithms with runs, 64 total runs, and 2 saved comparisons.

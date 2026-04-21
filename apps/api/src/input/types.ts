@@ -31,6 +31,7 @@ export const supportedAlgorithmIds = [
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
+  "pacific-atlantic-water-flow",
   "surrounded-regions",
   "walls-and-gates"
 ] as const;
@@ -69,6 +70,10 @@ export interface NumberOfIslandsInputPayload extends JsonObject {
   grid: string[][];
 }
 
+export interface PacificAtlanticWaterFlowInputPayload extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInputPayload extends JsonObject {
   grid: string[][];
 }
@@ -83,6 +88,7 @@ export type GraphInputPayload =
   | CourseScheduleInputPayload
   | RottingOrangesInputPayload
   | NumberOfIslandsInputPayload
+  | PacificAtlanticWaterFlowInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload;
 

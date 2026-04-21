@@ -20,6 +20,7 @@ import {
   isCourseScheduleInput,
   isGraphValidTreeInput,
   isNumberOfIslandsInput,
+  isPacificAtlanticWaterFlowInput,
   isPathfindingGraphInput,
   isRottingOrangesInput,
   isSurroundedRegionsInput,
@@ -176,11 +177,13 @@ function formatGraphNodeStatus(
     step.state.kind === "course-schedule" ||
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
+    step.state.kind === "pacific-atlantic-water-flow" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isNumberOfIslandsInput(run.input) ||
+    isPacificAtlanticWaterFlowInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -226,6 +229,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
 
   if (
     isNumberOfIslandsInput(run.input) ||
+    isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -624,6 +628,60 @@ function formatSurroundedRegionCellStatus(
   }
 
   return "Resolved";
+}
+
+function getPacificAtlanticCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "pacific-atlantic-water-flow" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.dualReachable.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.pacificReachable.includes(cell)) {
+    return "active";
+  }
+
+  if (step.state.atlanticReachable.includes(cell)) {
+    return "land";
+  }
+
+  return "water";
+}
+
+function formatPacificAtlanticCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "pacific-atlantic-water-flow" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "pacific" ? "Pacific focus" : "Atlantic focus";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return step.state.phaseMode === "pacific" ? "Pacific frontier" : "Atlantic frontier";
+  }
+
+  if (step.state.dualReachable.includes(cell)) {
+    return "Both oceans";
+  }
+
+  if (step.state.pacificReachable.includes(cell)) {
+    return "Pacific only";
+  }
+
+  if (step.state.atlanticReachable.includes(cell)) {
+    return "Atlantic only";
+  }
+
+  return "Unreached";
 }
 
 function formatGateCellValue(value: number): string {
@@ -1638,6 +1696,184 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.remainingLand.length > 0
                 ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
                 : "Replay records the final island ledger directly from the grid snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "pacific-atlantic-water-flow" &&
+    isPacificAtlanticWaterFlowInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} ocean grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Pacific Atlantic status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Both oceans</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Single-ocean reach</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.phaseMode === "pacific"
+                  ? `${step.state.pacificSeeds.length} Pacific seed${step.state.pacificSeeds.length === 1 ? "" : "s"}`
+                  : step.state.phaseMode === "atlantic"
+                    ? `${step.state.atlanticSeeds.length} Atlantic seed${step.state.atlanticSeeds.length === 1 ? "" : "s"}`
+                    : `${step.state.dualReachable.length} dual-ocean cell${step.state.dualReachable.length === 1 ? "" : "s"}`}
+              </span>
+              <strong>
+                {step.state.phaseMode === "pacific"
+                  ? `Pacific reachability has ${step.state.pacificReachable.length} cell${step.state.pacificReachable.length === 1 ? "" : "s"}`
+                  : step.state.phaseMode === "atlantic"
+                    ? `Atlantic reachability has ${step.state.atlanticReachable.length} cell${step.state.atlanticReachable.length === 1 ? "" : "s"}`
+                    : `${step.state.dualReachable.length} cell${step.state.dualReachable.length === 1 ? "" : "s"} reach both oceans`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? "No neighbor under inspection"}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getPacificAtlanticCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">{value}</strong>
+                      <span className="island-cell-status">
+                        {formatPacificAtlanticCellStatus(cell, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Flow focus</span>
+              <strong>{step.state.current ?? "Awaiting next source"}</strong>
+              <p>
+                {step.state.phaseMode === "resolved"
+                  ? `${step.state.dualReachable.length} dual-ocean cell${step.state.dualReachable.length === 1 ? "" : "s"} final`
+                  : `${step.state.frontier.length} cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.phaseMode === "atlantic" ? "Atlantic queue" : "Pacific queue"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Pacific</strong>
+                  <span className="graph-node-status">{step.state.pacificReachable.length}</span>
+                </div>
+                <span className="graph-node-distance">Top and left reachability</span>
+                <span className="graph-node-meta">
+                  {step.state.pacificReachable.length > 0
+                    ? step.state.pacificReachable.join(" · ")
+                    : "No Pacific cells recorded"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Atlantic</strong>
+                  <span className="graph-node-status">{step.state.atlanticReachable.length}</span>
+                </div>
+                <span className="graph-node-distance">Bottom and right reachability</span>
+                <span className="graph-node-meta">
+                  {step.state.atlanticReachable.length > 0
+                    ? step.state.atlanticReachable.join(" · ")
+                    : "No Atlantic cells recorded"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Both oceans</strong>
+                  <span className="graph-node-status">{step.state.dualReachable.length}</span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.dualReachable.length > 0
+                    ? step.state.dualReachable.join(" · ")
+                    : "No dual-ocean cells yet"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Pacific seeds</span>
+            <div className="pill-row">
+              {step.state.pacificSeeds.length > 0 ? (
+                step.state.pacificSeeds.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No Pacific seeds</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Atlantic seeds</span>
+            <div className="pill-row">
+              {step.state.atlanticSeeds.length > 0 ? (
+                step.state.atlanticSeeds.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No Atlantic seeds</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Dual-ocean cells</span>
+            <strong>{step.state.dualReachable.length}</strong>
+            <p>
+              {step.state.dualReachable.length > 0
+                ? step.state.dualReachable.join(", ")
+                : "Replay has not published a shared-ocean cell yet."}
             </p>
           </div>
         </div>

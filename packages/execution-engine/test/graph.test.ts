@@ -8,6 +8,7 @@ import {
   buildDijkstraTrace,
   buildGraphValidTreeTrace,
   buildNumberOfIslandsTrace,
+  buildPacificAtlanticWaterFlowTrace,
   buildRottingOrangesTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
@@ -16,6 +17,7 @@ import {
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
   defaultNumberOfIslandsInput,
+  defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
@@ -231,6 +233,12 @@ describe("graph execution engine", () => {
     ).toEqual(defaultNumberOfIslandsInput);
     expect(
       parseGraphInputText(
+        serializeGraphInput(defaultPacificAtlanticWaterFlowInput),
+        "pacific-atlantic-water-flow"
+      )
+    ).toEqual(defaultPacificAtlanticWaterFlowInput);
+    expect(
+      parseGraphInputText(
         serializeGraphInput(defaultSurroundedRegionsInput),
         "surrounded-regions"
       )
@@ -397,6 +405,66 @@ describe("graph execution engine", () => {
       ["X", "O", "O", "O"],
       ["X", "X", "X", "O"]
     ]);
+  });
+
+  it("records deterministic dual-ocean reachability for Pacific Atlantic Water Flow", () => {
+    const firstTrace = buildPacificAtlanticWaterFlowTrace(defaultPacificAtlanticWaterFlowInput);
+    const secondTrace = buildPacificAtlanticWaterFlowTrace(defaultPacificAtlanticWaterFlowInput);
+    const interiorSinkTrace = buildPacificAtlanticWaterFlowTrace({
+      grid: [
+        [10, 10, 10],
+        [10, 1, 10],
+        [10, 10, 10]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const interiorSinkFinalStep = interiorSinkTrace.steps[interiorSinkTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("pacific-atlantic-water-flow");
+    if (referenceFinalStep.state.kind !== "pacific-atlantic-water-flow") {
+      throw new Error("Expected the pacific-atlantic-water-flow state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.dualReachable).toEqual([
+      "0,4",
+      "1,3",
+      "1,4",
+      "2,2",
+      "3,0",
+      "3,1",
+      "4,0"
+    ]);
+    expect(referenceFinalStep.state.pacificSeeds).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "0,3",
+      "0,4",
+      "1,0",
+      "2,0",
+      "3,0",
+      "4,0"
+    ]);
+
+    expect(interiorSinkFinalStep.phase).toBe("Resolution");
+    expect(interiorSinkFinalStep.state.kind).toBe("pacific-atlantic-water-flow");
+    if (interiorSinkFinalStep.state.kind !== "pacific-atlantic-water-flow") {
+      throw new Error("Expected the pacific-atlantic-water-flow state.");
+    }
+    expect(interiorSinkFinalStep.state.dualReachable).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "1,0",
+      "1,2",
+      "2,0",
+      "2,1",
+      "2,2"
+    ]);
+    expect(interiorSinkFinalStep.state.pacificReachable).not.toContain("1,1");
+    expect(interiorSinkFinalStep.state.atlanticReachable).not.toContain("1,1");
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {
