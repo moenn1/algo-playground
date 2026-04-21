@@ -107,6 +107,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("largest-rectangle-in-histogram");
   });
 
+  it("surfaces min-stack study paths through minimum-ledger metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "minimum recovery"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("min-stack");
+  });
+
   it("sorts by persisted activity when requested", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms.filter((algorithm) => algorithm.domain === "sorting"),

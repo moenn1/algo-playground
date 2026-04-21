@@ -4,9 +4,11 @@ import {
   buildStackTrace,
   buildDailyTemperaturesTrace,
   buildLargestRectangleInHistogramTrace,
+  buildMinStackTrace,
   buildValidParenthesesTrace,
   defaultDailyTemperaturesInput,
   defaultLargestRectangleInHistogramInput,
+  defaultMinStackInput,
   defaultValidParenthesesInput,
   parseStackInputText,
   serializeStackInput,
@@ -22,11 +24,23 @@ describe("stack execution engine", () => {
           }
         : algorithmId === "daily-temperatures"
           ? {
-            temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
+              temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
             }
-          : {
+          : algorithmId === "largest-rectangle-in-histogram"
+            ? {
               heights: [2, 1, 5, 6, 2, 3]
-            };
+              }
+            : {
+                operations: [
+                  { type: "push", value: -2 },
+                  { type: "push", value: 0 },
+                  { type: "push", value: -3 },
+                  { type: "getMin" },
+                  { type: "pop" },
+                  { type: "top" },
+                  { type: "getMin" }
+                ]
+              };
     const firstTrace = buildStackTrace(algorithmId, input);
     const secondTrace = buildStackTrace(algorithmId, input);
     const finalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
@@ -50,10 +64,18 @@ describe("stack execution engine", () => {
       return;
     }
 
-    expect(finalStep.state.kind).toBe("largest-rectangle-in-histogram");
-    expect(finalStep.state.bestArea).toBe(10);
-    expect(finalStep.state.bestStart).toBe(2);
-    expect(finalStep.state.bestEnd).toBe(3);
+    if (algorithmId === "largest-rectangle-in-histogram") {
+      expect(finalStep.state.kind).toBe("largest-rectangle-in-histogram");
+      expect(finalStep.state.bestArea).toBe(10);
+      expect(finalStep.state.bestStart).toBe(2);
+      expect(finalStep.state.bestEnd).toBe(3);
+      return;
+    }
+
+    expect(finalStep.state.kind).toBe("min-stack");
+    expect(finalStep.state.currentMinimum).toBe(-2);
+    expect(finalStep.state.stackValues).toEqual([-2, 0]);
+    expect(finalStep.state.minimumValues).toEqual([-2, -2]);
   });
 
   it("records the first mismatched closer as the terminal frame", () => {
@@ -95,6 +117,29 @@ describe("stack execution engine", () => {
     expect(trace.summary.finalMetrics.pops).toBe(6);
   });
 
+  it("records stack reads and minimum recovery through deterministic operation checkpoints", () => {
+    const trace = buildMinStackTrace({
+      operations: [
+        { type: "push", value: -2 },
+        { type: "push", value: 0 },
+        { type: "push", value: -3 },
+        { type: "getMin" },
+        { type: "pop" },
+        { type: "top" },
+        { type: "getMin" }
+      ]
+    });
+    const readSteps = trace.steps.filter((step) => step.phase === "Read");
+    const popStep = trace.steps.find((step) => step.phase === "Pop");
+    const finalStep = trace.steps[trace.steps.length - 1]!;
+
+    expect(readSteps).toHaveLength(3);
+    expect(readSteps[0]?.state.currentResultValue).toBe(-3);
+    expect(popStep?.state.currentResultValue).toBe(-3);
+    expect(finalStep.state.currentMinimum).toBe(-2);
+    expect(trace.summary.finalMetrics.comparisons).toBe(2);
+  });
+
   it("serializes and parses replay-safe stack inputs", () => {
     expect(parseStackInputText(serializeStackInput(defaultValidParenthesesInput))).toEqual(
       defaultValidParenthesesInput
@@ -108,5 +153,8 @@ describe("stack execution engine", () => {
         "largest-rectangle-in-histogram"
       )
     ).toEqual(defaultLargestRectangleInHistogramInput);
+    expect(parseStackInputText(serializeStackInput(defaultMinStackInput), "min-stack")).toEqual(
+      defaultMinStackInput
+    );
   });
 });

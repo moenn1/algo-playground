@@ -779,6 +779,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 bars"
     });
 
+    const minStackPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/stack.reference-min-stack/resolve",
+      payload: {
+        algorithmId: "min-stack"
+      }
+    });
+
+    expect(minStackPreset.statusCode).toBe(200);
+    expect(minStackPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "stack.reference-min-stack"
+      },
+      algorithm: {
+        id: "min-stack",
+        domain: "stack"
+      },
+      footprint: "7 ops"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -1055,6 +1076,42 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "6 bars"
     });
+
+    const validateMinStackInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "min-stack",
+        payload: {
+          operations: [
+            { type: "push", value: 3 },
+            { type: "push", value: -1 },
+            { type: "getMin" },
+            { type: "pop" },
+            { type: "top" }
+          ]
+        }
+      }
+    });
+
+    expect(validateMinStackInput.statusCode).toBe(200);
+    expect(validateMinStackInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "min-stack",
+        domain: "stack"
+      },
+      input: {
+        operations: [
+          { type: "push", value: 3 },
+          { type: "push", value: -1 },
+          { type: "getMin" },
+          { type: "pop" },
+          { type: "top" }
+        ]
+      },
+      footprint: "5 ops"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1159,6 +1216,26 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "heights[1] must be between 0 and 150."
+    });
+  });
+
+  it("rejects min-stack payloads that read from an empty stack", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "min-stack",
+        payload: {
+          operations: [{ type: "getMin" }]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "operations[0] cannot run on an empty stack."
     });
   });
 });

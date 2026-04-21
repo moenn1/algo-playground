@@ -420,6 +420,44 @@ describe("buildRun", () => {
     expect(finalStep.state.bestStart).toBe(2);
     expect(finalStep.state.bestEnd).toBe(3);
   });
+
+  it("builds min-stack replay runs from the shared stack engine", () => {
+    const run = buildRun(
+      "min-stack",
+      JSON.stringify(
+        {
+          operations: [
+            { type: "push", value: -2 },
+            { type: "push", value: 0 },
+            { type: "push", value: -3 },
+            { type: "getMin" },
+            { type: "pop" },
+            { type: "top" },
+            { type: "getMin" }
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "stack") {
+      throw new Error("Expected a stack run.");
+    }
+
+    const stackRun = run as StackRun;
+    const finalStep = stackRun.trace.steps[stackRun.trace.steps.length - 1]!;
+
+    expect(stackRun.algorithm.id).toBe("min-stack");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("min-stack");
+    if (finalStep.state.kind !== "min-stack") {
+      throw new Error("Expected the min-stack state.");
+    }
+    expect(finalStep.state.currentMinimum).toBe(-2);
+    expect(finalStep.state.stackValues).toEqual([-2, 0]);
+    expect(finalStep.state.minimumValues).toEqual([-2, -2]);
+  });
 });
 
 describe("replay visualizations", () => {

@@ -55,7 +55,7 @@ docs/             Architecture and developer workflow
 - Shares one replay-safe hash state shape for Two Sum so complement lookups, stored entries, and matched pairs stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
 - Shares one replay-safe dynamic-programming state shape for Longest Common Subsequence so table snapshots, predecessor dependencies, and traceback recovery stay readable across replay and persistence
-- Shares one replay-safe stack runtime family across Valid Parentheses, Daily Temperatures, and Largest Rectangle in Histogram so cursor position, stack contents, per-step resolutions, candidate spans, and terminal outcomes stay readable across replay and persistence
+- Shares one replay-safe stack runtime family across Valid Parentheses, Daily Temperatures, Largest Rectangle in Histogram, and Min Stack so cursor position, stack contents, per-step resolutions, candidate spans, operation reads, and terminal outcomes stay readable across replay and persistence
 - Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
@@ -64,7 +64,7 @@ docs/             Architecture and developer workflow
 - Publishes stable hash semantics for explicit complement lookups, lookup-table stores, and terminal pair matches
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals
 - Publishes stable dynamic-programming semantics for row-major table fills, deterministic traceback ties, and recovered subsequences
-- Publishes stable stack semantics for opener pushes, closer checks, monotonic-stack resolutions, histogram span closure, and terminal mismatch or final-ledger reporting
+- Publishes stable stack semantics for opener pushes, closer checks, monotonic-stack resolutions, histogram span closure, explicit stack-operation reads, and terminal mismatch or final-ledger reporting
 - Publishes stable graph semantics for frontier ordering, settled nodes, edge inspections, and route updates across BFS and Dijkstra
 - Keeps algorithm narration, highlights, and mutation checkpoints close to the execution logic instead of scattering them through the UI
 
@@ -115,5 +115,5 @@ docs/             Architecture and developer workflow
 - Hash engines currently publish `inspections`, `lookups`, and `stores` so lookup-table traces can compare scan work and table growth without replay-time reconstruction.
 - Interval engines currently publish `comparisons`, `merges`, and `outputs` so range-merging traces can compare overlap work and committed result spans without replay-time inference.
 - Dynamic-programming engines currently publish `cellsComputed`, `matches`, and `tracebackSteps` so table-driven traces can compare fill work and recovery cost without reconstructing the recurrence in consumers.
-- Stack engines currently publish `comparisons`, `pushes`, and `pops` so stack traces can compare closer checks, monotonic comparisons, candidate-span resolution work, and stack churn without replay-time inference.
+- Stack engines currently publish `comparisons`, `pushes`, and `pops` so stack traces can compare closer checks, monotonic comparisons, candidate-span resolution work, minimum-ledger comparisons, and stack churn without replay-time inference.
 - Graph engines currently share `settled`, `frontier`, `inspections`, and `updates` so BFS and Dijkstra expose one stable pathfinding vocabulary to replay and persistence consumers.

@@ -10,12 +10,14 @@ import {
 export type StackAlgorithmId =
   | "valid-parentheses"
   | "daily-temperatures"
-  | "largest-rectangle-in-histogram";
+  | "largest-rectangle-in-histogram"
+  | "min-stack";
 
 export const stackAlgorithmIds: StackAlgorithmId[] = [
   "valid-parentheses",
   "daily-temperatures",
-  "largest-rectangle-in-histogram"
+  "largest-rectangle-in-histogram",
+  "min-stack"
 ];
 
 export interface ValidParenthesesInput extends JsonObject {
@@ -30,10 +32,22 @@ export interface LargestRectangleInHistogramInput extends JsonObject {
   heights: number[];
 }
 
+export type MinStackOperationType = "push" | "pop" | "top" | "getMin";
+
+export interface MinStackOperation extends JsonObject {
+  type: MinStackOperationType;
+  value?: number;
+}
+
+export interface MinStackInput extends JsonObject {
+  operations: MinStackOperation[];
+}
+
 export type StackInput =
   | ValidParenthesesInput
   | DailyTemperaturesInput
-  | LargestRectangleInHistogramInput;
+  | LargestRectangleInHistogramInput
+  | MinStackInput;
 
 export interface ValidParenthesesExecutionState extends JsonObject {
   kind: "valid-parentheses";
@@ -84,10 +98,26 @@ export interface LargestRectangleInHistogramExecutionState extends JsonObject {
   bestHeight: number | null;
 }
 
+export interface MinStackExecutionState extends JsonObject {
+  kind: "min-stack";
+  operations: MinStackOperation[];
+  cursor: number | null;
+  currentOperation: MinStackOperationType | null;
+  currentValue: number | null;
+  comparisonValue: number | null;
+  stackValues: number[];
+  minimumValues: number[];
+  processedIndices: number[];
+  currentMinimum: number | null;
+  currentResultType: "pop" | "top" | "getMin" | null;
+  currentResultValue: number | null;
+}
+
 export type StackExecutionState =
   | ValidParenthesesExecutionState
   | DailyTemperaturesExecutionState
-  | LargestRectangleInHistogramExecutionState;
+  | LargestRectangleInHistogramExecutionState
+  | MinStackExecutionState;
 
 interface StackMetricState {
   pushes: number;
@@ -124,6 +154,11 @@ const stackAlgorithmDefinitions: Record<StackAlgorithmId, StackAlgorithmDefiniti
     id: "largest-rectangle-in-histogram",
     label: "Largest Rectangle in Histogram",
     implementationVersion: "stack-engine-0.3.0"
+  },
+  "min-stack": {
+    id: "min-stack",
+    label: "Min Stack",
+    implementationVersion: "stack-engine-0.4.0"
   }
 };
 
@@ -160,8 +195,39 @@ export const defaultLargestRectangleInHistogramInput: LargestRectangleInHistogra
   heights: [2, 1, 5, 6, 2, 3]
 };
 
+export const defaultMinStackInput: MinStackInput = {
+  operations: [
+    { type: "push", value: -2 },
+    { type: "push", value: 0 },
+    { type: "push", value: -3 },
+    { type: "getMin" },
+    { type: "pop" },
+    { type: "top" },
+    { type: "getMin" }
+  ]
+};
+
 function isOpeningToken(token: string): token is OpeningToken {
   return token === "(" || token === "[" || token === "{";
+}
+
+function cloneMinStackOperations(operations: MinStackOperation[]): MinStackOperation[] {
+  return operations.map((operation) => {
+    if (operation.type === "push") {
+      if (typeof operation.value !== "number") {
+        throw new Error("Min Stack push operations must include a value.");
+      }
+
+      return {
+        type: operation.type,
+        value: operation.value
+      };
+    }
+
+    return {
+      type: operation.type
+    };
+  });
 }
 
 function cloneMatchedPairs(pairs: number[][]): number[][] {
@@ -226,6 +292,23 @@ function cloneLargestRectangleInHistogramState(
     bestStart: state.bestStart,
     bestEnd: state.bestEnd,
     bestHeight: state.bestHeight
+  };
+}
+
+function cloneMinStackState(state: MinStackExecutionState): MinStackExecutionState {
+  return {
+    kind: state.kind,
+    operations: cloneMinStackOperations(state.operations),
+    cursor: state.cursor,
+    currentOperation: state.currentOperation,
+    currentValue: state.currentValue,
+    comparisonValue: state.comparisonValue,
+    stackValues: state.stackValues.slice(),
+    minimumValues: state.minimumValues.slice(),
+    processedIndices: state.processedIndices.slice(),
+    currentMinimum: state.currentMinimum,
+    currentResultType: state.currentResultType,
+    currentResultValue: state.currentResultValue
   };
 }
 
@@ -344,6 +427,83 @@ function normalizeLargestRectangleInHistogramInput(
   };
 }
 
+function isMinStackOperationType(value: unknown): value is MinStackOperationType {
+  return value === "push" || value === "pop" || value === "top" || value === "getMin";
+}
+
+function normalizeMinStackInput(candidate: unknown): MinStackInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Stack input must be an object with an operations array.");
+  }
+
+  const value = candidate as {
+    operations?: unknown;
+  };
+
+  if (!Array.isArray(value.operations) || value.operations.length === 0) {
+    throw new Error("Min Stack input must include at least one operation.");
+  }
+
+  if (value.operations.length > 24) {
+    throw new Error("Min Stack input arrays must contain 24 operations or fewer.");
+  }
+
+  let depth = 0;
+  const operations = value.operations.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`operations[${index}] must be an object.`);
+    }
+
+    const operation = entry as {
+      type?: unknown;
+      value?: unknown;
+    };
+
+    if (!isMinStackOperationType(operation.type)) {
+      throw new Error(
+        `operations[${index}].type must be one of push, pop, top, or getMin.`
+      );
+    }
+
+    if (operation.type === "push") {
+      if (typeof operation.value !== "number" || !Number.isInteger(operation.value)) {
+        throw new Error(`operations[${index}].value must be an integer.`);
+      }
+
+      if (operation.value < -999 || operation.value > 999) {
+        throw new Error(`operations[${index}].value must be between -999 and 999.`);
+      }
+
+      depth += 1;
+
+      return {
+        type: operation.type,
+        value: operation.value
+      } satisfies MinStackOperation;
+    }
+
+    if (operation.value !== undefined) {
+      throw new Error(`operations[${index}] must not include value for ${operation.type}.`);
+    }
+
+    if (depth === 0) {
+      throw new Error(`operations[${index}] cannot run on an empty stack.`);
+    }
+
+    if (operation.type === "pop") {
+      depth -= 1;
+    }
+
+    return {
+      type: operation.type
+    } satisfies MinStackOperation;
+  });
+
+  return {
+    operations
+  };
+}
+
 function normalizeStackInput(
   candidate: unknown,
   algorithmId: StackAlgorithmId = "valid-parentheses"
@@ -355,6 +515,8 @@ function normalizeStackInput(
       return normalizeDailyTemperaturesInput(candidate);
     case "largest-rectangle-in-histogram":
       return normalizeLargestRectangleInHistogramInput(candidate);
+    case "min-stack":
+      return normalizeMinStackInput(candidate);
   }
 }
 
@@ -394,9 +556,19 @@ export function serializeStackInput(input: StackInput): string {
     );
   }
 
+  if ("heights" in input) {
+    return JSON.stringify(
+      {
+        heights: input.heights
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
-      heights: input.heights
+      operations: input.operations
     },
     null,
     2
@@ -1290,6 +1462,278 @@ export function buildLargestRectangleInHistogramTrace(
   return buildStackEnvelope(definition, normalizedInput, recorder.getSteps());
 }
 
+export function buildMinStackTrace(input: MinStackInput): TraceEnvelope<MinStackExecutionState> {
+  const definition = stackAlgorithmDefinitions["min-stack"];
+  const normalizedInput = normalizeMinStackInput(input);
+  const operations = cloneMinStackOperations(normalizedInput.operations);
+  const recorder = createStackRecorder<MinStackExecutionState>(
+    definition.id,
+    cloneMinStackState
+  );
+  const metrics: StackMetricState = {
+    comparisons: 0,
+    pushes: 0,
+    pops: 0
+  };
+  const stackValues: number[] = [];
+  const minimumValues: number[] = [];
+  const processedIndices: number[] = [];
+  let cursor: number | null = null;
+  let currentOperation: MinStackOperationType | null = null;
+  let currentValue: number | null = null;
+  let comparisonValue: number | null = null;
+  let currentMinimum: number | null = null;
+  let currentResultType: "pop" | "top" | "getMin" | null = null;
+  let currentResultValue: number | null = null;
+
+  const createRuntimeState = (): MinStackExecutionState =>
+    cloneMinStackState({
+      kind: "min-stack",
+      operations,
+      cursor,
+      currentOperation,
+      currentValue,
+      comparisonValue,
+      stackValues,
+      minimumValues,
+      processedIndices,
+      currentMinimum,
+      currentResultType,
+      currentResultValue
+    });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The replay begins before any operation runs, with an empty value stack, an empty minimum ledger, and a queued operation timeline.",
+    explanation: {
+      summary: "Seed the operation list and both empty stacks before executing the first Min Stack command.",
+      details:
+        "The timeline stores the untouched operation list, empty value stack, and empty minimum ledger explicitly so later jumps never reconstruct hidden stack state from previous frames.",
+      tags: ["snapshot", "stack"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "min-stack-initial",
+        path: "state.operations",
+        kind: "collection",
+        intent: "focus",
+        label: `${operations.length} stack operations queued`
+      }
+    ]
+  });
+
+  for (const [index, operation] of operations.entries()) {
+    cursor = index;
+    currentOperation = operation.type;
+    currentValue = operation.type === "push" ? operation.value ?? null : null;
+    comparisonValue = null;
+    currentResultType = null;
+    currentResultValue = null;
+    processedIndices.push(index);
+
+    recorder.push({
+      phase: "Inspect",
+      description:
+        operation.type === "push"
+          ? `Inspect operation ${index}: push ${operation.value}.`
+          : `Inspect operation ${index}: ${operation.type}.`,
+      explanation: {
+        summary: "Start a new Min Stack operation with the current stack snapshot and operation details.",
+        details:
+          "Each inspect frame keeps the upcoming operation, the full value stack, and the minimum ledger visible together so replay never depends on browser-only stack simulation.",
+        tags: ["stack", "inspect"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `min-stack-op-${index}`,
+          path: "state.cursor",
+          kind: "index",
+          intent: "active",
+          label:
+            operation.type === "push"
+              ? `Inspect push ${operation.value}`
+              : `Inspect ${operation.type}`,
+          metadata: {
+            index,
+            operation: operation.type
+          }
+        }
+      ]
+    });
+
+    if (operation.type === "push") {
+      if (currentMinimum !== null) {
+        comparisonValue = currentMinimum;
+        metrics.comparisons += 1;
+
+        recorder.push({
+          phase: "Compare",
+          description: `Compare pushed value ${operation.value} against the current minimum ${currentMinimum} before updating the minimum ledger.`,
+          explanation: {
+            summary: "Check whether the pushed value becomes the new minimum for the stack depth.",
+            details:
+              "The compare frame records the incoming value and the previous minimum together so replay can show why the minimum ledger changes or stays stable after the push.",
+            tags: ["stack", "compare"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `min-stack-compare-${index}`,
+              path: "state.comparisonValue",
+              kind: "value",
+              intent: "candidate",
+              label: `Compare ${operation.value} against min ${currentMinimum}`
+            }
+          ]
+        });
+      }
+
+      stackValues.push(operation.value!);
+      currentMinimum =
+        currentMinimum === null ? operation.value! : Math.min(currentMinimum, operation.value!);
+      minimumValues.push(currentMinimum);
+      comparisonValue = null;
+      metrics.pushes += 1;
+
+      recorder.push({
+        phase: "Push",
+        description: `Push ${operation.value} onto the stack and record ${currentMinimum} as the minimum at the new depth.`,
+        explanation: {
+          summary: "Add the new value to the stack and extend the depth-aligned minimum ledger.",
+          details:
+            "Replay keeps the value stack and the minimum ledger side by side so every depth can show both the pushed value and the minimum that survives at that level.",
+          tags: ["stack", "push"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `min-stack-push-${index}`,
+            path: "state.stackValues",
+            kind: "collection",
+            intent: "mutation",
+            label: `Push ${operation.value}`
+          }
+        ]
+      });
+
+      continue;
+    }
+
+    if (operation.type === "pop") {
+      currentResultType = "pop";
+      currentResultValue = stackValues.pop() ?? null;
+      minimumValues.pop();
+      currentMinimum =
+        minimumValues.length > 0 ? minimumValues[minimumValues.length - 1]! : null;
+      metrics.pops += 1;
+
+      recorder.push({
+        phase: "Pop",
+        description: `Pop ${currentResultValue} from the stack and restore the previous minimum ledger entry.`,
+        explanation: {
+          summary: "Remove the top value and its aligned minimum entry in one deterministic step.",
+          details:
+            "The pop frame records the removed value and the restored minimum together so replay can jump directly to the post-pop state without recomputing older minima.",
+          tags: ["stack", "pop"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `min-stack-pop-${index}`,
+            path: "state.currentResultValue",
+            kind: "value",
+            intent: "mutation",
+            label: `Pop ${currentResultValue}`
+          }
+        ]
+      });
+
+      continue;
+    }
+
+    currentMinimum = minimumValues.length > 0 ? minimumValues[minimumValues.length - 1]! : null;
+    currentResultType = operation.type;
+    currentResultValue =
+      operation.type === "top"
+        ? stackValues[stackValues.length - 1] ?? null
+        : minimumValues[minimumValues.length - 1] ?? null;
+
+    recorder.push({
+      phase: "Read",
+      description:
+        operation.type === "top"
+          ? `Read the top stack value ${currentResultValue}.`
+          : `Read the current minimum ${currentResultValue}.`,
+      explanation: {
+        summary:
+          operation.type === "top"
+            ? "Publish the current top value without mutating the stack."
+            : "Publish the current minimum without mutating the stack.",
+        details:
+          "Read frames keep non-mutating stack queries explicit in the trace so replay can show top and minimum requests as first-class steps instead of derived UI hints.",
+        tags: ["stack", "read"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `min-stack-read-${operation.type}-${index}`,
+          path: "state.currentResultValue",
+          kind: "value",
+          intent: "result",
+          label:
+            operation.type === "top"
+              ? `Top = ${currentResultValue}`
+              : `Min = ${currentResultValue}`
+        }
+      ]
+    });
+  }
+
+  cursor = null;
+  currentOperation = null;
+  currentValue = null;
+  comparisonValue = null;
+  currentResultType = null;
+  currentResultValue = null;
+  currentMinimum = minimumValues.length > 0 ? minimumValues[minimumValues.length - 1]! : null;
+
+  recorder.push({
+    phase: "Done",
+    description:
+      stackValues.length > 0
+        ? `The operation stream is complete with ${stackValues.length} stack value${stackValues.length === 1 ? "" : "s"} remaining and minimum ${currentMinimum}.`
+        : "The operation stream is complete and the stack is empty.",
+    explanation: {
+      summary: "Publish the final Min Stack snapshot after the full operation stream finishes.",
+      details:
+        "The terminal snapshot keeps the remaining value stack, minimum ledger, and current minimum directly in replay-safe state so consumers never reconstruct Min Stack behavior from earlier reads.",
+      tags: ["result", "stack"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "min-stack-done",
+        path: "state.currentMinimum",
+        kind: "value",
+        intent: "result",
+        label: currentMinimum !== null ? `Final min ${currentMinimum}` : "Stack empty"
+      }
+    ]
+  });
+
+  return buildStackEnvelope(definition, normalizedInput, recorder.getSteps());
+}
+
 export function buildStackTrace(
   algorithmId: StackAlgorithmId,
   input: StackInput
@@ -1303,5 +1747,7 @@ export function buildStackTrace(
       return buildLargestRectangleInHistogramTrace(
         input as LargestRectangleInHistogramInput
       );
+    case "min-stack":
+      return buildMinStackTrace(input as MinStackInput);
   }
 }

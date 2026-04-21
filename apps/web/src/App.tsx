@@ -158,10 +158,10 @@ const domainReference: Record<
     checkpoints: "Checkpoint stops separate table fill from traceback so large grids still stay readable in replay."
   },
   stack: {
-    lens: "Track unresolved stack entries, comparisons, and resolved outputs whether the problem is validating brackets, waiting for warmer days, or closing histogram rectangles.",
+    lens: "Track unresolved stack entries, minimum ledgers, comparisons, and resolved outputs whether the problem is validating brackets, waiting for warmer days, closing histogram rectangles, or replaying stack operations.",
     flow: "Stack playback records the active cursor, full stack contents, and per-step result signals directly in each snapshot instead of reconstructing browser-only state.",
-    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so bracket validation and monotonic-stack scans stay comparable inside one reusable runtime family.",
-    checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, histogram pop, or clean terminal ledger instead of inferring stack outcomes after the fact."
+    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so bracket validation, monotonic-stack scans, and stack-operation timelines stay comparable inside one reusable runtime family.",
+    checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, histogram pop, minimum read, or clean terminal ledger instead of inferring stack outcomes after the fact."
   },
   graph: {
     lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
@@ -295,6 +295,14 @@ function isLargestRectangleStackStep(
   >;
 } {
   return step.state.kind === "largest-rectangle-in-histogram";
+}
+
+function isMinStackStep(
+  step: StackRun["trace"]["steps"][number]
+): step is StackRun["trace"]["steps"][number] & {
+  state: Extract<StackRun["trace"]["steps"][number]["state"], { kind: "min-stack" }>;
+} {
+  return step.state.kind === "min-stack";
 }
 
 function formatGridCoordinate(cell: number[]): string | null {
@@ -644,6 +652,28 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return "Forecast settled";
     }
 
+    if (isMinStackStep(step)) {
+      if (step.state.currentResultType !== null && step.state.currentResultValue !== null) {
+        return `${step.state.currentResultType} = ${step.state.currentResultValue}`;
+      }
+
+      if (step.state.cursor !== null && step.state.currentOperation !== null) {
+        return step.state.currentOperation === "push" && step.state.currentValue !== null
+          ? `Inspect op ${step.state.cursor}: push ${step.state.currentValue}`
+          : `Inspect op ${step.state.cursor}: ${step.state.currentOperation}`;
+      }
+
+      if (step.state.currentMinimum !== null) {
+        return `Min = ${step.state.currentMinimum}`;
+      }
+
+      if (step.state.stackValues.length > 0) {
+        return `${step.state.stackValues.length} stack value${step.state.stackValues.length === 1 ? "" : "s"}`;
+      }
+
+      return "Stack empty";
+    }
+
     if (step.state.currentResolvedIndex !== null && step.state.currentArea !== null) {
       return `Resolve area ${step.state.currentArea} from bar ${step.state.currentResolvedIndex}`;
     }
@@ -767,7 +797,7 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
     case "dynamic-programming":
       return "Cells, matches, and traceback steps";
     case "stack":
-      return "Closer checks, pushes, and pops";
+      return "Stack comparisons, pushes, and pops";
     case "graph":
       return "Settled progress and recovered route";
     default:
@@ -940,6 +970,25 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
                 }
 
                 return `${stackStep.state.processedIndices.length} days scanned`;
+              }
+
+              if (isMinStackStep(stackStep)) {
+                if (
+                  stackStep.state.currentResultType !== null &&
+                  stackStep.state.currentResultValue !== null
+                ) {
+                  return `${stackStep.state.currentResultType} = ${stackStep.state.currentResultValue}`;
+                }
+
+                if (stackStep.state.currentMinimum !== null) {
+                  return `Min ${stackStep.state.currentMinimum}`;
+                }
+
+                if (stackStep.state.stackValues.length > 0) {
+                  return `${stackStep.state.stackValues.length} value(s) pending`;
+                }
+
+                return `${stackStep.state.processedIndices.length} ops scanned`;
               }
 
               if (
@@ -1559,6 +1608,49 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
   if (isStackRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (isMinStackStep(step)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Current op</span>
+              <strong>
+                {step.state.cursor !== null && step.state.currentOperation !== null
+                  ? step.state.currentOperation === "push" && step.state.currentValue !== null
+                    ? `${step.state.cursor}:push ${step.state.currentValue}`
+                    : `${step.state.cursor}:${step.state.currentOperation}`
+                  : "Done"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Current min</span>
+              <strong>{step.state.currentMinimum !== null ? step.state.currentMinimum : "None"}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Stack depth</span>
+              <strong>{step.state.stackValues.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Latest result</span>
+              <strong>
+                {step.state.currentResultType !== null && step.state.currentResultValue !== null
+                  ? `${step.state.currentResultType}:${step.state.currentResultValue}`
+                  : "Waiting"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.operations.map((operation, index) => (
+              <span className="number-pill" key={`stack-min-op-pill-${index}`}>
+                {index}:{operation.type}
+                {operation.type === "push" ? ` ${operation.value}` : ""}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
 
     if (isDailyTemperaturesStackStep(step)) {
       const resolvedCount = step.state.resolvedWaits.filter((wait) => wait > 0).length;

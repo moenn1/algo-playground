@@ -174,8 +174,10 @@ Both dynamic-programming presets currently resolve for Longest Common Subsequenc
 - `stack.late-spike`: curated forecast where one late warm day resolves several waiting days at once
 - `stack.reference-histogram`: curated canonical skyline where one flush closes the widest rectangle after several deterministic pops
 - `stack.inner-valley`: curated valley-shaped skyline that forces several candidate rectangles to resolve before the final best span is clear
+- `stack.reference-min-stack`: curated classic Min Stack operation stream with pushes, reads, a pop, and minimum recovery
+- `stack.recovering-minimum`: curated operation stream where a deeper low is removed and the previous minimum resurfaces explicitly in replay
 
-The bracket presets resolve for Valid Parentheses. The forecast presets resolve for Daily Temperatures. The histogram presets resolve for Largest Rectangle in Histogram.
+The bracket presets resolve for Valid Parentheses. The forecast presets resolve for Daily Temperatures. The histogram presets resolve for Largest Rectangle in Histogram. The operation-sequence presets resolve for Min Stack.
 
 ## Validation Rules
 
@@ -199,6 +201,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Valid Parentheses payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.
 - Daily Temperatures payloads must define between 2 and 24 integer temperatures in the inclusive range `0` through `150`.
 - Largest Rectangle in Histogram payloads must define between 1 and 24 integer heights in the inclusive range `0` through `150`.
+- Min Stack payloads must define between 1 and 24 operations using `push`, `pop`, `top`, and `getMin`; `push` values must be integers in the inclusive range `-999` through `999`; and non-push operations cannot run on an empty stack.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

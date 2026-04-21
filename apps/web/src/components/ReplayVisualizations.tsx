@@ -3,6 +3,7 @@ import {
   type ContainerWithMostWaterExecutionState,
   type GraphExecutionState,
   type LargestRectangleInHistogramExecutionState,
+  type MinStackExecutionState,
   type SortingExecutionState,
   type ValidParenthesesExecutionState,
   type TrappingRainWaterExecutionState,
@@ -289,6 +290,12 @@ function isLargestRectangleStackState(
   return state.kind === "largest-rectangle-in-histogram";
 }
 
+function isMinStackState(
+  state: StackRun["trace"]["steps"][number]["state"]
+): state is MinStackExecutionState {
+  return state.kind === "min-stack";
+}
+
 function formatDailyTemperatureStatus(
   index: number,
   step: TraceStep<DailyTemperaturesExecutionState>
@@ -355,6 +362,21 @@ function formatLargestRectangleStatus(
 
   if (step.state.processedIndices.includes(index)) {
     return "Scanned";
+  }
+
+  return "Pending";
+}
+
+function formatMinStackOperationStatus(
+  index: number,
+  step: TraceStep<MinStackExecutionState>
+): string {
+  if (step.state.cursor === index) {
+    return "Current";
+  }
+
+  if (step.state.processedIndices.includes(index)) {
+    return "Done";
   }
 
   return "Pending";
@@ -908,6 +930,154 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
 
 export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+
+  if (isMinStackState(step.state)) {
+    const operationLabel =
+      step.state.cursor !== null && step.state.currentOperation !== null
+        ? step.state.currentOperation === "push" && step.state.currentValue !== null
+          ? `Inspect push ${step.state.currentValue}`
+          : `Inspect ${step.state.currentOperation}`
+        : "Operation stream settled";
+    const resultLabel =
+      step.state.currentResultType !== null && step.state.currentResultValue !== null
+        ? `${step.state.currentResultType} returned ${step.state.currentResultValue}.`
+        : step.state.currentMinimum !== null
+          ? `Current minimum stays at ${step.state.currentMinimum}.`
+          : "No current result is published on this frame.";
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} stack</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="stack-stage">
+          <div className="stack-banner">
+            <span>{step.state.operations.length} operations queued</span>
+            <strong>{operationLabel}</strong>
+            <p>
+              {step.state.comparisonValue !== null && step.state.currentValue !== null
+                ? `Compare pushed value ${step.state.currentValue} against current minimum ${step.state.comparisonValue}.`
+                : resultLabel}
+            </p>
+          </div>
+          <div className="stack-visual-grid">
+            <div className="stack-token-grid" aria-label="Min Stack operation stream">
+              {step.state.operations.map((operation, index) => (
+                <article
+                  className={`stack-char ${
+                    step.state.cursor === index
+                      ? "stack-char-current"
+                      : step.state.processedIndices.includes(index)
+                        ? "stack-char-processed"
+                        : "stack-char-stacked"
+                  }`}
+                  key={`min-stack-op-${index}`}
+                >
+                  <span className="stack-char-index">Op {index}</span>
+                  <strong className="stack-char-value">
+                    {operation.type}
+                    {operation.type === "push" ? ` ${operation.value}` : ""}
+                  </strong>
+                  <span className="stack-char-status">
+                    {formatMinStackOperationStatus(index, step)}
+                  </span>
+                </article>
+              ))}
+            </div>
+            <div className="stack-stack-rail">
+              <article className="mini-card">
+                <span>Current minimum</span>
+                <strong>{step.state.currentMinimum !== null ? step.state.currentMinimum : "None"}</strong>
+                <p>
+                  {step.state.stackValues.length > 0
+                    ? `${step.state.stackValues.length} value${step.state.stackValues.length === 1 ? "" : "s"} on the stack`
+                    : "The stack is empty"}
+                </p>
+              </article>
+              <div className="stack-stack-grid">
+                {step.state.stackValues.length > 0 ? (
+                  [...step.state.stackValues]
+                    .map((value, index) => ({
+                      value,
+                      min: step.state.minimumValues[index] ?? null
+                    }))
+                    .reverse()
+                    .map(({ value, min }, index) => (
+                      <article className="stack-frame-card" key={`min-stack-frame-${index}-${value}`}>
+                        <span>{index === 0 ? "Top" : `Depth ${index}`}</span>
+                        <strong>{value}</strong>
+                        <p>{min !== null ? `Minimum at depth: ${min}` : "No minimum recorded"}</p>
+                      </article>
+                    ))
+                ) : (
+                  <div className="stack-frame-empty">Stack empty</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Current op</span>
+            <strong>
+              {step.state.currentOperation !== null
+                ? step.state.currentOperation
+                : "Done"}
+            </strong>
+            <p>
+              {step.state.currentOperation === "push" && step.state.currentValue !== null
+                ? `Value ${step.state.currentValue}`
+                : "No active push value"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Comparison</span>
+            <strong>
+              {step.state.comparisonValue !== null ? step.state.comparisonValue : "None"}
+            </strong>
+            <p>
+              {step.state.comparisonValue !== null
+                ? "Current minimum under comparison"
+                : "No minimum comparison on this frame"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Latest result</span>
+            <strong>
+              {step.state.currentResultType !== null && step.state.currentResultValue !== null
+                ? `${step.state.currentResultType}: ${step.state.currentResultValue}`
+                : "Waiting"}
+            </strong>
+            <p>
+              {step.state.currentResultType !== null
+                ? "Read and pop operations publish explicit results in the trace."
+                : "No read result is active on this frame."}
+            </p>
+          </div>
+        </div>
+        <div className="sort-lane-strip" aria-label="Min Stack operation ledger">
+          {step.state.operations.map((operation, index) => (
+            <article className="lane-chip lane-chip-idle" key={`min-stack-ledger-${index}`}>
+              <div className="lane-chip-header">
+                <span>Op {index}</span>
+                <strong>
+                  {operation.type}
+                  {operation.type === "push" ? ` ${operation.value}` : ""}
+                </strong>
+              </div>
+              <span className="lane-chip-status">
+                {formatMinStackOperationStatus(index, step)}
+              </span>
+            </article>
+          ))}
+        </div>
+      </>
+    );
+  }
 
   if (isLargestRectangleStackState(step.state)) {
     const minHeight = Math.min(...step.state.heights);

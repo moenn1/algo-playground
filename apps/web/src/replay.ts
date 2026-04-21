@@ -15,6 +15,7 @@ import {
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
   defaultLargestRectangleInHistogramInput,
+  defaultMinStackInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
   defaultMergeIntervalsInput,
@@ -459,6 +460,19 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "stack"
   },
   {
+    id: "min-stack",
+    name: "Min Stack",
+    badge: "Stack",
+    accent: "gold",
+    description:
+      "Operation-sequence replay records pushes, minimum comparisons, pops, and non-mutating reads without browser-side stack simulation.",
+    inputLabel: "Stack Input",
+    inputHint:
+      "JSON with an operations array using push, pop, top, and getMin. Push values must be integers between -999 and 999.",
+    defaultInput: serializeStackInput(defaultMinStackInput),
+    domain: "stack"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -712,7 +726,9 @@ export function describeInputFootprint(run: ReplayRun): string {
       ? `${run.input.expression.length} tokens`
       : "temperatures" in run.input
         ? `${run.input.temperatures.length} days`
-        : `${run.input.heights.length} bars`;
+        : "heights" in run.input
+          ? `${run.input.heights.length} bars`
+          : `${run.input.operations.length} ops`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;

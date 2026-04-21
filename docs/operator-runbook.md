@@ -48,6 +48,8 @@ The demo seed currently materializes:
 - Daily Temperatures on `stack.late-spike`
 - Largest Rectangle in Histogram on `stack.reference-histogram`
 - Largest Rectangle in Histogram on `stack.inner-valley`
+- Min Stack on `stack.reference-min-stack`
+- Min Stack on `stack.recovering-minimum`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

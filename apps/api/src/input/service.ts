@@ -97,6 +97,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Largest Rectangle in Histogram",
     domain: "stack"
   },
+  "min-stack": {
+    id: "min-stack",
+    label: "Min Stack",
+    domain: "stack"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -130,6 +135,7 @@ const dailyTemperaturesAlgorithms = [supportedAlgorithms["daily-temperatures"]] 
 const largestRectangleAlgorithms = [
   supportedAlgorithms["largest-rectangle-in-histogram"]
 ] as const;
+const minStackAlgorithms = [supportedAlgorithms["min-stack"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
@@ -174,6 +180,17 @@ const defaultDailyTemperaturesInput: StackInputPayload = {
 };
 const defaultLargestRectangleInHistogramInput: StackInputPayload = {
   heights: [2, 1, 5, 6, 2, 3]
+};
+const defaultMinStackInput: StackInputPayload = {
+  operations: [
+    { type: "push", value: -2 },
+    { type: "push", value: 0 },
+    { type: "push", value: -3 },
+    { type: "getMin" },
+    { type: "pop" },
+    { type: "top" },
+    { type: "getMin" }
+  ]
 };
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -871,6 +888,100 @@ function normalizeLargestRectangleInHistogramInput(payload: unknown): StackInput
   };
 }
 
+function isMinStackOperationType(
+  value: unknown
+): value is "push" | "pop" | "top" | "getMin" {
+  return value === "push" || value === "pop" || value === "top" || value === "getMin";
+}
+
+function normalizeMinStackInput(payload: unknown): StackInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Stack input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Stack input must be an object with an operations array.");
+  }
+
+  const value = candidate as {
+    operations?: unknown;
+  };
+
+  if (!Array.isArray(value.operations) || value.operations.length === 0) {
+    throw new HttpError(400, "Min Stack input must include at least one operation.");
+  }
+
+  if (value.operations.length > 24) {
+    throw new HttpError(400, "Min Stack input arrays must contain 24 operations or fewer.");
+  }
+
+  let depth = 0;
+  const operations = value.operations.map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new HttpError(400, `operations[${index}] must be an object.`);
+    }
+
+    const operation = entry as {
+      type?: unknown;
+      value?: unknown;
+    };
+
+    if (!isMinStackOperationType(operation.type)) {
+      throw new HttpError(
+        400,
+        `operations[${index}].type must be one of push, pop, top, or getMin.`
+      );
+    }
+
+    if (operation.type === "push") {
+      if (typeof operation.value !== "number" || !Number.isInteger(operation.value)) {
+        throw new HttpError(400, `operations[${index}].value must be an integer.`);
+      }
+
+      if (operation.value < -999 || operation.value > 999) {
+        throw new HttpError(400, `operations[${index}].value must be between -999 and 999.`);
+      }
+
+      depth += 1;
+
+      return {
+        type: operation.type,
+        value: operation.value
+      };
+    }
+
+    if (operation.value !== undefined) {
+      throw new HttpError(
+        400,
+        `operations[${index}] must not include value for ${operation.type}.`
+      );
+    }
+
+    if (depth === 0) {
+      throw new HttpError(400, `operations[${index}] cannot run on an empty stack.`);
+    }
+
+    if (operation.type === "pop") {
+      depth -= 1;
+    }
+
+    return {
+      type: operation.type
+    };
+  });
+
+  return {
+    operations
+  };
+}
+
 function normalizeStackInput(
   payload: unknown,
   algorithmId: SupportedAlgorithmId = "valid-parentheses"
@@ -882,6 +993,8 @@ function normalizeStackInput(
       return normalizeDailyTemperaturesInput(payload);
     case "largest-rectangle-in-histogram":
       return normalizeLargestRectangleInHistogramInput(payload);
+    case "min-stack":
+      return normalizeMinStackInput(payload);
     default:
       throw new HttpError(400, `Stack algorithm "${algorithmId}" is not supported.`);
   }
@@ -903,9 +1016,13 @@ function serializeStackInput(input: StackInputPayload) {
       ? {
           temperatures: input.temperatures
         }
-      : {
-          heights: input.heights
-        },
+      : typeof input.heights !== "undefined"
+        ? {
+            heights: input.heights
+          }
+        : {
+            operations: input.operations
+          },
     null,
     2
   );
@@ -1187,7 +1304,9 @@ function normalizeAlgorithmInput(
           ? `${stack.expression.length} tokens`
           : typeof stack.temperatures !== "undefined"
             ? `${stack.temperatures.length} days`
-            : `${stack.heights.length} bars`
+            : typeof stack.heights !== "undefined"
+              ? `${stack.heights.length} bars`
+              : `${stack.operations.length} ops`
     };
   }
 
@@ -1835,6 +1954,50 @@ const presetDefinitions: InputPresetDefinition[] = [
     resolve: () => ({
       input: {
         heights: [3, 1, 3, 2, 2]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.reference-min-stack",
+      label: "Reference Min Stack",
+      description:
+        "Use the classic Min Stack operation stream so replay shows minimum updates, non-mutating reads, and minimum recovery after a pop.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "stack",
+      algorithms: minStackAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultMinStackInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.recovering-minimum",
+      label: "Recovering minimum",
+      description:
+        "Push a deeper low, read it, pop it away, and confirm the earlier minimum resurfaces without rebuilding the stack in the client.",
+      scenario: "minimum-recovery",
+      kind: "curated",
+      domain: "stack",
+      algorithms: minStackAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        operations: [
+          { type: "push", value: 4 },
+          { type: "push", value: 1 },
+          { type: "push", value: -5 },
+          { type: "getMin" },
+          { type: "pop" },
+          { type: "getMin" },
+          { type: "top" }
+        ]
       },
       options: {}
     })

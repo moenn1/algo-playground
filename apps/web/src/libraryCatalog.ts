@@ -197,7 +197,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons, pushes, and pops expose validator effort while keeping the rejection point explicit.",
     skills: ["stack discipline", "token validation", "failure checkpoints"],
     spotlight: "A compact bridge from linear scans into stateful replay because every bracket change is visible.",
-    nextAlgorithmIds: ["daily-temperatures", "minimum-size-subarray-sum"]
+    nextAlgorithmIds: ["daily-temperatures", "min-stack"]
   },
   "selection-sort": {
     stage: "core",
@@ -245,7 +245,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons, pushes, and pops expose how much histogram churn happened before the widest rectangle was proven.",
     skills: ["histogram spans", "monotonic stacks", "area resolution"],
     spotlight: "A classic stack staple that reuses the same replay primitives while adding a more geometric rectangle story than bracket matching or wait ledgers.",
-    nextAlgorithmIds: ["trapping-rain-water", "merge-intervals"]
+    nextAlgorithmIds: ["min-stack", "trapping-rain-water"]
+  },
+  "min-stack": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 9.5,
+    timeToExplore: "6 min",
+    complexity: "The stack itself stays compact, but every push also has to extend a depth-aligned minimum ledger while reads stay explicit in the trace.",
+    outcome: "Watch exactly when pushes compare against the current minimum, when reads publish top or minimum values, and how a pop restores the previous minimum without hidden state.",
+    metricsLens: "Comparisons, pushes, and pops expose how much work happened before the minimum stabilized across the operation stream.",
+    skills: ["stack ledgers", "minimum recovery", "operation traces"],
+    spotlight: "A strong stack-systems follow-up because it turns a mutable data structure API into one deterministic replay timeline instead of a one-off widget.",
+    nextAlgorithmIds: ["daily-temperatures", "largest-rectangle-in-histogram"]
   },
   "container-with-most-water": {
     stage: "core",

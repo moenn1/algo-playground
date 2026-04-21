@@ -207,6 +207,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "stack", "inner-valley"]
   },
   {
+    key: "stack-reference-min-stack",
+    algorithmId: "min-stack",
+    presetId: "stack.reference-min-stack",
+    recordedAt: "2026-04-20T09:07:59.968Z",
+    tags: ["seeded-demo", "stack", "reference-min-stack"]
+  },
+  {
+    key: "stack-recovering-minimum",
+    algorithmId: "min-stack",
+    presetId: "stack.recovering-minimum",
+    recordedAt: "2026-04-20T09:07:59.984Z",
+    tags: ["seeded-demo", "stack", "recovering-minimum"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

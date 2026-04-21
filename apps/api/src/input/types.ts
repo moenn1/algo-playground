@@ -16,6 +16,7 @@ export const supportedAlgorithmIds = [
   "valid-parentheses",
   "daily-temperatures",
   "largest-rectangle-in-histogram",
+  "min-stack",
   "bfs",
   "dijkstra"
 ] as const;
@@ -68,6 +69,10 @@ export interface StackInputPayload extends JsonObject {
   expression?: string;
   temperatures?: number[];
   heights?: number[];
+  operations?: Array<{
+    type: "push" | "pop" | "top" | "getMin";
+    value?: number;
+  }>;
 }
 
 export interface InputPresetSummary {
