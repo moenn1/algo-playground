@@ -214,6 +214,38 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds rainwater replay runs from the shared two-pointer engine", () => {
+    const run = buildRun(
+      "trapping-rain-water",
+      JSON.stringify(
+        {
+          heights: [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "two-pointers") {
+      throw new Error("Expected a two-pointer run.");
+    }
+
+    const twoPointersRun = run as TwoPointersRun;
+    const finalStep = twoPointersRun.trace.steps[twoPointersRun.trace.steps.length - 1]!;
+
+    expect(twoPointersRun.algorithm.id).toBe("trapping-rain-water");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("trapping-rain-water");
+    if (finalStep.state.kind !== "trapping-rain-water") {
+      throw new Error("Expected the rainwater state.");
+    }
+    expect(finalStep.state.totalWater).toBe(6);
+    expect(finalStep.state.waterByIndex[5]).toBe(2);
+    expect(
+      twoPointersRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.totalWater"))
+    ).toBe(true);
+  });
+
   it("builds dynamic-programming replay runs from the shared DP engine", () => {
     const run = buildRun(
       "longest-common-subsequence",

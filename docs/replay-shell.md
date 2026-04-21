@@ -60,7 +60,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, ordered-half signals for rotated-array search, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
-- The two-pointer stage renders the active walls, current container area, last-pruned pointer, and best container directly from the shared execution-engine snapshots.
+- The two-pointer stage renders the active walls, container-area or basin-fill summaries, boundary maxima, per-index trapped water, and final best-result state directly from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The hash stage renders the active array slot, requested complement, insertion-ordered lookup table, and final matched pair directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.

@@ -13,6 +13,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, i
 - `binary-search`
 - `search-in-rotated-sorted-array`
 - `container-with-most-water`
+- `trapping-rain-water`
 - `minimum-size-subarray-sum`
 - `two-sum`
 - `merge-intervals`
@@ -84,25 +85,20 @@ The runtime records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and
 
 ## Two-Pointers Runtime Model
 
-Container With Most Water establishes the first two-pointer runtime shape:
+Container With Most Water and Trapping Rain Water now share the two-pointer runtime family:
 
 - `state.heights`: the wall heights under inspection
 - `state.left` and `state.right`: the active wall indices, or `null` once the sweep is complete
-- `state.width`: the current distance between the active walls
-- `state.limitingHeight`: the shorter wall that caps the current container
-- `state.currentArea`: the area produced by the active pair, or `null` outside evaluation work
-- `state.bestArea`: the largest container found so far
-- `state.bestLeft` and `state.bestRight`: the wall pair that produced the current best area
-- `state.movedPointer`: the pointer moved by the latest pruning step, or `null` when no move has happened yet
-- `state.evaluatedPairs`: the ordered list of wall pairs already measured by the sweep
+- Container With Most Water adds `state.width`, `state.limitingHeight`, `state.currentArea`, `state.bestArea`, `state.bestLeft`, `state.bestRight`, and `state.evaluatedPairs`
+- Trapping Rain Water adds `state.leftMax`, `state.rightMax`, `state.currentFillIndex`, `state.currentFillAmount`, `state.totalWater`, `state.waterByIndex`, and `state.inspectedPairs`
+- Both algorithms record `state.movedPointer` so the latest pruning or settling move stays explicit in replay
 
-Shared two-pointer metrics keep boundary pruning readable:
+Two-pointer metrics stay stable inside each algorithm family:
 
-- `evaluations`: wall pairs measured so far
-- `moves`: pointer-pruning steps committed so far
-- `bestUpdates`: times the runtime published a new best container
+- Container With Most Water uses `evaluations`, `moves`, and `bestUpdates`
+- Trapping Rain Water uses `evaluations`, `moves`, and `fills`
 
-The runtime records explicit `Initialization`, `Evaluate`, `Best Update`, `Move Left`, `Move Right`, and terminal `Done` checkpoints so replay can jump between measured basins and pruning decisions without rerunning the pointer sweep.
+The runtimes record explicit `Initialization`, `Evaluate`, pointer-move checkpoints, and terminal `Done` frames. Container With Most Water adds `Best Update` checkpoints, while Trapping Rain Water adds boundary-max updates and explicit fill checkpoints so replay can jump between basin segments without recomputing local water totals.
 
 ## Hash Runtime Model
 
@@ -221,6 +217,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Search in Rotated Sorted Array records ordered-half detection plus discard checkpoints explicitly so replay can jump between pivot-aware interval cuts without rerunning branch selection.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
 - Container With Most Water records area evaluations, best-container updates, and pointer-pruning moves explicitly so replay can jump between wall pairs without rerunning the sweep.
+- Trapping Rain Water records boundary-max updates, per-index fills, and accumulated trapped-water totals explicitly so replay can jump between basin segments without reconstructing local water contributions.
 - Two Sum records complement checks, lookup-table stores, and the winning pair explicitly so replay can jump between hash states without reconstructing a live `Map`.
 - Merge Intervals records sorted range order, active-span merges, and committed outputs explicitly so replay can jump between overlap checks and result commits without recomputing interval groups.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
@@ -230,6 +227,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -632,6 +632,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "9 heights"
     });
 
+    const trappingRainWaterPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/two-pointers.reference-rain-basin/resolve",
+      payload: {
+        algorithmId: "trapping-rain-water"
+      }
+    });
+
+    expect(trappingRainWaterPreset.statusCode).toBe(200);
+    expect(trappingRainWaterPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "two-pointers.reference-rain-basin"
+      },
+      algorithm: {
+        id: "trapping-rain-water",
+        domain: "two-pointers"
+      },
+      footprint: "12 heights"
+    });
+
     const windowPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/window.reference-target/resolve",
@@ -813,6 +834,30 @@ describe("TraceDeck API foundation", () => {
       footprint: "9 heights"
     });
 
+    const validateTrappingRainWaterInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "trapping-rain-water",
+        payload: {
+          heights: [0, 2, 0, 3, 1, 0, 1]
+        }
+      }
+    });
+
+    expect(validateTrappingRainWaterInput.statusCode).toBe(200);
+    expect(validateTrappingRainWaterInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "trapping-rain-water",
+        domain: "two-pointers"
+      },
+      input: {
+        heights: [0, 2, 0, 3, 1, 0, 1]
+      },
+      footprint: "7 heights"
+    });
+
     const validateWindowInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -967,7 +1012,7 @@ describe("TraceDeck API foundation", () => {
     });
   });
 
-  it("rejects two-pointer payloads with non-positive heights", async () => {
+  it("rejects two-pointer payloads with negative heights", async () => {
     const server = await createServer();
 
     const response = await server.inject({
@@ -976,14 +1021,14 @@ describe("TraceDeck API foundation", () => {
       payload: {
         algorithmId: "container-with-most-water",
         payload: {
-          heights: [1, 0, 6]
+          heights: [1, -1, 6]
         }
       }
     });
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
-      error: "heights[1] must be a positive integer."
+      error: "heights[1] must be a non-negative integer."
     });
   });
 });

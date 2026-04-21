@@ -1,6 +1,8 @@
 import {
+  type ContainerWithMostWaterExecutionState,
   type GraphExecutionState,
   type SortingExecutionState,
+  type TrappingRainWaterExecutionState,
   type TwoPointersExecutionState
 } from "@tracedeck/execution-engine";
 import { type JsonObject, type TraceStep } from "@tracedeck/trace-core";
@@ -266,6 +268,18 @@ function formatStackTokenStatus(
   }
 }
 
+function isContainerState(
+  state: TwoPointersExecutionState
+): state is ContainerWithMostWaterExecutionState {
+  return state.kind === "container-with-most-water";
+}
+
+function isTrappingRainWaterState(
+  state: TwoPointersExecutionState
+): state is TrappingRainWaterExecutionState {
+  return state.kind === "trapping-rain-water";
+}
+
 function getTwoPointersLaneTone(
   index: number,
   step: TwoPointersRun["trace"]["steps"][number]
@@ -274,7 +288,17 @@ function getTwoPointersLaneTone(
     return "active";
   }
 
-  if (step.state.bestLeft === index || step.state.bestRight === index) {
+  if (
+    isContainerState(step.state) &&
+    (step.state.bestLeft === index || step.state.bestRight === index)
+  ) {
+    return "sorted";
+  }
+
+  if (
+    isTrappingRainWaterState(step.state) &&
+    (step.state.currentFillIndex === index || step.state.waterByIndex[index]! > 0)
+  ) {
     return "sorted";
   }
 
@@ -293,8 +317,21 @@ function formatTwoPointersStatus(
     return "Right";
   }
 
-  if (step.state.bestLeft === index || step.state.bestRight === index) {
+  if (
+    isContainerState(step.state) &&
+    (step.state.bestLeft === index || step.state.bestRight === index)
+  ) {
     return "Best";
+  }
+
+  if (isTrappingRainWaterState(step.state)) {
+    if (step.state.currentFillIndex === index && step.state.currentFillAmount !== null) {
+      return `+${step.state.currentFillAmount} water`;
+    }
+
+    if (step.state.waterByIndex[index]! > 0) {
+      return `${step.state.waterByIndex[index]} stored`;
+    }
   }
 
   return "Idle";
@@ -500,17 +537,15 @@ export function TwoPointersStage({
     step.state.left !== null && step.state.right !== null
       ? `${step.state.left} and ${step.state.right}`
       : "Sweep complete";
-  const bestPairLabel =
-    step.state.bestLeft !== null && step.state.bestRight !== null
-      ? `${step.state.bestLeft} and ${step.state.bestRight}`
-      : "Pending";
 
   return (
     <>
       <div className="visual-heading">
         <div>
           <p className="eyebrow">Live State</p>
-          <h2>{run.algorithm.name} walls</h2>
+          <h2>
+            {isContainerState(step.state) ? `${run.algorithm.name} walls` : `${run.algorithm.name} basin`}
+          </h2>
         </div>
         <p className="visual-meta">Current phase: {step.phase}</p>
       </div>
@@ -539,29 +574,71 @@ export function TwoPointersStage({
           })}
         </div>
         <div className="mini-grid">
-          <div className="mini-card">
-            <span>Active pair</span>
-            <strong>{activePairLabel}</strong>
-            <p>{step.state.currentArea !== null ? `Area ${step.state.currentArea}` : "No active container"}</p>
-          </div>
-          <div className="mini-card">
-            <span>Width / height</span>
-            <strong>
-              {step.state.width !== null && step.state.limitingHeight !== null
-                ? `${step.state.width} x ${step.state.limitingHeight}`
-                : "Sweep complete"}
-            </strong>
-            <p>
-              {step.state.movedPointer
-                ? `${step.state.movedPointer === "left" ? "Left" : "Right"} pointer moved last`
-                : "Waiting for first pruning move"}
-            </p>
-          </div>
-          <div className="mini-card">
-            <span>Best container</span>
-            <strong>{step.state.bestArea}</strong>
-            <p>{bestPairLabel}</p>
-          </div>
+          {isContainerState(step.state) ? (
+            <>
+              <div className="mini-card">
+                <span>Active pair</span>
+                <strong>{activePairLabel}</strong>
+                <p>
+                  {step.state.currentArea !== null
+                    ? `Area ${step.state.currentArea}`
+                    : "No active container"}
+                </p>
+              </div>
+              <div className="mini-card">
+                <span>Width / height</span>
+                <strong>
+                  {step.state.width !== null && step.state.limitingHeight !== null
+                    ? `${step.state.width} x ${step.state.limitingHeight}`
+                    : "Sweep complete"}
+                </strong>
+                <p>
+                  {step.state.movedPointer
+                    ? `${step.state.movedPointer === "left" ? "Left" : "Right"} pointer moved last`
+                    : "Waiting for first pruning move"}
+                </p>
+              </div>
+              <div className="mini-card">
+                <span>Best container</span>
+                <strong>{step.state.bestArea}</strong>
+                <p>
+                  {step.state.bestLeft !== null && step.state.bestRight !== null
+                    ? `${step.state.bestLeft} and ${step.state.bestRight}`
+                    : "Pending"}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mini-card">
+                <span>Active pair</span>
+                <strong>{activePairLabel}</strong>
+                <p>
+                  {step.state.movedPointer
+                    ? `${step.state.movedPointer === "left" ? "Left" : "Right"} side settled last`
+                    : "Waiting for the first basin decision"}
+                </p>
+              </div>
+              <div className="mini-card">
+                <span>Boundary maxima</span>
+                <strong>
+                  {step.state.leftMax !== null && step.state.rightMax !== null
+                    ? `${step.state.leftMax} / ${step.state.rightMax}`
+                    : "Sweep complete"}
+                </strong>
+                <p>Left max / right max</p>
+              </div>
+              <div className="mini-card">
+                <span>Trapped water</span>
+                <strong>{step.state.totalWater}</strong>
+                <p>
+                  {step.state.currentFillAmount !== null && step.state.currentFillIndex !== null
+                    ? `+${step.state.currentFillAmount} at wall ${step.state.currentFillIndex}`
+                    : "No new fill on this step"}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
       <div className="sort-lane-strip" aria-label="Two-pointer wall ledger">

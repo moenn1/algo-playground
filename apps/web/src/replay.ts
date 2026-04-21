@@ -14,6 +14,7 @@ import {
   defaultContainerWithMostWaterInput,
   defaultDijkstraInput,
   defaultTwoSumInput,
+  defaultTrappingRainWaterInput,
   defaultMergeIntervalsInput,
   defaultMinimumSizeSubarrayInput,
   defaultRotatedSearchInput,
@@ -355,8 +356,20 @@ export const algorithms: ReplayAlgorithm[] = [
     description:
       "Dual-pointer replay records active walls, area evaluations, and the pruning move that keeps the sweep deterministic.",
     inputLabel: "Two-pointer Input",
-    inputHint: "JSON with a positive integer heights array.",
+    inputHint: "JSON with a non-negative integer heights array.",
     defaultInput: serializeTwoPointersInput(defaultContainerWithMostWaterInput),
+    domain: "two-pointers"
+  },
+  {
+    id: "trapping-rain-water",
+    name: "Trapping Rain Water",
+    badge: "Two pointers",
+    accent: "gold",
+    description:
+      "Basin replay records boundary-max updates, per-index fills, and the deterministic side that settles next.",
+    inputLabel: "Two-pointer Input",
+    inputHint: "JSON with a non-negative integer heights array.",
+    defaultInput: serializeTwoPointersInput(defaultTrappingRainWaterInput),
     domain: "two-pointers"
   },
   {

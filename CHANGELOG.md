@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared two-pointer runtime for Trapping Rain Water, including deterministic boundary-max updates, explicit per-index fill checkpoints, and stable `evaluations`, `moves`, and `fills` metrics.
+- Wired Trapping Rain Water through the replay shell, input-service presets, demo seed data, library catalog, and validation coverage, and widened the shared two-pointer input contract to accept non-negative height arrays for basin-style problems.
 - Added a shared two-pointer runtime for Container With Most Water, including deterministic wall-pair evaluations, explicit pointer-pruning checkpoints, and stable `evaluations`, `moves`, and `bestUpdates` metrics.
 - Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to the new two-pointers domain so TraceDeck now includes its first classic inward-sweep container problem with product-grade replay support.
 - Simplified the shared web visual system with calmer borders, flatter controls, stronger typography rhythm, and quieter ledger-style section interiors so overview, replay, library, reference, comparison, and history now read more consistently as one tool.

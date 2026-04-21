@@ -1305,38 +1305,80 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
     return (
       <>
-        <div className="search-summary-grid">
-          <div className="distance-row">
-            <span>Active pair</span>
-            <strong>
-              {step.state.left !== null && step.state.right !== null
-                ? `${step.state.left}-${step.state.right}`
-                : "Complete"}
-            </strong>
+        {step.state.kind === "container-with-most-water" ? (
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Active pair</span>
+              <strong>
+                {step.state.left !== null && step.state.right !== null
+                  ? `${step.state.left}-${step.state.right}`
+                  : "Complete"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Current area</span>
+              <strong>{step.state.currentArea !== null ? step.state.currentArea : "Waiting"}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Best area</span>
+              <strong>{step.state.bestArea}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Best pair</span>
+              <strong>
+                {step.state.bestLeft !== null && step.state.bestRight !== null
+                  ? `${step.state.bestLeft}-${step.state.bestRight}`
+                  : "Pending"}
+              </strong>
+            </div>
           </div>
-          <div className="distance-row">
-            <span>Current area</span>
-            <strong>{step.state.currentArea !== null ? step.state.currentArea : "Waiting"}</strong>
+        ) : (
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Active pair</span>
+              <strong>
+                {step.state.left !== null && step.state.right !== null
+                  ? `${step.state.left}-${step.state.right}`
+                  : "Complete"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Boundary maxima</span>
+              <strong>
+                {step.state.leftMax !== null && step.state.rightMax !== null
+                  ? `${step.state.leftMax} / ${step.state.rightMax}`
+                  : "Complete"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Current fill</span>
+              <strong>
+                {step.state.currentFillAmount !== null && step.state.currentFillIndex !== null
+                  ? `+${step.state.currentFillAmount} @ ${step.state.currentFillIndex}`
+                  : "Waiting"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Total water</span>
+              <strong>{step.state.totalWater}</strong>
+            </div>
           </div>
-          <div className="distance-row">
-            <span>Best area</span>
-            <strong>{step.state.bestArea}</strong>
-          </div>
-          <div className="distance-row">
-            <span>Best pair</span>
-            <strong>
-              {step.state.bestLeft !== null && step.state.bestRight !== null
-                ? `${step.state.bestLeft}-${step.state.bestRight}`
-                : "Pending"}
-            </strong>
-          </div>
-        </div>
+        )}
         <div className="number-grid">
-          {step.state.heights.map((value, index) => (
-            <span className="number-pill" key={`two-pointers-pill-${index}`}>
-              {index}:{value}
-            </span>
-          ))}
+          {step.state.kind === "container-with-most-water"
+            ? step.state.heights.map((value, index) => (
+                <span className="number-pill" key={`two-pointers-pill-${index}`}>
+                  {index}:{value}
+                </span>
+              ))
+            : step.state.heights.map((value, index) => (
+                <span className="number-pill" key={`two-pointers-pill-${index}`}>
+                  {index}:{value}
+                  {step.state.waterByIndex[index]! > 0
+                    ? ` (+${step.state.waterByIndex[index]})`
+                    : ""}
+                </span>
+              ))}
         </div>
       </>
     );

@@ -8,7 +8,7 @@ The service currently covers the supported algorithms already present in the wor
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`, `search-in-rotated-sorted-array`
-- Two-pointers: `container-with-most-water`
+- Two-pointers: `container-with-most-water`, `trapping-rain-water`
 - Window: `minimum-size-subarray-sum`
 - Hash: `two-sum`
 - Interval: `merge-intervals`
@@ -140,8 +140,10 @@ Both window presets currently resolve for Minimum Size Subarray Sum through the 
 
 - `two-pointers.reference-basin`: curated classic wall array with an early large container and clear outward-to-inward pruning
 - `two-pointers.inner-peak`: curated wall array where the best container appears after several inward pointer moves
+- `two-pointers.reference-rain-basin`: curated classic skyline with zero-height dips and fills on both sides of the basin
+- `two-pointers.stepped-reservoir`: curated stepped skyline with repeated interior fills under stable outer walls
 
-Both two-pointers presets currently resolve for Container With Most Water through the same `algorithmId` field.
+The first two-pointer presets currently resolve for Container With Most Water. The rain-basin presets currently resolve for Trapping Rain Water.
 
 ### Hash presets
 
@@ -185,7 +187,7 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 - Sorting inputs must contain between 2 and 24 integers.
 - Binary Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Search in Rotated Sorted Array payloads must define a distinct-integer array between 2 and 32 entries that is a rotation of a strictly increasing array, plus an integer target.
-- Two-pointer payloads must define between 2 and 24 positive integers in `heights`.
+- Two-pointer payloads must define between 2 and 24 non-negative integers in `heights`.
 - Window payloads must define between 2 and 32 positive integers plus a positive integer target.
 - Hash payloads must define between 2 and 24 integers plus an integer target, and they must contain exactly one valid solution pair so replay stays deterministic.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.

@@ -50,7 +50,7 @@ docs/             Architecture and developer workflow
 - Owns deterministic sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
 - Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
-- Shares one replay-safe two-pointer state shape for Container With Most Water so active walls, computed areas, pruning moves, and the best container stay readable across replay and persistence
+- Shares replay-safe two-pointer state shapes across Container With Most Water and Trapping Rain Water so active walls, boundary maxima, basin fills, pruning moves, and terminal results stay readable across replay and persistence
 - Shares one replay-safe sliding-window state shape for Minimum Size Subarray Sum so active bounds, running sums, and best-window updates stay readable across replay and persistence
 - Shares one replay-safe hash state shape for Two Sum so complement lookups, stored entries, and matched pairs stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
@@ -59,7 +59,7 @@ docs/             Architecture and developer workflow
 - Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
-- Publishes stable two-pointer semantics for area evaluation, shorter-wall pruning, and explicit best-container updates
+- Publishes stable two-pointer semantics for area evaluation, shorter-wall pruning, boundary-max updates, basin fills, and explicit terminal result updates
 - Publishes stable window semantics for explicit expand, candidate, shrink, and terminal no-solution frames
 - Publishes stable hash semantics for explicit complement lookups, lookup-table stores, and terminal pair matches
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals
@@ -110,7 +110,7 @@ docs/             Architecture and developer workflow
 - Comparison metrics must be declared up front and present on the terminal step when they are used for run-to-run comparisons.
 - Sorting engines currently share `comparisons` and `writes` so bubble, selection, quick, and merge traces stay comparable without overloading algorithm-specific counters.
 - Search engines currently publish `probes` and `comparisons` so interval-search traces can compare midpoint work without reconstructing the decision path in consumers.
-- Two-pointer engines currently publish `evaluations`, `moves`, and `bestUpdates` so pointer-pruning traces can compare search pressure and best-container churn without replay-time derivation.
+- Two-pointer engines currently publish stable per-algorithm comparison keys: Container With Most Water uses `evaluations`, `moves`, and `bestUpdates`, while Trapping Rain Water uses `evaluations`, `moves`, and `fills`.
 - Window engines currently publish `expansions`, `shrinks`, and `bestUpdates` so sliding-window traces can compare scan pressure and qualifying-window churn without replay-time derivation.
 - Hash engines currently publish `inspections`, `lookups`, and `stores` so lookup-table traces can compare scan work and table growth without replay-time reconstruction.
 - Interval engines currently publish `comparisons`, `merges`, and `outputs` so range-merging traces can compare overlap work and committed result spans without replay-time inference.

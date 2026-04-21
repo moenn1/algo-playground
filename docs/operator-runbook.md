@@ -32,6 +32,8 @@ The demo seed currently materializes:
 - Search in Rotated Sorted Array on `search.rotated-missing-target`
 - Container With Most Water on `two-pointers.reference-basin`
 - Container With Most Water on `two-pointers.inner-peak`
+- Trapping Rain Water on `two-pointers.reference-rain-basin`
+- Trapping Rain Water on `two-pointers.stepped-reservoir`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
 - Two Sum on `hash.reference-hit`

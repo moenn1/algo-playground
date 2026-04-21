@@ -57,6 +57,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Container With Most Water",
     domain: "two-pointers"
   },
+  "trapping-rain-water": {
+    id: "trapping-rain-water",
+    label: "Trapping Rain Water",
+    domain: "two-pointers"
+  },
   "minimum-size-subarray-sum": {
     id: "minimum-size-subarray-sum",
     label: "Minimum Size Subarray Sum",
@@ -104,7 +109,8 @@ const binarySearchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const rotatedSearchAlgorithms = [
   supportedAlgorithms["search-in-rotated-sorted-array"]
 ] as const;
-const twoPointersAlgorithms = [supportedAlgorithms["container-with-most-water"]] as const;
+const containerTwoPointersAlgorithms = [supportedAlgorithms["container-with-most-water"]] as const;
+const trappingRainWaterAlgorithms = [supportedAlgorithms["trapping-rain-water"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
@@ -120,8 +126,11 @@ const defaultRotatedSearchInput: SearchInputPayload = {
   array: [15, 18, 22, 1, 3, 6, 10, 12],
   target: 6
 };
-const defaultTwoPointersInput: TwoPointersInputPayload = {
+const defaultContainerWithMostWaterInput: TwoPointersInputPayload = {
   heights: [1, 8, 6, 2, 5, 4, 8, 3, 7]
+};
+const defaultTrappingRainWaterInput: TwoPointersInputPayload = {
+  heights: [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]
 };
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
@@ -508,8 +517,8 @@ function normalizeTwoPointersInput(payload: unknown): TwoPointersInputPayload {
   }
 
   const heights = value.heights.map((entry, index) => {
-    if (typeof entry !== "number" || !Number.isInteger(entry) || entry <= 0) {
-      throw new HttpError(400, `heights[${index}] must be a positive integer.`);
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry < 0) {
+      throw new HttpError(400, `heights[${index}] must be a non-negative integer.`);
     }
 
     return entry;
@@ -1353,11 +1362,11 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "two-pointers",
-      algorithms: twoPointersAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: containerTwoPointersAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
-      input: defaultTwoPointersInput,
+      input: defaultContainerWithMostWaterInput,
       options: {}
     })
   },
@@ -1370,12 +1379,48 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "inner-peak",
       kind: "curated",
       domain: "two-pointers",
-      algorithms: twoPointersAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: containerTwoPointersAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: {
         heights: [2, 3, 10, 5, 7, 8, 9]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "two-pointers.reference-rain-basin",
+      label: "Reference rain basin",
+      description:
+        "Use the canonical rainwater skyline so replay shows boundary-max updates and trapped-water fills on both sides of the basin.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "two-pointers",
+      algorithms: trappingRainWaterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultTrappingRainWaterInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "two-pointers.stepped-reservoir",
+      label: "Stepped reservoir",
+      description:
+        "Keep multiple internal dips between tall boundary walls so replay surfaces repeated fills without changing the boundary maxima every frame.",
+      scenario: "stepped-reservoir",
+      kind: "curated",
+      domain: "two-pointers",
+      algorithms: trappingRainWaterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        heights: [4, 2, 0, 3, 2, 5]
       },
       options: {}
     })

@@ -95,6 +95,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "two-pointers", "inner-peak"]
   },
   {
+    key: "two-pointers-reference-rain-basin",
+    algorithmId: "trapping-rain-water",
+    presetId: "two-pointers.reference-rain-basin",
+    recordedAt: "2026-04-20T09:07:43.500Z",
+    tags: ["seeded-demo", "two-pointers", "reference-rain-basin"]
+  },
+  {
+    key: "two-pointers-stepped-reservoir",
+    algorithmId: "trapping-rain-water",
+    presetId: "two-pointers.stepped-reservoir",
+    recordedAt: "2026-04-20T09:07:44.000Z",
+    tags: ["seeded-demo", "two-pointers", "stepped-reservoir"]
+  },
+  {
     key: "window-reference-target",
     algorithmId: "minimum-size-subarray-sum",
     presetId: "window.reference-target",

@@ -233,12 +233,24 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Evaluations, moves, and best updates expose how efficiently the pointer sweep closes on the maximum area.",
     skills: ["pointer pruning", "area bounds", "best-pair tracking"],
     spotlight: "A staple two-pointer interview problem that adds a distinct pointer-pruning story to the catalog without needing a dense state table.",
-    nextAlgorithmIds: ["two-sum", "minimum-size-subarray-sum"]
+    nextAlgorithmIds: ["trapping-rain-water", "minimum-size-subarray-sum"]
+  },
+  "trapping-rain-water": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 9,
+    timeToExplore: "7 min",
+    complexity: "The pointers still move from both sides, but every settled wall now depends on boundary maxima and per-index water fills.",
+    outcome: "See exactly when a boundary max rises, when a basin segment traps water, and how the final per-index reservoir total forms.",
+    metricsLens: "Boundary evaluations, moves, and fills expose how much sweep work happened before the basin fully settled.",
+    skills: ["boundary maxima", "basin fills", "per-index ledgers"],
+    spotlight: "A natural follow-up to Container With Most Water because it reuses the wall skyline while telling a denser two-pointer story.",
+    nextAlgorithmIds: ["container-with-most-water", "minimum-size-subarray-sum"]
   },
   "two-sum": {
     stage: "foundation",
     focus: "state-tracking",
-    order: 9,
+    order: 10,
     timeToExplore: "5 min",
     complexity: "One pass and one lookup table keep the trace compact while the complement state still changes meaningfully every frame.",
     outcome: "See exactly when a value checks for its complement, when a failed lookup becomes a store, and when the winning pair locks.",
@@ -250,7 +262,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",
-    order: 10,
+    order: 11,
     timeToExplore: "6 min",
     complexity: "Sorted range order keeps the scan linear while the active merge span still changes meaningfully over time.",
     outcome: "See exactly when a range extends the active span, when a gap forces an output commit, and how the final interval list forms.",
@@ -262,7 +274,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-sort": {
     stage: "core",
     focus: "partitioning",
-    order: 11,
+    order: 12,
     timeToExplore: "6 min",
     complexity: "Split and merge phases ask the viewer to connect multiple local windows.",
     outcome: "Track recursive decomposition and the write-heavy merge path back to a stable final ordering.",
@@ -274,7 +286,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "quick-sort": {
     stage: "advanced",
     focus: "partitioning",
-    order: 12,
+    order: 13,
     timeToExplore: "7 min",
     complexity: "Pivot locks and recursive partitions create dense local transitions across the deck.",
     outcome: "Inspect how partition boundaries move and why one pivot choice can reshape the next trace segment.",
@@ -286,7 +298,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "longest-common-subsequence": {
     stage: "advanced",
     focus: "dependencies",
-    order: 13,
+    order: 14,
     timeToExplore: "8 min",
     complexity: "A full table plus traceback shifts the user from linear scans to dependency-heavy state.",
     outcome: "Separate matrix fill work from traceback recovery while keeping the current cell and dependencies visible.",
@@ -298,7 +310,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   dijkstra: {
     stage: "advanced",
     focus: "pathfinding",
-    order: 14,
+    order: 15,
     timeToExplore: "8 min",
     complexity: "Weighted frontier ordering makes every inspection and update more consequential.",
     outcome: "Read tentative distances, inspected edges, and recovered shortest paths without hidden queue state.",

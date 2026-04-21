@@ -8,6 +8,7 @@ export const supportedAlgorithmIds = [
   "binary-search",
   "search-in-rotated-sorted-array",
   "container-with-most-water",
+  "trapping-rain-water",
   "minimum-size-subarray-sum",
   "two-sum",
   "merge-intervals",
