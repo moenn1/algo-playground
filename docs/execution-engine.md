@@ -4,7 +4,7 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph runtimes:
+The current package covers shared sorting, search, two-pointers, window, hash, heap, interval, dynamic-programming, stack, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
@@ -16,6 +16,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, i
 - `trapping-rain-water`
 - `minimum-size-subarray-sum`
 - `two-sum`
+- `kth-largest-element-in-an-array`
 - `merge-intervals`
 - `longest-common-subsequence`
 - `valid-parentheses`
@@ -126,6 +127,28 @@ Shared hash metrics keep lookup-table work readable:
 - `stores`: values stored into the lookup table so far
 
 The runtime records explicit `Initialization`, per-value `Lookup` and `Store`, and terminal `Match` plus `Done` checkpoints so replay can jump directly between failed complements, table growth, and the winning pair without replay-time inference.
+
+## Heap Runtime Model
+
+Kth Largest Element in an Array establishes the first heap-selection runtime shape:
+
+- `state.array`: the integer array under scan
+- `state.k`: the requested rank that the runtime must preserve inside the heap
+- `state.currentIndex` and `state.currentValue`: the active array slot under inspection, or `null` outside active scan work
+- `state.heapEntries`: the live size-`k` min-heap in internal heap order so replay can reopen the exact cutoff structure
+- `state.rankedEntries`: the same top-`k` candidates sorted from largest to smallest for human-readable inspection
+- `state.processedIndices`: array slots already inspected by the scan
+- `state.candidateEntry`: the current heap root once the heap is full, or `null` while the heap is still seeding
+- `state.evictedEntry`: the root displaced by a larger value during a replacement step
+- `state.result`: the terminal kth-largest value once the scan completes
+
+Shared heap metrics keep top-`k` selection work readable:
+
+- `inspections`: array values inspected so far
+- `pushes`: heap insertions committed so far
+- `pops`: heap-root removals committed through replacement steps so far
+
+The runtime records explicit `Initialization`, `Inspect`, `Push`, `Replace`, `Skip`, and terminal `Done` checkpoints so replay can jump directly between heap seeding, cutoff changes, rejected values, and the final threshold without reconstructing hidden priority-queue state in the browser.
 
 ## Dynamic-Programming Runtime Model
 

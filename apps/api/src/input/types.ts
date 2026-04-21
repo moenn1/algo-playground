@@ -11,6 +11,7 @@ export const supportedAlgorithmIds = [
   "trapping-rain-water",
   "minimum-size-subarray-sum",
   "two-sum",
+  "kth-largest-element-in-an-array",
   "merge-intervals",
   "longest-common-subsequence",
   "valid-parentheses",
@@ -76,6 +77,11 @@ export interface WindowInputPayload extends JsonObject {
 export interface HashInputPayload extends JsonObject {
   array: number[];
   target: number;
+}
+
+export interface HeapInputPayload extends JsonObject {
+  array: number[];
+  k: number;
 }
 
 export interface IntervalInputPayload extends JsonObject {

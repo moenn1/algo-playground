@@ -47,7 +47,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 
 - Route choices, recent activity, and persistence state are visible in the overview index.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, two-pointer, sliding-window, hash, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, two-pointer, sliding-window, hash, heap, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, calmer borders, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
@@ -64,6 +64,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - The two-pointer stage renders the active walls, container-area or basin-fill summaries, boundary maxima, per-index trapped water, and final best-result state directly from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The hash stage renders the active array slot, requested complement, insertion-ordered lookup table, and final matched pair directly from the shared execution-engine snapshots.
+- The heap stage renders the active array slot, live size-`k` heap order, ranked top-`k` cutoff view, evicted root, and final kth-largest threshold directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
 - The stack stage renders token-by-token validation status for Valid Parentheses, a temperature skyline plus unresolved-day stack for Daily Temperatures, histogram bars with the candidate stack and best rectangle for Largest Rectangle in Histogram, or an operation ledger plus minimum stack rail for Min Stack directly from the shared execution-engine snapshots.

@@ -38,6 +38,8 @@ The demo seed currently materializes:
 - Minimum Size Subarray Sum on `window.no-solution`
 - Two Sum on `hash.reference-hit`
 - Two Sum on `hash.negative-values`
+- Kth Largest Element in an Array on `heap.reference-kth`
+- Kth Largest Element in an Array on `heap.duplicate-cutoff`
 - Merge Intervals on `interval.reference-overlap`
 - Merge Intervals on `interval.touching-ranges`
 - Longest Common Subsequence on `dynamic-programming.reference-overlap`
@@ -61,7 +63,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 18 algorithms with runs, 36 runs total, and 2 saved comparisons.
+That seed currently produces 19 algorithms with runs, 38 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

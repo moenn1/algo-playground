@@ -41,6 +41,7 @@ const algorithmDomains = new Set<AlgorithmDomain>([
   "search",
   "window",
   "hash",
+  "heap",
   "dynamic-programming",
   "stack",
   "interval"

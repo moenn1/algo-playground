@@ -4,6 +4,7 @@ export * from "./search.js";
 export * from "./twoPointers.js";
 export * from "./window.js";
 export * from "./hash.js";
+export * from "./heap.js";
 export * from "./dp.js";
 export * from "./stack.js";
 export * from "./interval.js";

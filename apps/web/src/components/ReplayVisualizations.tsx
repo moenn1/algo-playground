@@ -15,6 +15,7 @@ import {
   formatDistance,
   type GraphRun,
   type HashRun,
+  type HeapRun,
   type IntervalRun,
   isCourseScheduleInput,
   isNumberOfIslandsInput,
@@ -434,6 +435,14 @@ function formatHashPair(values: number[]): string {
   }
 
   return `${values[0]} + ${values[1]}`;
+}
+
+function formatHeapEntry(entry: { value: number; index: number } | null): string {
+  if (!entry) {
+    return "Pending";
+  }
+
+  return `${entry.value}@${entry.index}`;
 }
 
 function getStackTokenTone(
@@ -2262,6 +2271,104 @@ export function HashStage({ run, stepIndex }: { run: HashRun; stepIndex: number 
               ? `${formatHashPair(step.state.matchedPairValues)} = ${step.state.target}`
               : "No complement pair locked yet"}
           </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function HeapStage({ run, stepIndex }: { run: HeapRun; stepIndex: number }) {
+  const step = getStep(run.trace.steps, stepIndex);
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} heap</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="window-stage">
+        <div className="window-banner">
+          <span>Top {step.state.k} target</span>
+          <strong>
+            {step.state.currentIndex !== null && step.state.currentValue !== null
+              ? `Inspect index ${step.state.currentIndex} = ${step.state.currentValue}`
+              : step.state.result !== null
+                ? `${step.state.k}th largest resolves to ${step.state.result}`
+                : "Awaiting first heap candidate"}
+          </strong>
+          <p>
+            {step.state.result !== null
+              ? `Final cutoff ${step.state.result} comes from heap root ${formatHeapEntry(step.state.candidateEntry)}.`
+              : step.state.evictedEntry
+                ? `Evicted ${formatHeapEntry(step.state.evictedEntry)} while rebalancing the size-${step.state.k} heap.`
+                : step.state.candidateEntry
+                  ? `Current cutoff is ${formatHeapEntry(step.state.candidateEntry)}.`
+                  : `Heap has ${step.state.heapEntries.length} of ${step.state.k} required entries.`}
+          </p>
+        </div>
+        <div className="window-grid">
+          {step.state.array.map((value, index) => {
+            const isCurrent = step.state.currentIndex === index;
+            const isStored = step.state.heapEntries.some((entry) => entry.index === index);
+            const isProcessed = step.state.processedIndices.includes(index);
+            const className = [
+              "window-cell",
+              isStored ? "window-cell-best" : "",
+              isCurrent ? "window-cell-candidate" : "",
+              isProcessed && !isStored ? "window-cell-active" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div className={className} key={`heap-card-${index}-${value}`}>
+                <span className="window-cell-index">{index}</span>
+                <strong className="window-cell-value">{value}</strong>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Cutoff root</span>
+          <strong>{formatHeapEntry(step.state.candidateEntry)}</strong>
+          <p>
+            {step.state.heapEntries.length >= step.state.k
+              ? `${step.state.k} heap slots filled`
+              : `${step.state.heapEntries.length} of ${step.state.k} filled`}
+          </p>
+        </div>
+        <div className="mini-card">
+          <span>Heap order</span>
+          <div className="pill-row">
+            {step.state.heapEntries.length > 0 ? (
+              step.state.heapEntries.map((entry) => (
+                <span className="pill" key={`heap-entry-${entry.index}`}>
+                  {entry.value}@{entry.index}
+                </span>
+              ))
+            ) : (
+              <span className="empty-pill">Heap empty</span>
+            )}
+          </div>
+        </div>
+        <div className="mini-card">
+          <span>Ranked top-k</span>
+          <div className="pill-row">
+            {step.state.rankedEntries.length > 0 ? (
+              step.state.rankedEntries.map((entry) => (
+                <span className="pill" key={`heap-ranked-${entry.index}`}>
+                  {entry.value}@{entry.index}
+                </span>
+              ))
+            ) : (
+              <span className="empty-pill">No ranked candidates</span>
+            )}
+          </div>
         </div>
       </div>
     </>

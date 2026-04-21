@@ -237,6 +237,52 @@ describe("TraceDeck API foundation", () => {
     });
   });
 
+  it("resolves heap presets and validates custom kth-largest inputs", async () => {
+    const server = await createServer();
+
+    const presetResponse = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/heap.reference-kth/resolve",
+      payload: {
+        algorithmId: "kth-largest-element-in-an-array"
+      }
+    });
+
+    expect(presetResponse.statusCode).toBe(200);
+    expect(presetResponse.json()).toMatchObject({
+      algorithm: {
+        id: "kth-largest-element-in-an-array",
+        domain: "heap"
+      },
+      preset: {
+        id: "heap.reference-kth",
+        domain: "heap"
+      },
+      footprint: "6 lanes / k 2"
+    });
+
+    const validateResponse = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "kth-largest-element-in-an-array",
+        payload: {
+          array: [3, 2, 3, 1, 2, 4, 5, 5, 6],
+          k: 4
+        }
+      }
+    });
+
+    expect(validateResponse.statusCode).toBe(200);
+    expect(validateResponse.json()).toMatchObject({
+      algorithm: {
+        id: "kth-largest-element-in-an-array",
+        domain: "heap"
+      },
+      footprint: "9 lanes / k 4"
+    });
+  });
+
   it("persists runs, algorithms, and paged step retrieval", async () => {
     const server = await createServer();
 

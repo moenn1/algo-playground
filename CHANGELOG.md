@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared heap runtime for Kth Largest Element in an Array, including deterministic heap seeding, explicit root-replacement checkpoints, ranked top-k snapshots, and stable `inspections`, `pushes`, and `pops` metrics.
+- Wired Kth Largest Element in an Array through the input-service presets and validation, replay shell, library catalog, seeded demo data, and heap-domain documentation so TraceDeck now covers a recognizable heap-selection problem alongside the existing array, graph, stack, and DP catalog.
 - Added a shared graph replay for Number of Islands, including deterministic row-major scan checkpoints, connected-component frontier expansion, and explicit island-membership ledgers through the execution engine.
 - Wired Number of Islands through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a fourth reusable graph story alongside pathfinding, dependency scheduling, and grid infection replay.
 - Reduced nested card density across the replay shell so comparison summaries, sync lanes, history entries, and workspace notes now lean on strips and ledger rows instead of repeating boxed cards inside already-framed route panels.

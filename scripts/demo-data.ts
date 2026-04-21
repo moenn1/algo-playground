@@ -137,6 +137,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "hash", "negative-values"]
   },
   {
+    key: "heap-reference-kth",
+    algorithmId: "kth-largest-element-in-an-array",
+    presetId: "heap.reference-kth",
+    recordedAt: "2026-04-20T09:07:51.700Z",
+    tags: ["seeded-demo", "heap", "reference-kth"]
+  },
+  {
+    key: "heap-duplicate-cutoff",
+    algorithmId: "kth-largest-element-in-an-array",
+    presetId: "heap.duplicate-cutoff",
+    recordedAt: "2026-04-20T09:07:51.800Z",
+    tags: ["seeded-demo", "heap", "duplicate-cutoff"]
+  },
+  {
     key: "interval-reference-overlap",
     algorithmId: "merge-intervals",
     presetId: "interval.reference-overlap",

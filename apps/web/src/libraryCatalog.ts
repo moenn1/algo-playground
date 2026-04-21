@@ -295,6 +295,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "One of the most recognizable interview problems in the catalog and a strong bridge from linear scans into hash-backed state.",
     nextAlgorithmIds: ["valid-parentheses", "merge-intervals"]
   },
+  "kth-largest-element-in-an-array": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 12.5,
+    timeToExplore: "6 min",
+    complexity: "The scan stays linear, but every new contender has to prove it belongs in a live size-k heap instead of the discarded tail.",
+    outcome: "See exactly when replay seeds the heap, when a larger value evicts the cutoff root, and how the final kth-largest threshold locks.",
+    metricsLens: "Inspections, pushes, and pops expose how much heap churn happened before the cutoff stabilized.",
+    skills: ["size-k heaps", "root replacements", "top-k cutoffs"],
+    spotlight: "A classic heap interview problem that adds a real priority-queue state model to the catalog without needing a dense tree renderer.",
+    nextAlgorithmIds: ["two-sum", "largest-rectangle-in-histogram"]
+  },
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",

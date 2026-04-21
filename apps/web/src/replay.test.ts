@@ -10,6 +10,7 @@ import {
   getTraceStepPaths,
   type DynamicProgrammingRun,
   type HashRun,
+  type HeapRun,
   type IntervalRun,
   type SearchRun,
   type StackRun,
@@ -440,6 +441,33 @@ describe("buildRun", () => {
     expect(finalStep.highlights.map((highlight) => highlight.path)).toContain(
       "state.matchedPairIndices"
     );
+  });
+
+  it("builds heap replay runs from the shared heap engine", () => {
+    const run = buildRun(
+      "kth-largest-element-in-an-array",
+      JSON.stringify(
+        {
+          array: [3, 2, 1, 5, 6, 4],
+          k: 2
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "heap") {
+      throw new Error("Expected a heap run.");
+    }
+
+    const heapRun = run as HeapRun;
+    const finalStep = heapRun.trace.steps[heapRun.trace.steps.length - 1]!;
+
+    expect(heapRun.algorithm.id).toBe("kth-largest-element-in-an-array");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.result).toBe(5);
+    expect(finalStep.state.rankedEntries.map((entry) => entry.value)).toEqual([6, 5]);
+    expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.result");
   });
 
   it("builds stack replay runs from the shared stack engine", () => {

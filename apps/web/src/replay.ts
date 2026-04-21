@@ -2,6 +2,7 @@ import {
   buildDynamicProgrammingTrace,
   buildGraphTrace,
   buildHashTrace,
+  buildHeapTrace,
   buildIntervalTrace,
   buildSearchTrace,
   buildStackTrace,
@@ -15,6 +16,7 @@ import {
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
+  defaultKthLargestElementInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
   defaultNumberOfIslandsInput,
@@ -29,6 +31,7 @@ import {
   formatGraphDistance,
   parseGraphInputText,
   parseHashInputText,
+  parseHeapInputText,
   parseIntervalInputText,
   parseSearchInputText,
   parseStackInputText,
@@ -37,6 +40,7 @@ import {
   serializeDynamicProgrammingInput,
   serializeGraphInput,
   serializeHashInput,
+  serializeHeapInput,
   serializeIntervalInput,
   serializeSearchInput,
   serializeStackInput,
@@ -51,6 +55,9 @@ import {
   type HashAlgorithmId,
   type HashExecutionState,
   type HashInput,
+  type HeapAlgorithmId,
+  type HeapExecutionState,
+  type HeapInput,
   type IntervalAlgorithmId,
   type IntervalExecutionState,
   type IntervalInput,
@@ -118,6 +125,11 @@ export type HashAlgorithm = ReplayAlgorithmBase & {
   domain: "hash";
 };
 
+export type HeapAlgorithm = ReplayAlgorithmBase & {
+  id: HeapAlgorithmId;
+  domain: "heap";
+};
+
 export type IntervalAlgorithm = ReplayAlgorithmBase & {
   id: IntervalAlgorithmId;
   domain: "interval";
@@ -140,6 +152,7 @@ export type ReplayAlgorithm =
   | TwoPointersAlgorithm
   | WindowAlgorithm
   | HashAlgorithm
+  | HeapAlgorithm
   | IntervalAlgorithm
   | DynamicProgrammingAlgorithm
   | StackAlgorithm;
@@ -152,6 +165,7 @@ export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
 export type StackReplayState = StackExecutionState;
 export type IntervalReplayState = IntervalExecutionState;
 export type HashReplayState = HashExecutionState;
+export type HeapReplayState = HeapExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -195,6 +209,13 @@ export type HashRun = {
   trace: TraceEnvelope<HashReplayState>;
 };
 
+export type HeapRun = {
+  algorithm: HeapAlgorithm;
+  input: HeapInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<HeapReplayState>;
+};
+
 export type IntervalRun = {
   algorithm: IntervalAlgorithm;
   input: IntervalInput;
@@ -223,6 +244,7 @@ export type ReplayRun =
   | TwoPointersRun
   | WindowRun
   | HashRun
+  | HeapRun
   | IntervalRun
   | DynamicProgrammingRun
   | StackRun;
@@ -265,6 +287,10 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
 
 function isHashRun(run: ReplayRun): run is HashRun {
   return run.algorithm.domain === "hash";
+}
+
+function isHeapRun(run: ReplayRun): run is HeapRun {
+  return run.algorithm.domain === "heap";
 }
 
 function isIntervalRun(run: ReplayRun): run is IntervalRun {
@@ -425,6 +451,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with an integer array and a target that has exactly one solution pair.",
     defaultInput: serializeHashInput(defaultTwoSumInput),
     domain: "hash"
+  },
+  {
+    id: "kth-largest-element-in-an-array",
+    name: "Kth Largest Element in an Array",
+    badge: "Heap",
+    accent: "teal",
+    description:
+      "Size-k min-heap replay records candidate pushes, root replacements, and the cutoff that settles the final answer.",
+    inputLabel: "Heap Input",
+    inputHint: "JSON with an integer array and a kth rank between 1 and the array length.",
+    defaultInput: serializeHeapInput(defaultKthLargestElementInput),
+    domain: "heap"
   },
   {
     id: "merge-intervals",
@@ -660,6 +698,19 @@ function buildHashRunFromInput(
   };
 }
 
+function buildHeapRunFromInput(
+  algorithm: HeapAlgorithm,
+  input: HeapInput,
+  normalizedInputText = serializeHeapInput(input)
+): HeapRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildHeapTrace(algorithm.id, input)
+  };
+}
+
 function buildIntervalRunFromInput(
   algorithm: IntervalAlgorithm,
   input: IntervalInput,
@@ -736,6 +787,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildHashRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "heap") {
+    const input = parseHeapInputText(inputText);
+    return buildHeapRunFromInput(algorithm, input);
+  }
+
   if (algorithm.domain === "interval") {
     const input = parseIntervalInputText(inputText);
     return buildIntervalRunFromInput(algorithm, input);
@@ -774,6 +830,10 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   if (isHashRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isHeapRun(run)) {
+    return `${run.input.array.length} lanes / k ${run.input.k}`;
   }
 
   if (isIntervalRun(run)) {

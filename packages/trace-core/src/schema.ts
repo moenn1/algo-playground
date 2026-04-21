@@ -14,6 +14,7 @@ export type AlgorithmDomain =
   | "two-pointers"
   | "window"
   | "hash"
+  | "heap"
   | "dynamic-programming"
   | "stack"
   | "interval";

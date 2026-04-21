@@ -22,6 +22,7 @@ import {
 import {
   GraphStage,
   HashStage,
+  HeapStage,
   IntervalStage,
   SearchStage,
   SortingStage,
@@ -55,6 +56,7 @@ import {
   type DynamicProgrammingRun,
   type GraphRun,
   type HashRun,
+  type HeapRun,
   type IntervalRun,
   type ReplayAlgorithm,
   type ReplayRun,
@@ -103,6 +105,7 @@ const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
   "two-pointers": "Two-pointer systems",
   window: "Window systems",
   hash: "Hash systems",
+  heap: "Heap systems",
   interval: "Interval systems",
   "dynamic-programming": "Dynamic-programming systems",
   stack: "Stack systems",
@@ -148,6 +151,12 @@ const domainReference: Record<
     metrics: "Hash metrics emphasize `inspections`, `lookups`, and `stores` so lookup-table work stays readable across future array and hash problems.",
     checkpoints: "Checkpoint stops separate failed lookups, table stores, and the winning complement hit so classic hash-map problems stay easy to scrub."
   },
+  heap: {
+    lens: "Track the size-k cutoff heap, root replacements, and the final kth-largest threshold without reconstructing hidden heap state.",
+    flow: "Heap playback records the current value, internal heap order, ranked top-k view, and active cutoff directly in every snapshot.",
+    metrics: "Heap metrics emphasize `inspections`, `pushes`, and `pops` so top-k selection work stays readable across future heap problems.",
+    checkpoints: "Checkpoint stops separate seed pushes, root replacements, skips, and the final cutoff so heap-selection traces stay easy to scrub."
+  },
   interval: {
     lens: "Track sorted ranges, overlap checks, active merge spans, and committed outputs without guessing which interval group is live.",
     flow: "Interval playback records the ordered ranges, current comparison, active merged span, and committed outputs in every snapshot.",
@@ -180,6 +189,7 @@ const libraryDomainOrder = [
   "two-pointers",
   "window",
   "hash",
+  "heap",
   "interval",
   "dynamic-programming",
   "stack",
@@ -261,6 +271,10 @@ function isHashRun(run: ReplayRun): run is HashRun {
   return run.algorithm.domain === "hash";
 }
 
+function isHeapRun(run: ReplayRun): run is HeapRun {
+  return run.algorithm.domain === "heap";
+}
+
 function isIntervalRun(run: ReplayRun): run is IntervalRun {
   return run.algorithm.domain === "interval";
 }
@@ -322,6 +336,14 @@ function formatIntervalValue(interval: number[]): string {
   }
 
   return `[${interval[0]}, ${interval[1]}]`;
+}
+
+function formatHeapEntryValue(entry: { value: number; index: number } | null): string {
+  if (!entry) {
+    return "Pending";
+  }
+
+  return `${entry.value}@${entry.index}`;
 }
 
 function hasGridCoordinate(cells: number[][], row: number, column: number): boolean {
@@ -577,6 +599,24 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     }
 
     return `Target ${step.state.target} awaiting first lookup`;
+  }
+
+  if (isHeapRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.result !== null) {
+      return `${step.state.k}th largest = ${step.state.result}`;
+    }
+
+    if (step.state.currentIndex !== null && step.state.currentValue !== null) {
+      return `Inspect index ${step.state.currentIndex} = ${step.state.currentValue}`;
+    }
+
+    if (step.state.candidateEntry) {
+      return `Cutoff ${formatHeapEntryValue(step.state.candidateEntry)}`;
+    }
+
+    return `Heap seeding ${step.state.heapEntries.length}/${step.state.k}`;
   }
 
   if (isIntervalRun(run)) {
@@ -853,6 +893,8 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
       return "Expansions, shrinks, and best updates";
     case "hash":
       return "Inspections, lookups, and stores";
+    case "heap":
+      return "Inspections, pushes, and pops";
     case "interval":
       return "Overlap checks, merges, and outputs";
     case "dynamic-programming":
@@ -964,6 +1006,24 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               }
 
               return `${hashStep.state.inspectedIndices.length} values inspected`;
+            })()
+        : isHeapRun(run)
+          ? (() => {
+              const heapStep = getRunStep(run, stepIndex);
+
+              if (heapStep.state.result !== null) {
+                return `${heapStep.state.k}th largest locked at ${heapStep.state.result}`;
+              }
+
+              if (heapStep.state.evictedEntry) {
+                return `Evicted ${heapStep.state.evictedEntry.value}`;
+              }
+
+              if (heapStep.state.candidateEntry) {
+                return `Cutoff ${heapStep.state.candidateEntry.value} at heap root`;
+              }
+
+              return `${heapStep.state.heapEntries.length} of ${heapStep.state.k} heap slots filled`;
             })()
         : isIntervalRun(run)
           ? (() => {
@@ -1362,6 +1422,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
     return <HashStage run={run} stepIndex={stepIndex} />;
   }
 
+  if (isHeapRun(run)) {
+    return <HeapStage run={run} stepIndex={stepIndex} />;
+  }
+
   if (isIntervalRun(run)) {
     return <IntervalStage run={run} stepIndex={stepIndex} />;
   }
@@ -1631,6 +1695,52 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
           ) : (
             step.state.array.map((value, index) => (
               <span className="number-pill" key={`hash-array-pill-${index}`}>
+                {index}:{value}
+              </span>
+            ))
+          )}
+        </div>
+      </>
+    );
+  }
+
+  if (isHeapRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>k</span>
+            <strong>{step.state.k}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Current</span>
+            <strong>
+              {step.state.currentIndex !== null && step.state.currentValue !== null
+                ? `${step.state.currentIndex}:${step.state.currentValue}`
+                : "Waiting"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Cutoff</span>
+            <strong>{formatHeapEntryValue(step.state.candidateEntry)}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Result</span>
+            <strong>{step.state.result !== null ? step.state.result : "Pending"}</strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.rankedEntries.length > 0 ? (
+            step.state.rankedEntries.map((entry) => (
+              <span className="number-pill" key={`heap-ranked-pill-${entry.index}`}>
+                {entry.value}@{entry.index}
+              </span>
+            ))
+          ) : (
+            step.state.array.map((value, index) => (
+              <span className="number-pill" key={`heap-array-pill-${index}`}>
                 {index}:{value}
               </span>
             ))

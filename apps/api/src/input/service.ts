@@ -7,6 +7,7 @@ import type {
   DynamicProgrammingInputPayload,
   GraphInputPayload,
   HashInputPayload,
+  HeapInputPayload,
   IntervalInputPayload,
   InputPresetListQuery,
   NumberOfIslandsInputPayload,
@@ -75,6 +76,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "two-sum",
     label: "Two Sum",
     domain: "hash"
+  },
+  "kth-largest-element-in-an-array": {
+    id: "kth-largest-element-in-an-array",
+    label: "Kth Largest Element in an Array",
+    domain: "heap"
   },
   "merge-intervals": {
     id: "merge-intervals",
@@ -147,6 +153,7 @@ const containerTwoPointersAlgorithms = [supportedAlgorithms["container-with-most
 const trappingRainWaterAlgorithms = [supportedAlgorithms["trapping-rain-water"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
+const heapAlgorithms = [supportedAlgorithms["kth-largest-element-in-an-array"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
 const validParenthesesAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
@@ -184,6 +191,10 @@ const defaultWindowInput: WindowInputPayload = {
 const defaultHashInput: HashInputPayload = {
   array: [2, 7, 11, 15],
   target: 9
+};
+const defaultHeapInput: HeapInputPayload = {
+  array: [3, 2, 1, 5, 6, 4],
+  k: 2
 };
 const defaultIntervalInput: IntervalInputPayload = {
   intervals: [
@@ -786,6 +797,68 @@ function serializeHashInput(input: HashInputPayload) {
     {
       array: input.array,
       target: input.target
+    },
+    null,
+    2
+  );
+}
+
+function normalizeHeapInput(payload: unknown): HeapInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Heap input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Heap input must be an object with array and k.");
+  }
+
+  const value = candidate as {
+    array?: unknown;
+    k?: unknown;
+  };
+
+  if (!Array.isArray(value.array) || value.array.length < 2) {
+    throw new HttpError(400, "Heap input must include an array with at least two integers.");
+  }
+
+  if (value.array.length > 24) {
+    throw new HttpError(400, "Heap input arrays must contain 24 integers or fewer.");
+  }
+
+  const array = value.array.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry)) {
+      throw new HttpError(400, `array[${index}] must be an integer.`);
+    }
+
+    return entry;
+  });
+
+  if (typeof value.k !== "number" || !Number.isInteger(value.k)) {
+    throw new HttpError(400, "Heap input k must be an integer.");
+  }
+
+  if (value.k < 1 || value.k > array.length) {
+    throw new HttpError(400, "Heap input k must be between 1 and the array length.");
+  }
+
+  return {
+    array,
+    k: value.k
+  };
+}
+
+function serializeHeapInput(input: HeapInputPayload) {
+  return JSON.stringify(
+    {
+      array: input.array,
+      k: input.k
     },
     null,
     2
@@ -1579,6 +1652,16 @@ function normalizeAlgorithmInput(
     };
   }
 
+  if (algorithm.domain === "heap") {
+    const heap = normalizeHeapInput(payload);
+
+    return {
+      input: heap,
+      normalizedInputText: serializeHeapInput(heap),
+      footprint: `${heap.array.length} lanes / k ${heap.k}`
+    };
+  }
+
   if (algorithm.domain === "interval") {
     const interval = normalizeIntervalInput(payload);
 
@@ -2079,6 +2162,43 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [-3, 4, 3, 90],
         target: 0
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "heap.reference-kth",
+      label: "Reference kth-largest cutoff",
+      description:
+        "Use the classic Kth Largest Element in an Array fixture so replay shows heap seeding, root replacement, and the final cutoff.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "heap",
+      algorithms: heapAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultHeapInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "heap.duplicate-cutoff",
+      label: "Duplicate cutoff heap",
+      description:
+        "Include duplicates near the cutoff so replay shows exactly when equal high values stay inside the heap and where the kth threshold lands.",
+      scenario: "duplicates",
+      kind: "curated",
+      domain: "heap",
+      algorithms: heapAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [3, 2, 3, 1, 2, 4, 5, 5, 6],
+        k: 4
       },
       options: {}
     })
