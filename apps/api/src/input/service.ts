@@ -17,6 +17,7 @@ import type {
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
   NearestExitFromEntranceInMazeInputPayload,
+  ShortestPathGridWithObstaclesEliminationInputPayload,
   ShortestPathToGetFoodInputPayload,
   ZeroOneMatrixInputPayload,
   AsFarFromLandAsPossibleInputPayload,
@@ -238,6 +239,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Nearest Exit from Entrance in Maze",
     domain: "graph"
   },
+  "shortest-path-in-a-grid-with-obstacles-elimination": {
+    id: "shortest-path-in-a-grid-with-obstacles-elimination",
+    label: "Shortest Path in a Grid with Obstacles Elimination",
+    domain: "graph"
+  },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
     label: "Shortest Path to Get Food",
@@ -329,6 +335,9 @@ const shortestPathBinaryMatrixAlgorithms = [
 ] as const;
 const nearestExitFromEntranceInMazeAlgorithms = [
   supportedAlgorithms["nearest-exit-from-entrance-in-maze"]
+] as const;
+const shortestPathGridWithObstaclesEliminationAlgorithms = [
+  supportedAlgorithms["shortest-path-in-a-grid-with-obstacles-elimination"]
 ] as const;
 const shortestPathToGetFoodAlgorithms = [supportedAlgorithms["shortest-path-to-get-food"]] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
@@ -553,6 +562,17 @@ const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceInMazeIn
   ],
   entrance: [1, 1]
 };
+const defaultShortestPathGridWithObstaclesEliminationInput: ShortestPathGridWithObstaclesEliminationInputPayload =
+  {
+    grid: [
+      [0, 0, 0],
+      [1, 1, 0],
+      [0, 0, 0],
+      [0, 1, 1],
+      [0, 0, 0]
+    ],
+    eliminations: 1
+  };
 const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInputPayload = {
   grid: [
     ["X", "X", "X", "X", "X"],
@@ -2354,6 +2374,114 @@ function normalizeNearestExitFromEntranceInMazeInput(
   };
 }
 
+function normalizeShortestPathGridWithObstaclesEliminationInput(
+  payload: unknown
+): ShortestPathGridWithObstaclesEliminationInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Shortest Path in a Grid with Obstacles Elimination input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input must be an object with grid and eliminations."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+    eliminations?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input must include a non-empty grid."
+    );
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input must use 8 rows or fewer."
+    );
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input rows must all be the same length."
+    );
+  }
+
+  if (
+    typeof value.eliminations !== "number" ||
+    !Number.isInteger(value.eliminations) ||
+    value.eliminations < 0
+  ) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input eliminations must be a non-negative integer."
+    );
+  }
+
+  if (value.eliminations > 8) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input eliminations must be 8 or fewer."
+    );
+  }
+
+  if (grid[0]![0] !== 0) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input must start on an open top-left cell."
+    );
+  }
+
+  if (grid[grid.length - 1]![columnCount - 1] !== 0) {
+    throw new HttpError(
+      400,
+      "Shortest Path in a Grid with Obstacles Elimination input must end on an open bottom-right cell."
+    );
+  }
+
+  return {
+    grid,
+    eliminations: value.eliminations
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(payload: unknown): ShortestPathToGetFoodInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2784,6 +2912,8 @@ function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(payload);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(payload);
+    case "shortest-path-in-a-grid-with-obstacles-elimination":
+      return normalizeShortestPathGridWithObstaclesEliminationInput(payload);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(payload);
     case "01-matrix":
@@ -2818,6 +2948,7 @@ function isGridGraphPayload(
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
   | NearestExitFromEntranceInMazeInputPayload
+  | ShortestPathGridWithObstaclesEliminationInputPayload
   | ShortestPathToGetFoodInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
@@ -2854,6 +2985,17 @@ function serializeGraphInput(input: GraphInputPayload) {
       {
         grid: input.grid,
         entrance: input.entrance
+      },
+      null,
+      2
+    );
+  }
+
+  if ("eliminations" in input) {
+    return JSON.stringify(
+      {
+        grid: input.grid,
+        eliminations: input.eliminations
       },
       null,
       2
@@ -3014,6 +3156,8 @@ function normalizeAlgorithmInput(
         ? `${graph.nodeCount} nodes / ${graph.edges.length} edges`
         : isCourseScheduleGraphPayload(graph)
         ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
+        : "eliminations" in graph
+          ? `${graph.grid.length} x ${graph.grid[0]!.length} grid / k ${graph.eliminations}`
         : isGridGraphPayload(graph)
           ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
           : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
@@ -4466,6 +4610,47 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["+", "+", "+", "+", "."]
         ],
         entrance: [1, 1]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-obstacle-elimination",
+      label: "Reference obstacle elimination",
+      description:
+        "Use a blocked grid where one obstacle removal shortens the route so replay can show budget-aware BFS waves, dominated-state pruning, and explicit traceback into the winning path.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestPathGridWithObstaclesEliminationAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultShortestPathGridWithObstaclesEliminationInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.trapped-obstacle-budget",
+      label: "Trapped obstacle budget",
+      description:
+        "Box the destination behind more obstacles than the budget can absorb so replay can show the frontier exhausting every budget-feasible state before publishing -1.",
+      scenario: "sealed-target",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestPathGridWithObstaclesEliminationAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [0, 1, 1],
+          [1, 1, 1],
+          [1, 0, 0]
+        ],
+        eliminations: 1
       },
       options: {}
     })

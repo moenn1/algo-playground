@@ -177,6 +177,21 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-path-to-get-food");
   });
 
+  it("surfaces obstacle-elimination study paths through budget-pruning metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "budget pruning obstacle bfs"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain(
+      "shortest-path-in-a-grid-with-obstacles-elimination"
+    );
+  });
+
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

@@ -581,7 +581,10 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much blocked-cell scanning and queue churn happened before the shortest route locked in.",
     skills: ["8-direction bfs", "traceback", "blocked-cell ledgers"],
     spotlight: "A strong graph continuation because it keeps the grid frontier model while adding an explicit path-recovery phase instead of stopping at reachability alone.",
-    nextAlgorithmIds: ["nearest-exit-from-entrance-in-maze", "shortest-path-to-get-food"]
+    nextAlgorithmIds: [
+      "nearest-exit-from-entrance-in-maze",
+      "shortest-path-in-a-grid-with-obstacles-elimination"
+    ]
   },
   "nearest-exit-from-entrance-in-maze": {
     stage: "core",
@@ -593,12 +596,27 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much corridor search and wall checking happened before the shortest escape path locked in.",
     skills: ["4-direction bfs", "boundary exits", "traceback"],
     spotlight: "A strong follow-up to blocked-grid pathfinding because it reuses explicit frontier instrumentation while switching the terminal condition from one fixed target to the nearest valid boundary exit.",
+    nextAlgorithmIds: [
+      "shortest-path-in-a-grid-with-obstacles-elimination",
+      "shortest-path-to-get-food"
+    ]
+  },
+  "shortest-path-in-a-grid-with-obstacles-elimination": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.946,
+    timeToExplore: "7 min",
+    complexity: "The BFS frontier stays cell-based in the viewer, but the runtime also tracks remaining obstacle budget per state so stronger revisits can replace weaker ones deterministically.",
+    outcome: "See exactly when an obstacle spend is accepted, which revisits are pruned as dominated, and how traceback records the final route together with the obstacles actually eliminated.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much queue churn and dominance pruning happened before the budget-feasible shortest path locked in.",
+    skills: ["augmented-state bfs", "dominance pruning", "budget traceback"],
+    spotlight: "A strong follow-up to maze exit replay because it keeps the same blocked-grid stage while exposing the extra state dimension that turns obstacle budgets into a deterministic runtime model.",
     nextAlgorithmIds: ["shortest-path-to-get-food", "01-matrix"]
   },
   "shortest-path-to-get-food": {
     stage: "core",
     focus: "pathfinding",
-    order: 13.947,
+    order: 13.948,
     timeToExplore: "6 min",
     complexity: "The BFS stays grid-local, but the replay has to preserve blocked pantry walls, one explicit food target, and a separate traceback phase before the route is complete.",
     outcome: "See exactly when an open pantry cell is discovered, when the food first appears on the frontier, and how traceback rebuilds the shortest route from the start to the food.",

@@ -34,6 +34,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
+  defaultShortestPathGridWithObstaclesEliminationInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -355,12 +356,27 @@ export function isNearestExitFromEntranceInMazeInput(
   );
 }
 
+export function isShortestPathGridWithObstaclesEliminationInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][]; eliminations: number }> {
+  return (
+    "grid" in input &&
+    "eliminations" in input &&
+    typeof input.eliminations === "number" &&
+    Number.isInteger(input.eliminations) &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
 export function isShortestPathToGetFoodInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: string[][] }> {
   return (
     "grid" in input &&
     !("entrance" in input) &&
+    !("eliminations" in input) &&
     input.grid.every((row) =>
       row.every(
         (cell) =>
@@ -977,6 +993,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "shortest-path-in-a-grid-with-obstacles-elimination",
+    name: "Shortest Path in a Grid with Obstacles Elimination",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Budget-aware blocked-grid replay records obstacle spends, dominated-state pruning, and explicit traceback into the shortest route that survives the elimination cap.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for open cells, 1 for obstacles, and an eliminations budget.",
+    defaultInput: serializeGraphInput(defaultShortestPathGridWithObstaclesEliminationInput),
+    domain: "graph"
+  },
+  {
     id: "shortest-path-to-get-food",
     name: "Shortest Path to Get Food",
     badge: "Graph",
@@ -1310,6 +1338,8 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   return isCourseScheduleInput(run.input)
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
+    : isShortestPathGridWithObstaclesEliminationInput(run.input)
+      ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid / k ${run.input.eliminations}`
     : isRottingOrangesInput(run.input) ||
         isNumberOfIslandsInput(run.input) ||
         isPacificAtlanticWaterFlowInput(run.input) ||

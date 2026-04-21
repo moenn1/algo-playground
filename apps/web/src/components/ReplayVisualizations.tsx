@@ -26,6 +26,7 @@ import {
   isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
   isNearestExitFromEntranceInMazeInput,
+  isShortestPathGridWithObstaclesEliminationInput,
   isShortestPathToGetFoodInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
@@ -189,6 +190,7 @@ function formatGraphNodeStatus(
     step.state.kind === "pacific-atlantic-water-flow" ||
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
+    step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
     step.state.kind === "01-matrix" ||
     step.state.kind === "as-far-from-land-as-possible" ||
     step.state.kind === "map-of-highest-peak" ||
@@ -200,6 +202,7 @@ function formatGraphNodeStatus(
     isPacificAtlanticWaterFlowInput(run.input) ||
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
+    isShortestPathGridWithObstaclesEliminationInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -250,6 +253,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isNumberOfIslandsInput(run.input) ||
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
+    isShortestPathGridWithObstaclesEliminationInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -1018,6 +1022,108 @@ function formatFoodPathCellStatus(
 
   if (step.state.visitedOpen.includes(cell)) {
     return step.state.phaseMode === "traceback" ? "Reachable pantry cell" : "Discovered pantry cell";
+  }
+
+  return "Open";
+}
+
+function parseBudgetStateLabel(stateId: string) {
+  const [cell = "0,0", budgetText = "0"] = stateId.split("|");
+
+  return {
+    cell,
+    budget: Number(budgetText)
+  };
+}
+
+function formatBudgetStateLabel(stateId: string): string {
+  const { cell, budget } = parseBudgetStateLabel(stateId);
+  return `${cell} · k=${budget}`;
+}
+
+function getObstacleEliminationCellTone(
+  cell: string,
+  step: TraceStep<
+    Extract<GraphExecutionState, { kind: "shortest-path-in-a-grid-with-obstacles-elimination" }>
+  >
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.visitedOpen.includes(cell) || step.state.visitedObstacles.includes(cell)) {
+    return "active";
+  }
+
+  if (step.state.obstacleCells.includes(cell)) {
+    return "water";
+  }
+
+  return "land";
+}
+
+function formatObstacleEliminationCellStatus(
+  cell: string,
+  step: TraceStep<
+    Extract<GraphExecutionState, { kind: "shortest-path-in-a-grid-with-obstacles-elimination" }>
+  >
+): string {
+  const bestBudget = step.state.bestRemainingByCell[cell];
+
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback"
+      ? `Traceback focus · k=${step.state.currentBudget ?? 0}`
+      : `Search focus · k=${step.state.currentBudget ?? 0}`;
+  }
+
+  if (step.state.path.includes(cell)) {
+    if (cell === step.state.start) {
+      return "Start";
+    }
+
+    if (cell === step.state.target) {
+      return "Target";
+    }
+
+    if (step.state.eliminatedCells.includes(cell)) {
+      return "Eliminated obstacle";
+    }
+
+    return "Shortest path";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return typeof bestBudget === "number" ? `Queued · k=${bestBudget}` : "Queued";
+  }
+
+  if (cell === step.state.start) {
+    return "Start";
+  }
+
+  if (cell === step.state.target) {
+    return "Target";
+  }
+
+  if (step.state.visitedObstacles.includes(cell)) {
+    return typeof bestBudget === "number"
+      ? `Obstacle reached · k=${bestBudget}`
+      : "Obstacle reached";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return typeof bestBudget === "number" ? `Seen open · k=${bestBudget}` : "Seen open";
+  }
+
+  if (step.state.obstacleCells.includes(cell)) {
+    return "Obstacle";
   }
 
   return "Open";
@@ -3905,6 +4011,208 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 : step.state.reachable === false
                   ? "Replay stores the reachable corridor ledger directly when no exit can be reached."
                   : "The maze frontier is still expanding toward the boundary."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" &&
+    isShortestPathGridWithObstaclesEliminationInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} budget grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div
+          className="graph-legend"
+          aria-label="Shortest Path in a Grid with Obstacles Elimination status legend"
+        >
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Final path</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Budget-aware discovery</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                Budget {step.state.eliminations} · {step.state.obstacleCells.length} obstacle cell
+                {step.state.obstacleCells.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.reachable === true
+                  ? `Target reached in ${step.state.stepsToTarget ?? 0} step${step.state.stepsToTarget === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "No budget-feasible route remains"
+                    : `${step.state.frontierStates.length} queued state${step.state.frontierStates.length === 1 ? "" : "s"}`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.currentState
+                    ? formatBudgetStateLabel(step.state.currentState)
+                    : step.state.start}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getObstacleEliminationCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+                  const bestBudget = step.state.bestRemainingByCell[cell];
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === 1 ? "Obstacle" : cell === step.state.start ? "Start" : cell === step.state.target ? "Target" : "Open"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatObstacleEliminationCellStatus(cell, step)}
+                        {typeof bestBudget === "number" ? ` · best k=${bestBudget}` : ""}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Budget focus</span>
+              <strong>
+                {step.state.currentState
+                  ? formatBudgetStateLabel(step.state.currentState)
+                  : "Awaiting next queued state"}
+              </strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} path cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.frontierStates.length} queued state${step.state.frontierStates.length === 1 ? "" : "s"} remain`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier states</strong>
+                  <span className="graph-node-status">{step.state.frontierStates.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued budget states</span>
+                <span className="graph-node-meta">
+                  {step.state.frontierStates.length > 0
+                    ? step.state.frontierStates.map(formatBudgetStateLabel).join(" · ")
+                    : "No queued states"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Best cell budgets</strong>
+                  <span className="graph-node-status">
+                    {Object.keys(step.state.bestRemainingByCell).length}
+                  </span>
+                </div>
+                <span className="graph-node-distance">Strongest discovered state per cell</span>
+                <span className="graph-node-meta">
+                  {Object.entries(step.state.bestRemainingByCell)
+                    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+                    .map(([cell, budget]) => `${cell}:k=${budget}`)
+                    .join(" · ")}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Final path</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.stepsToTarget !== null
+                    ? `${step.state.stepsToTarget} step${step.state.stepsToTarget === 1 ? "" : "s"}`
+                    : "No path yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.reachable === null
+                      ? step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"
+                      : step.state.reachable
+                        ? `k=${step.state.remainingEliminations ?? 0}`
+                        : "No path"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.reachable === true
+                    ? `${step.state.eliminatedCells.length} eliminated obstacle${step.state.eliminatedCells.length === 1 ? "" : "s"}`
+                    : `${step.state.visitedObstacles.length} obstacle cell${step.state.visitedObstacles.length === 1 ? "" : "s"} visited`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Eliminated on path</span>
+            <div className="pill-row">
+              {step.state.eliminatedCells.length > 0 ? (
+                step.state.eliminatedCells.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No obstacle spent on the final path yet</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Settled states</span>
+            <strong>{step.state.settledStates.length}</strong>
+            <p>
+              {step.state.settledStates.length > 0
+                ? step.state.settledStates.map(formatBudgetStateLabel).join(", ")
+                : "No processed states yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Budget outcome</span>
+            <strong>
+              {step.state.reachable === true
+                ? `${step.state.remainingEliminations ?? 0} left`
+                : step.state.reachable === false
+                  ? "-1"
+                  : `k=${step.state.eliminations}`}
+            </strong>
+            <p>
+              {step.state.reachable === true
+                ? `Replay keeps the surviving budget and eliminated obstacle ledger explicit through ${step.state.target}.`
+                : step.state.reachable === false
+                  ? "Replay stores the strongest discovered state per cell even when the target cannot be reached."
+                  : "The budget-aware BFS frontier is still exploring stronger states."}
             </p>
           </div>
         </div>

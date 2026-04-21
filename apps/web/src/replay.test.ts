@@ -286,6 +286,44 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds obstacle-elimination replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "shortest-path-in-a-grid-with-obstacles-elimination",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 0, 0],
+            [0, 1, 1],
+            [0, 0, 0]
+          ],
+          eliminations: 1
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("shortest-path-in-a-grid-with-obstacles-elimination");
+    expect(finalStep.state.kind).toBe("shortest-path-in-a-grid-with-obstacles-elimination");
+    if (finalStep.state.kind !== "shortest-path-in-a-grid-with-obstacles-elimination") {
+      throw new Error("Expected the obstacle-elimination graph state.");
+    }
+    expect(finalStep.state.reachable).toBe(true);
+    expect(finalStep.state.stepsToTarget).toBe(6);
+    expect(finalStep.state.remainingEliminations).toBe(0);
+    expect(finalStep.state.eliminatedCells).toEqual(["3,2"]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds count-connected-components replay runs from the shared graph engine", () => {
     const run = buildRun(
       "count-connected-components",

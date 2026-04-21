@@ -585,6 +585,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "sealed-maze-exit"]
   },
   {
+    key: "graph-reference-obstacle-elimination",
+    algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination",
+    presetId: "graph.reference-obstacle-elimination",
+    recordedAt: "2026-04-21T18:05:30.000Z",
+    tags: ["seeded-demo", "graph", "reference-obstacle-elimination"]
+  },
+  {
+    key: "graph-trapped-obstacle-budget",
+    algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination",
+    presetId: "graph.trapped-obstacle-budget",
+    recordedAt: "2026-04-21T18:05:45.000Z",
+    tags: ["seeded-demo", "graph", "trapped-obstacle-budget"]
+  },
+  {
     key: "graph-reference-food-path",
     algorithmId: "shortest-path-to-get-food",
     presetId: "graph.reference-food-path",

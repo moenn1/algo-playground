@@ -54,6 +54,7 @@ import {
   isRottingOrangesInput,
   isZeroOneMatrixInput,
   isNearestExitFromEntranceInMazeInput,
+  isShortestPathGridWithObstaclesEliminationInput,
   isShortestPathToGetFoodInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
@@ -827,6 +828,25 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.frontier.length} corridor cell${step.state.frontier.length === 1 ? "" : "s"} queued`;
     }
 
+    if (
+      step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" &&
+      isShortestPathGridWithObstaclesEliminationInput(run.input)
+    ) {
+      if (step.state.reachable === false && step.state.stepsToTarget === -1) {
+        return "No budget-feasible path · return -1";
+      }
+
+      if (step.state.reachable === true && step.state.stepsToTarget !== null) {
+        return `Target in ${step.state.stepsToTarget} step${step.state.stepsToTarget === 1 ? "" : "s"} · k=${step.state.remainingEliminations ?? 0}`;
+      }
+
+      if (step.state.currentState) {
+        return `Budget wave from ${step.state.currentState}`;
+      }
+
+      return `${step.state.frontierStates.length} budget state${step.state.frontierStates.length === 1 ? "" : "s"} queued`;
+    }
+
     if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
       if (step.state.reachable === false && step.state.stepsToFood === -1) {
         return "No food path · return -1";
@@ -992,6 +1012,25 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     }
 
     if (
+      step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" &&
+      isShortestPathGridWithObstaclesEliminationInput(run.input)
+    ) {
+      if (step.state.reachable === false) {
+        return `Budget stalls after ${step.state.settledStates.length} processed state${step.state.settledStates.length === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.currentState) {
+        return `Budget wave from ${step.state.currentState}`;
+      }
+
+      if (step.state.stepsToTarget !== null) {
+        return `Target in ${step.state.stepsToTarget} step${step.state.stepsToTarget === 1 ? "" : "s"} · k=${step.state.remainingEliminations ?? 0}`;
+      }
+
+      return `${step.state.frontierStates.length} budget state${step.state.frontierStates.length === 1 ? "" : "s"} awaiting expansion`;
+    }
+
+    if (
       step.state.kind === "as-far-from-land-as-possible" &&
       isAsFarFromLandAsPossibleInput(run.input)
     ) {
@@ -1055,6 +1094,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "max-area-of-island" &&
       step.state.kind !== "island-perimeter" &&
       step.state.kind !== "01-matrix" &&
+      step.state.kind !== "shortest-path-in-a-grid-with-obstacles-elimination" &&
       step.state.kind !== "as-far-from-land-as-possible" &&
       step.state.kind !== "map-of-highest-peak" &&
       step.state.kind !== "walls-and-gates"
@@ -1457,6 +1497,12 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               return graphStep.state.reachable === false
                 ? "Maze returns -1"
                 : `Exit in ${graphStep.state.stepsToExit ?? 0} step${graphStep.state.stepsToExit === 1 ? "" : "s"}`;
+            }
+
+            if (graphStep.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination") {
+              return graphStep.state.reachable === false
+                ? "Budget path returns -1"
+                : `Target in ${graphStep.state.stepsToTarget ?? 0} step${graphStep.state.stepsToTarget === 1 ? "" : "s"} · k=${graphStep.state.remainingEliminations ?? 0}`;
             }
 
             if (graphStep.state.kind === "shortest-path-to-get-food") {
@@ -2298,6 +2344,76 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (
+      step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" &&
+      isShortestPathGridWithObstaclesEliminationInput(run.input)
+    ) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Budget</span>
+              <strong>{step.state.eliminations}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Frontier states</span>
+              <strong>{step.state.frontierStates.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Processed</span>
+              <strong>{step.state.settledStates.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.reachable === true
+                  ? `${step.state.stepsToTarget ?? 0} step${step.state.stepsToTarget === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "-1"
+                    : "Searching"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) =>
+              row.map((cell, columnIndex) => {
+                const coordinate = `${rowIndex},${columnIndex}`;
+                const bestBudget = step.state.bestRemainingByCell[coordinate];
+                const label =
+                  coordinate === step.state.start
+                    ? "Start"
+                    : coordinate === step.state.target
+                      ? "Target"
+                      : step.state.path.includes(coordinate)
+                        ? step.state.eliminatedCells.includes(coordinate)
+                          ? "Path obstacle"
+                          : "Path"
+                        : step.state.frontier.includes(coordinate)
+                          ? "Queued"
+                          : step.state.visitedObstacles.includes(coordinate)
+                            ? "Seen obstacle"
+                            : step.state.visitedOpen.includes(coordinate)
+                              ? "Seen open"
+                              : cell === 1
+                                ? "Obstacle"
+                                : "Open";
+
+                return (
+                  <div className="distance-row" key={coordinate}>
+                    <span>{coordinate}</span>
+                    <strong>
+                      {label}
+                      {typeof bestBudget === "number" ? ` · k=${bestBudget}` : ""}
+                    </strong>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
       return (
         <>
@@ -2362,6 +2478,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
         {Object.entries(
           step.state.kind === "course-schedule" ||
             step.state.kind === "nearest-exit-from-entrance-in-maze" ||
+            step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
             step.state.kind === "shortest-path-to-get-food" ||
             step.state.kind === "01-matrix" ||
             step.state.kind === "as-far-from-land-as-possible" ||

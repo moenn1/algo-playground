@@ -41,6 +41,7 @@ export const supportedAlgorithmIds = [
   "shortest-bridge",
   "shortest-path-binary-matrix",
   "nearest-exit-from-entrance-in-maze",
+  "shortest-path-in-a-grid-with-obstacles-elimination",
   "shortest-path-to-get-food",
   "01-matrix",
   "as-far-from-land-as-possible",
@@ -100,6 +101,11 @@ export interface NearestExitFromEntranceInMazeInputPayload extends JsonObject {
   entrance: [number, number];
 }
 
+export interface ShortestPathGridWithObstaclesEliminationInputPayload extends JsonObject {
+  grid: number[][];
+  eliminations: number;
+}
+
 export interface ShortestPathToGetFoodInputPayload extends JsonObject {
   grid: string[][];
 }
@@ -134,6 +140,7 @@ export type GraphInputPayload =
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
   | NearestExitFromEntranceInMazeInputPayload
+  | ShortestPathGridWithObstaclesEliminationInputPayload
   | ShortestPathToGetFoodInputPayload
   | ZeroOneMatrixInputPayload
   | AsFarFromLandAsPossibleInputPayload

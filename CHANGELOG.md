@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Shortest Path in a Grid with Obstacles Elimination, including deterministic budget-aware BFS expansion, explicit dominated-state pruning, and replay-safe traceback that records both the winning route and the obstacles actually eliminated.
+- Wired Shortest Path in a Grid with Obstacles Elimination through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct augmented-state pathfinding problem alongside maze exits, pantry routes, blocked-grid shortest paths, nearest-zero matrices, shoreline distances, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 47 algorithms with runs, 94 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Shortest Path to Get Food, including deterministic pantry-target seeding, explicit blocked-wall inspections, and replay-safe shortest-route traceback through the blocked-grid BFS runtime.
 - Wired Shortest Path to Get Food through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct pantry-target pathfinding problem alongside maze exits, blocked-grid shortest paths, nearest-zero matrices, shoreline distances, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 46 algorithms with runs, 92 total runs, and 2 saved comparisons.

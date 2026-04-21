@@ -102,6 +102,8 @@ The demo seed currently materializes:
 - Shortest Path in Binary Matrix on `graph.sealed-binary-exit`
 - Nearest Exit from Entrance in Maze on `graph.reference-maze-exit`
 - Nearest Exit from Entrance in Maze on `graph.sealed-maze-exit`
+- Shortest Path in a Grid with Obstacles Elimination on `graph.reference-obstacle-elimination`
+- Shortest Path in a Grid with Obstacles Elimination on `graph.trapped-obstacle-budget`
 - Shortest Path to Get Food on `graph.reference-food-path`
 - Shortest Path to Get Food on `graph.sealed-food-path`
 - 01 Matrix on `graph.reference-zero-matrix`
@@ -117,7 +119,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 46 algorithms with runs, 92 runs total, and 2 saved comparisons.
+That seed currently produces 47 algorithms with runs, 94 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

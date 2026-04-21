@@ -1056,6 +1056,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
+    const obstacleEliminationPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-obstacle-elimination/resolve",
+      payload: {
+        algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination"
+      }
+    });
+
+    expect(obstacleEliminationPreset.statusCode).toBe(200);
+    expect(obstacleEliminationPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-obstacle-elimination"
+      },
+      algorithm: {
+        id: "shortest-path-in-a-grid-with-obstacles-elimination",
+        domain: "graph"
+      },
+      footprint: "5 x 3 grid / k 1"
+    });
+
+    const trappedObstacleBudgetPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.trapped-obstacle-budget/resolve",
+      payload: {
+        algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination"
+      }
+    });
+
+    expect(trappedObstacleBudgetPreset.statusCode).toBe(200);
+    expect(trappedObstacleBudgetPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.trapped-obstacle-budget"
+      },
+      algorithm: {
+        id: "shortest-path-in-a-grid-with-obstacles-elimination",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid / k 1"
+    });
+
     const foodPathPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-food-path/resolve",
@@ -2753,38 +2795,42 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
-    const validateCountComponentsInput = await server.inject({
+    const validateObstacleBudgetInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
       payload: {
-        algorithmId: "count-connected-components",
+        algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination",
         payload: {
-          nodeCount: 6,
-          edges: [
-            [0, 1],
-            [1, 2],
-            [3, 4]
-          ]
+          grid: [
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 0, 0],
+            [0, 1, 1],
+            [0, 0, 0]
+          ],
+          eliminations: 1
         }
       }
     });
 
-    expect(validateCountComponentsInput.statusCode).toBe(200);
-    expect(validateCountComponentsInput.json()).toMatchObject({
+    expect(validateObstacleBudgetInput.statusCode).toBe(200);
+    expect(validateObstacleBudgetInput.json()).toMatchObject({
       source: "custom",
       algorithm: {
-        id: "count-connected-components",
+        id: "shortest-path-in-a-grid-with-obstacles-elimination",
         domain: "graph"
       },
       input: {
-        nodeCount: 6,
-        edges: [
-          [0, 1],
-          [1, 2],
-          [3, 4]
-        ]
+        grid: [
+          [0, 0, 0],
+          [1, 1, 0],
+          [0, 0, 0],
+          [0, 1, 1],
+          [0, 0, 0]
+        ],
+        eliminations: 1
       },
-      footprint: "6 nodes / 3 edges"
+      footprint: "5 x 3 grid / k 1"
     });
 
     const validateSurroundedRegionsInput = await server.inject({
@@ -3166,6 +3212,32 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Shortest Path to Get Food input must contain exactly one food cell."
+    });
+  });
+
+  it("rejects obstacle-elimination payloads whose target cell is blocked", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination",
+        payload: {
+          grid: [
+            [0, 0, 0],
+            [1, 1, 0],
+            [0, 0, 1]
+          ],
+          eliminations: 1
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error:
+        "Shortest Path in a Grid with Obstacles Elimination input must end on an open bottom-right cell."
     });
   });
 

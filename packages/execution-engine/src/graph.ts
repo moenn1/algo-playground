@@ -25,6 +25,7 @@ export type GraphAlgorithmId =
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
   | "nearest-exit-from-entrance-in-maze"
+  | "shortest-path-in-a-grid-with-obstacles-elimination"
   | "shortest-path-to-get-food"
   | "01-matrix"
   | "as-far-from-land-as-possible"
@@ -51,6 +52,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "shortest-bridge",
   "shortest-path-binary-matrix",
   "nearest-exit-from-entrance-in-maze",
+  "shortest-path-in-a-grid-with-obstacles-elimination",
   "shortest-path-to-get-food",
   "01-matrix",
   "as-far-from-land-as-possible",
@@ -102,6 +104,11 @@ export interface NearestExitFromEntranceInMazeInput extends JsonObject {
   entrance: [number, number];
 }
 
+export interface ShortestPathGridWithObstaclesEliminationInput extends JsonObject {
+  grid: number[][];
+  eliminations: number;
+}
+
 export interface ShortestPathToGetFoodInput extends JsonObject {
   grid: string[][];
 }
@@ -136,6 +143,7 @@ export type GraphInput =
   | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
   | NearestExitFromEntranceInMazeInput
+  | ShortestPathGridWithObstaclesEliminationInput
   | ShortestPathToGetFoodInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
@@ -383,6 +391,32 @@ export interface NearestExitFromEntranceInMazeExecutionState extends JsonObject 
   exit: string | null;
 }
 
+export interface ShortestPathGridWithObstaclesEliminationExecutionState extends JsonObject {
+  kind: "shortest-path-in-a-grid-with-obstacles-elimination";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  obstacleCells: string[];
+  visitedOpen: string[];
+  visitedObstacles: string[];
+  frontierStates: string[];
+  settledStates: string[];
+  currentState: string | null;
+  currentBudget: number | null;
+  bestRemainingByCell: Record<string, number>;
+  eliminatedCells: string[];
+  eliminations: number;
+  remainingEliminations: number | null;
+  stepsToTarget: number | null;
+  reachable: boolean | null;
+}
+
 export interface ShortestPathToGetFoodExecutionState extends JsonObject {
   kind: "shortest-path-to-get-food";
   grid: string[][];
@@ -494,6 +528,7 @@ export type GraphExecutionState =
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
   | NearestExitFromEntranceInMazeExecutionState
+  | ShortestPathGridWithObstaclesEliminationExecutionState
   | ShortestPathToGetFoodExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
@@ -746,6 +781,29 @@ interface ShortestPathBinaryMatrixRuntimeState {
   reachable: boolean | null;
 }
 
+interface ShortestPathGridWithObstaclesEliminationRuntimeState {
+  grid: number[][];
+  settledStates: string[];
+  frontierStates: string[];
+  current: string | null;
+  currentState: string | null;
+  currentBudget: number | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  obstacleCells: string[];
+  visitedOpen: Set<string>;
+  visitedObstacles: Set<string>;
+  bestRemainingByCell: Record<string, number>;
+  eliminatedCells: string[];
+  eliminations: number;
+  remainingEliminations: number | null;
+  stepsToTarget: number | null;
+  reachable: boolean | null;
+}
+
 interface ZeroOneMatrixRuntimeState {
   grid: number[][];
   settled: string[];
@@ -928,6 +986,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "nearest-exit-from-entrance-in-maze",
     label: "Nearest Exit from Entrance in Maze",
     implementationVersion: "graph-engine-0.19.0"
+  },
+  "shortest-path-in-a-grid-with-obstacles-elimination": {
+    id: "shortest-path-in-a-grid-with-obstacles-elimination",
+    label: "Shortest Path in a Grid with Obstacles Elimination",
+    implementationVersion: "graph-engine-0.21.0"
   },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
@@ -1164,6 +1227,18 @@ export const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceI
   ],
   entrance: [1, 1]
 };
+
+export const defaultShortestPathGridWithObstaclesEliminationInput: ShortestPathGridWithObstaclesEliminationInput =
+  {
+    grid: [
+      [0, 0, 0],
+      [1, 1, 0],
+      [0, 0, 0],
+      [0, 1, 1],
+      [0, 0, 0]
+    ],
+    eliminations: 1
+  };
 
 export const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInput = {
   grid: [
@@ -1608,6 +1683,36 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       fullyReachable: state.fullyReachable,
       maxDistance: state.maxDistance,
       unreachableRooms: state.unreachableRooms.slice()
+    };
+  }
+
+  if (state.kind === "shortest-path-in-a-grid-with-obstacles-elimination") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      start: state.start,
+      target: state.target,
+      path: state.path.slice(),
+      obstacleCells: state.obstacleCells.slice(),
+      visitedOpen: state.visitedOpen.slice(),
+      visitedObstacles: state.visitedObstacles.slice(),
+      frontierStates: state.frontierStates.slice(),
+      settledStates: state.settledStates.slice(),
+      currentState: state.currentState,
+      currentBudget: state.currentBudget,
+      bestRemainingByCell: {
+        ...state.bestRemainingByCell
+      },
+      eliminatedCells: state.eliminatedCells.slice(),
+      eliminations: state.eliminations,
+      remainingEliminations: state.remainingEliminations,
+      stepsToTarget: state.stepsToTarget,
+      reachable: state.reachable
     };
   }
 
@@ -2170,6 +2275,92 @@ function normalizeNearestExitFromEntranceInMazeInput(
   };
 }
 
+function normalizeShortestPathGridWithObstaclesEliminationInput(
+  candidate: unknown
+): ShortestPathGridWithObstaclesEliminationInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input must be an object with grid and eliminations fields."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+    eliminations?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input must include a non-empty grid."
+    );
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input must use 8 rows or fewer."
+    );
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input rows must all be the same length."
+    );
+  }
+
+  if (
+    typeof value.eliminations !== "number" ||
+    !Number.isInteger(value.eliminations) ||
+    value.eliminations < 0
+  ) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input eliminations must be a non-negative integer."
+    );
+  }
+
+  if (value.eliminations > 8) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input eliminations must be 8 or fewer."
+    );
+  }
+
+  if (grid[0]![0] !== 0) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input must start on an open top-left cell."
+    );
+  }
+
+  if (grid[grid.length - 1]![columnCount - 1] !== 0) {
+    throw new Error(
+      "Shortest Path in a Grid with Obstacles Elimination input must end on an open bottom-right cell."
+    );
+  }
+
+  return {
+    grid,
+    eliminations: value.eliminations
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(candidate: unknown): ShortestPathToGetFoodInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Shortest Path to Get Food input must be an object with a grid field.");
@@ -2530,6 +2721,8 @@ export function parseGraphInputText(
       return normalizeShortestPathBinaryMatrixInput(parsed);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(parsed);
+    case "shortest-path-in-a-grid-with-obstacles-elimination":
+      return normalizeShortestPathGridWithObstaclesEliminationInput(parsed);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(parsed);
     case "01-matrix":
@@ -2579,6 +2772,8 @@ export function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(input);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(input);
+    case "shortest-path-in-a-grid-with-obstacles-elimination":
+      return normalizeShortestPathGridWithObstaclesEliminationInput(input);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(input);
     case "01-matrix":
@@ -2624,6 +2819,17 @@ export function serializeGraphInput(graph: GraphInput): string {
       {
         grid: graph.grid,
         entrance: graph.entrance
+      },
+      null,
+      2
+    );
+  }
+
+  if ("eliminations" in graph) {
+    return JSON.stringify(
+      {
+        grid: graph.grid,
+        eliminations: graph.eliminations
       },
       null,
       2
@@ -3036,6 +3242,36 @@ function parseCellId(cell: string): { row: number; column: number } {
   return { row, column };
 }
 
+function makeBudgetStateId(cell: string, remainingBudget: number): string {
+  return `${cell}|${remainingBudget}`;
+}
+
+function parseBudgetStateId(stateId: string): { cell: string; remainingBudget: number } {
+  const [cell = "0,0", remainingBudgetText = "0"] = stateId.split("|");
+  return {
+    cell,
+    remainingBudget: Number(remainingBudgetText)
+  };
+}
+
+function collapseBudgetStateCells(states: string[]): string[] {
+  const seen = new Set<string>();
+  const cells: string[] = [];
+
+  for (const stateId of states) {
+    const { cell } = parseBudgetStateId(stateId);
+
+    if (seen.has(cell)) {
+      continue;
+    }
+
+    seen.add(cell);
+    cells.push(cell);
+  }
+
+  return cells;
+}
+
 function getNeighborCellIds(
   row: number,
   column: number,
@@ -3307,6 +3543,46 @@ function createNearestExitFromEntranceInMazeRecorder() {
   });
 }
 
+function createShortestPathGridWithObstaclesEliminationRecorder() {
+  return createTraceRecorder<
+    ShortestPathGridWithObstaclesEliminationRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "shortest-path-in-a-grid-with-obstacles-elimination",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "shortest-path-in-a-grid-with-obstacles-elimination",
+        grid: cloneGrid(runtimeState.grid),
+        settled: collapseBudgetStateCells(runtimeState.settledStates),
+        frontier: collapseBudgetStateCells(runtimeState.frontierStates),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        start: runtimeState.start,
+        target: runtimeState.target,
+        path: runtimeState.path.slice(),
+        obstacleCells: runtimeState.obstacleCells.slice(),
+        visitedOpen: Array.from(runtimeState.visitedOpen).sort(compareCellIds),
+        visitedObstacles: Array.from(runtimeState.visitedObstacles).sort(compareCellIds),
+        frontierStates: runtimeState.frontierStates.slice(),
+        settledStates: runtimeState.settledStates.slice(),
+        currentState: runtimeState.currentState,
+        currentBudget: runtimeState.currentBudget,
+        bestRemainingByCell: {
+          ...runtimeState.bestRemainingByCell
+        },
+        eliminatedCells: runtimeState.eliminatedCells.slice(),
+        eliminations: runtimeState.eliminations,
+        remainingEliminations: runtimeState.remainingEliminations,
+        stepsToTarget: runtimeState.stepsToTarget,
+        reachable: runtimeState.reachable
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createShortestPathToGetFoodRecorder() {
   return createTraceRecorder<
     ShortestPathToGetFoodRuntimeState,
@@ -3487,6 +3763,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createNearestExitFromEntranceInMazeRecorder>
+    | ReturnType<typeof createShortestPathGridWithObstaclesEliminationRecorder>
     | ReturnType<typeof createShortestPathToGetFoodRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
@@ -9000,6 +9277,485 @@ export function buildNearestExitFromEntranceInMazeTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildShortestPathGridWithObstaclesEliminationTrace(
+  input: ShortestPathGridWithObstaclesEliminationInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["shortest-path-in-a-grid-with-obstacles-elimination"];
+  const normalizedInput = normalizeShortestPathGridWithObstaclesEliminationInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const startCell = makeCellId(0, 0);
+  const targetCell = makeCellId(rowCount - 1, columnCount - 1);
+  const startState = makeBudgetStateId(startCell, normalizedInput.eliminations);
+  const settledStates: string[] = [];
+  const frontierStates: string[] = [startState];
+  const visitedOpen = new Set<string>([startCell]);
+  const visitedObstacles = new Set<string>();
+  const path: string[] = [];
+  const obstacleCells = grid
+    .flatMap((row, rowIndex) =>
+      row.flatMap((cell, columnIndex) =>
+        cell === 1 ? [makeCellId(rowIndex, columnIndex)] : []
+      )
+    )
+    .sort(compareCellIds);
+  const bestRemainingByCell: Record<string, number> = {
+    [startCell]: normalizedInput.eliminations
+  };
+  const eliminatedCells: string[] = [];
+  const predecessors = new Map<string, string>();
+  const recorder = createShortestPathGridWithObstaclesEliminationRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontierStates.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let currentState: string | null = null;
+  let currentBudget: number | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let remainingEliminations: number | null = null;
+  let stepsToTarget: number | null = null;
+  let reachable: boolean | null = null;
+  let winningState: string | null = null;
+
+  const createRuntimeState = (): ShortestPathGridWithObstaclesEliminationRuntimeState => ({
+    grid,
+    settledStates,
+    frontierStates,
+    current,
+    currentState,
+    currentBudget,
+    activeEdge,
+    phaseMode,
+    start: startCell,
+    target: targetCell,
+    path,
+    obstacleCells,
+    visitedOpen,
+    visitedObstacles,
+    bestRemainingByCell,
+    eliminatedCells,
+    eliminations: normalizedInput.eliminations,
+    remainingEliminations,
+    stepsToTarget,
+    reachable
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description: `${formatCellLabel(startCell)} seeds the obstacle-budget BFS with ${normalizedInput.eliminations} elimination${normalizedInput.eliminations === 1 ? "" : "s"} available before targeting ${formatCellLabel(targetCell)}.`,
+    explanation: {
+      summary:
+        "Publish the start cell, target cell, obstacle map, and elimination budget before the augmented BFS search begins.",
+      details:
+        "The opening frame makes the obstacle budget explicit in replay state, so later revisits can justify why one cell is re-queued with a stronger remaining budget instead of relying on hidden dominance checks.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-obstacle-elimination-initial",
+        path: "state.target",
+        kind: "node",
+        intent: "focus",
+        label: `Target ${formatCellLabel(targetCell)}`
+      }
+    ]
+  });
+
+  searchLoop: while (frontierStates.length > 0) {
+    const extractedState = frontierStates.shift();
+
+    if (!extractedState) {
+      break;
+    }
+
+    const { cell: currentCell, remainingBudget } = parseBudgetStateId(extractedState);
+    current = currentCell;
+    currentState = extractedState;
+    currentBudget = remainingBudget;
+    activeEdge = [];
+    metrics.frontier = frontierStates.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the BFS queue with ${remainingBudget} elimination${remainingBudget === 1 ? "" : "s"} remaining.`,
+      explanation: {
+        summary: "Expand the next queued grid state in deterministic queue order.",
+        details:
+          "The extract frame records both the active cell and its remaining obstacle budget so replay can distinguish a plain revisit from a strictly stronger state.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-obstacle-elimination-current-${extractedState}`,
+          path: "state.currentState",
+          kind: "node",
+          intent: "active",
+          label: `${formatCellLabel(currentCell)} · k=${remainingBudget}`
+        }
+      ]
+    });
+
+    if (currentCell === targetCell) {
+      reachable = true;
+      winningState = extractedState;
+      settledStates.push(extractedState);
+      metrics.settled = settledStates.length;
+
+      recorder.push({
+        phase: "Target",
+        description: `${formatCellLabel(currentCell)} is the destination, so replay can stop search and switch to traceback with ${remainingBudget} elimination${remainingBudget === 1 ? "" : "s"} still available.`,
+        explanation: {
+          summary: "Stop on the first extracted destination state because BFS guarantees the minimum number of steps.",
+          details:
+            "The winning state includes the remaining budget, so the replay can explain not just the path length but how much obstacle slack survived the shortest route.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-obstacle-elimination-target-${extractedState}`,
+            path: "state.target",
+            kind: "node",
+            intent: "result",
+            label: `Target ${formatCellLabel(currentCell)}`
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row, column } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const isObstacle = grid[neighborRow]![neighborColumn] === 1;
+      const nextBudget = remainingBudget - (isObstacle ? 1 : 0);
+
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (nextBudget < 0) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and stop because it is an obstacle but the active state has no elimination budget left.`,
+          explanation: {
+            summary: "Reject an obstacle when the current BFS state cannot spend another elimination.",
+            details:
+              "The obstacle ledger stays explicit in replay state, so the viewer can explain why this edge stalled without recalculating budget rules in the browser.",
+            tags: ["edge", "budget"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-obstacle-elimination-budget-stop-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.obstacleCells",
+              kind: "collection",
+              intent: "candidate",
+              label: `${formatCellLabel(neighbor)} needs budget`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const bestSeen = bestRemainingByCell[neighbor];
+
+      if (typeof bestSeen === "number" && nextBudget <= bestSeen) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and skip it because replay already holds an equal-or-stronger state with ${bestSeen} elimination${bestSeen === 1 ? "" : "s"} remaining.`,
+          explanation: {
+            summary: "Prune dominated revisits when the cell already has a better remaining-budget state.",
+            details:
+              "The best-budget ledger is stored directly in the trace so replay can justify state compression without relying on hidden queue deduplication logic.",
+            tags: ["edge", "budget"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-obstacle-elimination-dominated-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.bestRemainingByCell",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already stronger`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const neighborState = makeBudgetStateId(neighbor, nextBudget);
+      bestRemainingByCell[neighbor] = nextBudget;
+      frontierStates.push(neighborState);
+      predecessors.set(neighborState, extractedState);
+      metrics.frontier = frontierStates.length;
+      metrics.updates += 1;
+
+      if (isObstacle) {
+        visitedObstacles.add(neighbor);
+      } else {
+        visitedOpen.add(neighbor);
+      }
+
+      const reachesTarget = neighbor === targetCell;
+
+      recorder.push({
+        phase: reachesTarget ? "Target Found" : "Enqueue",
+        description: reachesTarget
+          ? `${formatCellLabel(neighbor)} reaches the destination with ${nextBudget} elimination${nextBudget === 1 ? "" : "s"} remaining, so replay locks that shortest route candidate before traceback.`
+          : isObstacle
+            ? `${formatCellLabel(neighbor)} spends one obstacle elimination and joins the BFS frontier with ${nextBudget} budget remaining.`
+            : `${formatCellLabel(neighbor)} is open, so replay records it as a new queued state with ${nextBudget} elimination${nextBudget === 1 ? "" : "s"} remaining.`,
+        explanation: {
+          summary: reachesTarget
+            ? "Discover the destination and stop once the shortest budget-aware frontier expansion is recorded."
+            : isObstacle
+              ? "Queue an obstacle cell only after spending one elimination from the active state."
+              : "Queue one newly discovered open cell with its carried obstacle budget.",
+          details:
+            "Each enqueue frame stores the new frontier state and the updated best-budget ledger together so replay can justify later traceback edges and dominated-state skips.",
+          tags: ["frontier", "budget"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-obstacle-elimination-enqueue-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: reachesTarget ? "state.target" : "state.frontierStates",
+            kind: reachesTarget ? "node" : "collection",
+            intent: reachesTarget ? "result" : "frontier",
+            label: reachesTarget
+              ? `Target ${formatCellLabel(neighbor)} queued`
+              : `${formatCellLabel(neighbor)} · k=${nextBudget}`
+          }
+        ]
+      });
+
+      if (reachesTarget) {
+        reachable = true;
+        winningState = neighborState;
+        settledStates.push(extractedState);
+        metrics.settled = settledStates.length;
+        activeEdge = [];
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is sealed after its neighbor expansion discovers the destination state.`,
+          explanation: {
+            summary: "Close the final search source before replay transitions into traceback.",
+            details:
+              "This checkpoint keeps the search frontier, settled-state ledger, and budget map explicit at the exact moment the winning target state enters the queue.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-obstacle-elimination-checkpoint-${extractedState}`,
+              path: "state.settledStates",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} · k=${remainingBudget}`
+            }
+          ]
+        });
+
+        break searchLoop;
+      }
+    }
+
+    if (reachable) {
+      break;
+    }
+
+    settledStates.push(extractedState);
+    activeEdge = [];
+    metrics.settled = settledStates.length;
+    metrics.frontier = frontierStates.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed with ${remainingBudget} elimination${remainingBudget === 1 ? "" : "s"} remaining after all 4-direction checks.`,
+      explanation: {
+        summary: "Seal one augmented BFS state after its neighbor expansion completes.",
+        details:
+          "The checkpoint stores the settled-state ledger and best-budget map directly so replay can jump between queue boundaries without recomputing state dominance.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-obstacle-elimination-settled-${extractedState}`,
+          path: "state.settledStates",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} · k=${remainingBudget}`
+        }
+      ]
+    });
+  }
+
+  if (reachable && winningState) {
+    phaseMode = "traceback";
+    const winningSnapshot = parseBudgetStateId(winningState);
+    current = winningSnapshot.cell;
+    currentState = winningState;
+    currentBudget = winningSnapshot.remainingBudget;
+    activeEdge = [];
+
+    recorder.push({
+      phase: "Traceback",
+      description:
+        "Switch from budget-aware BFS expansion to predecessor traceback so replay can build the exact shortest route and mark which obstacles were actually eliminated.",
+      explanation: {
+        summary: "Begin reconstructing the winning path from the destination state back to the start state.",
+        details:
+          "The traceback frames grow both the path ledger and the eliminated-obstacle ledger directly, so the viewer never has to infer which obstacle visits were part of the final route.",
+        tags: ["checkpoint", "path"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-obstacle-elimination-traceback-start",
+          path: "state.phaseMode",
+          kind: "value",
+          intent: "focus",
+          label: "Traceback"
+        }
+      ]
+    });
+
+    let tracebackState: string | null = winningState;
+
+    while (tracebackState) {
+      const { cell, remainingBudget } = parseBudgetStateId(tracebackState);
+      const { row, column } = parseCellId(cell);
+      const previousState: string | null = predecessors.get(tracebackState) ?? null;
+      const previousCell = previousState ? parseBudgetStateId(previousState).cell : null;
+
+      current = cell;
+      currentState = tracebackState;
+      currentBudget = remainingBudget;
+      activeEdge = previousCell ? [previousCell, cell] : [];
+      path.unshift(cell);
+
+      if (grid[row]![column] === 1) {
+        eliminatedCells.unshift(cell);
+      }
+
+      recorder.push({
+        phase: "Traceback",
+        description: previousCell
+          ? `${formatCellLabel(cell)} joins the final route with ${remainingBudget} elimination${remainingBudget === 1 ? "" : "s"} remaining, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+          : `${formatCellLabel(cell)} closes the traceback as the start cell.`,
+        explanation: {
+          summary: previousCell
+            ? "Prepend one predecessor-linked budget state to the final route ledger."
+            : "Finish the route at the start cell.",
+          details:
+            "Each traceback frame records the current state's remaining budget directly, which keeps obstacle spending visible across the final route instead of hiding it in predecessor metadata.",
+          tags: ["path", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-obstacle-elimination-path-${tracebackState}-${path.length}`,
+            path: "state.path",
+            kind: "collection",
+            intent: "result",
+            label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+          }
+        ]
+      });
+
+      tracebackState = previousState;
+    }
+
+    stepsToTarget = path.length - 1;
+    remainingEliminations = winningSnapshot.remainingBudget;
+  } else {
+    phaseMode = "resolved";
+    current = null;
+    currentState = null;
+    currentBudget = null;
+    activeEdge = [];
+    reachable = false;
+    stepsToTarget = -1;
+    remainingEliminations = null;
+
+    recorder.push({
+      phase: "No Path",
+      description:
+        "The BFS queue is empty before any budget-feasible target state is discovered, so the grid returns -1.",
+      explanation: {
+        summary: "Publish the unreachable result once every budget-aware frontier state has been exhausted.",
+        details:
+          "The terminal frame keeps the best-budget ledger and every visited obstacle/open cell explicit so replay can explain which regions were reachable before the search stalled.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-obstacle-elimination-no-path",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "Return -1"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  currentState = null;
+  currentBudget = null;
+  activeEdge = [];
+  metrics.frontier = frontierStates.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The shortest route reaches ${formatCellLabel(targetCell)} in ${stepsToTarget ?? 0} step${stepsToTarget === 1 ? "" : "s"} with ${remainingEliminations ?? 0} elimination${remainingEliminations === 1 ? "" : "s"} remaining.`,
+    explanation: {
+      summary: "Publish the final route together with the surviving obstacle budget.",
+      details:
+        "The terminal frame stores the cell path, the subset of eliminated obstacle cells, and the remaining budget directly so replay can justify the returned answer without recomputing augmented BFS state.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-obstacle-elimination-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `${stepsToTarget ?? 0} step${stepsToTarget === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestPathToGetFoodTrace(
   input: ShortestPathToGetFoodInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -11081,6 +11837,10 @@ export function buildGraphTrace(
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
     case "nearest-exit-from-entrance-in-maze":
       return buildNearestExitFromEntranceInMazeTrace(graph as NearestExitFromEntranceInMazeInput);
+    case "shortest-path-in-a-grid-with-obstacles-elimination":
+      return buildShortestPathGridWithObstaclesEliminationTrace(
+        graph as ShortestPathGridWithObstaclesEliminationInput
+      );
     case "shortest-path-to-get-food":
       return buildShortestPathToGetFoodTrace(graph as ShortestPathToGetFoodInput);
     case "01-matrix":

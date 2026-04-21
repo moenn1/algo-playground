@@ -19,6 +19,7 @@ import {
   buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
   buildNearestExitFromEntranceInMazeTrace,
+  buildShortestPathGridWithObstaclesEliminationTrace,
   buildShortestPathToGetFoodTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
@@ -40,6 +41,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
+  defaultShortestPathGridWithObstaclesEliminationInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -408,6 +410,12 @@ describe("graph execution engine", () => {
         "shortest-path-binary-matrix"
       )
     ).toEqual(defaultShortestPathBinaryMatrixInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultShortestPathGridWithObstaclesEliminationInput),
+        "shortest-path-in-a-grid-with-obstacles-elimination"
+      )
+    ).toEqual(defaultShortestPathGridWithObstaclesEliminationInput);
     expect(parseGraphInputText(serializeGraphInput(defaultZeroOneMatrixInput), "01-matrix")).toEqual(
       defaultZeroOneMatrixInput
     );
@@ -915,6 +923,61 @@ describe("graph execution engine", () => {
     expect(sealedFinalStep.state.path).toEqual([]);
     expect(sealedFinalStep.state.visitedOpen).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3"]);
     expect(sealedFinalStep.state.food).toBe("4,4");
+  });
+
+  it("records deterministic budget paths and trapped obstacle budgets", () => {
+    const firstTrace = buildShortestPathGridWithObstaclesEliminationTrace(
+      defaultShortestPathGridWithObstaclesEliminationInput
+    );
+    const secondTrace = buildShortestPathGridWithObstaclesEliminationTrace(
+      defaultShortestPathGridWithObstaclesEliminationInput
+    );
+    const trappedTrace = buildShortestPathGridWithObstaclesEliminationTrace({
+      grid: [
+        [0, 1, 1],
+        [1, 1, 1],
+        [1, 0, 0]
+      ],
+      eliminations: 1
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const trappedFinalStep = trappedTrace.steps[trappedTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe(
+      "shortest-path-in-a-grid-with-obstacles-elimination"
+    );
+    if (referenceFinalStep.state.kind !== "shortest-path-in-a-grid-with-obstacles-elimination") {
+      throw new Error("Expected the obstacle-elimination graph state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.reachable).toBe(true);
+    expect(referenceFinalStep.state.stepsToTarget).toBe(6);
+    expect(referenceFinalStep.state.remainingEliminations).toBe(0);
+    expect(referenceFinalStep.state.path).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "1,2",
+      "2,2",
+      "3,2",
+      "4,2"
+    ]);
+    expect(referenceFinalStep.state.eliminatedCells).toEqual(["3,2"]);
+
+    expect(trappedFinalStep.phase).toBe("No Path");
+    expect(trappedFinalStep.state.kind).toBe(
+      "shortest-path-in-a-grid-with-obstacles-elimination"
+    );
+    if (trappedFinalStep.state.kind !== "shortest-path-in-a-grid-with-obstacles-elimination") {
+      throw new Error("Expected the obstacle-elimination graph state.");
+    }
+    expect(trappedFinalStep.state.reachable).toBe(false);
+    expect(trappedFinalStep.state.stepsToTarget).toBe(-1);
+    expect(trappedFinalStep.state.path).toEqual([]);
+    expect(trappedFinalStep.state.remainingEliminations).toBeNull();
+    expect(trappedFinalStep.state.visitedObstacles).toEqual(["0,1", "1,0"]);
   });
 
   it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {

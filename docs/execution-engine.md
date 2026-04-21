@@ -46,6 +46,8 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `shortest-bridge`
 - `shortest-path-binary-matrix`
 - `nearest-exit-from-entrance-in-maze`
+- `shortest-path-in-a-grid-with-obstacles-elimination`
+- `shortest-path-to-get-food`
 - `01-matrix`
 - `as-far-from-land-as-possible`
 - `map-of-highest-peak`
@@ -514,6 +516,32 @@ Nearest Exit from Entrance in Maze records:
 - `state.stepsToExit`: the returned shortest escape distance in steps, or `-1` when no exit is reachable
 - `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
 - `state.exit`: the boundary cell chosen as the nearest deterministic exit once one is discovered
+
+Shortest Path in a Grid with Obstacles Elimination records:
+
+- `state.kind`: `"shortest-path-in-a-grid-with-obstacles-elimination"`
+- `state.grid`: the open-vs-obstacle grid snapshot for the current search or traceback frame
+- `state.settled`: the unique cells whose currently strongest extracted states have already been fully processed
+- `state.frontier`: the unique cells still represented somewhere in the queued budget-state frontier
+- `state.current`: the cell currently acting as the budget-aware search focus or traceback cursor
+- `state.activeEdge`: the active source-to-neighbor inspection or predecessor traceback edge
+- `state.phaseMode`: `"search"`, `"traceback"`, or `"resolved"` so replay can distinguish live budget-aware expansion from route reconstruction
+- `state.start`: the fixed top-left source cell
+- `state.target`: the fixed bottom-right destination cell
+- `state.path`: the explicit shortest route ledger published during traceback
+- `state.obstacleCells`: the deterministic row-major ledger of every obstacle in the grid
+- `state.visitedOpen`: reachable open cells that have been accepted into at least one recorded BFS state
+- `state.visitedObstacles`: obstacle cells that were accepted after spending elimination budget
+- `state.frontierStates`: the queued augmented BFS states in `cell|remainingBudget` form
+- `state.settledStates`: the extracted augmented BFS states in `cell|remainingBudget` form
+- `state.currentState`: the active augmented BFS state in `cell|remainingBudget` form
+- `state.currentBudget`: the remaining obstacle budget attached to the active search or traceback state
+- `state.bestRemainingByCell`: the strongest remaining-budget ledger recorded so far for each discovered cell
+- `state.eliminatedCells`: the subset of obstacle cells that belong to the final shortest path
+- `state.eliminations`: the input obstacle budget
+- `state.remainingEliminations`: the budget left on the winning target state, or `null` when no route exists
+- `state.stepsToTarget`: the returned shortest route length in steps, or `-1` when the target is unreachable
+- `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
 
 Shortest Path to Get Food records:
 
