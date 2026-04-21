@@ -11,7 +11,7 @@ The service currently covers the supported algorithms already present in the wor
 - Two-pointers: `container-with-most-water`, `trapping-rain-water`
 - Window: `minimum-size-subarray-sum`, `longest-substring-without-repeating-characters`
 - Hash: `two-sum`
-- Heap: `kth-largest-element-in-an-array`
+- Heap: `kth-largest-element-in-an-array`, `top-k-frequent-elements`
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
@@ -175,8 +175,12 @@ Both hash presets currently resolve for Two Sum through the same `algorithmId` f
 
 - `heap.reference-kth`: curated classic kth-largest fixture that shows heap seeding, root replacement, and the final cutoff
 - `heap.duplicate-cutoff`: curated duplicate-heavy fixture that shows how equal high values interact with the size-`k` heap near the threshold
+- `heap.reference-top-frequencies`: curated canonical Top K Frequent Elements fixture that shows deterministic frequency counting, heap seeding, and the final ranked output
+- `heap.tie-frequency-cutoff`: curated equal-frequency case that shows the deterministic heap tie-break once the size-`k` frontier fills
 
-Both heap presets currently resolve for Kth Largest Element in an Array through the same `algorithmId` field.
+The first two heap presets resolve for Kth Largest Element in an Array.
+
+The top-frequency heap presets resolve for Top K Frequent Elements and use the same normalized `{ "array": number[], "k": number }` contract, but validation constrains `k` to the distinct-value count instead of the raw array length.
 
 ### Interval presets
 
@@ -224,7 +228,8 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Minimum Size Subarray Sum payloads must define between 2 and 32 positive integers plus a positive integer target.
 - Longest Substring Without Repeating Characters payloads must define a `text` string between 1 and 32 characters.
 - Hash payloads must define between 2 and 24 integers plus an integer target, and they must contain exactly one valid solution pair so replay stays deterministic.
-- Heap payloads must define between 2 and 24 integers plus an integer `k` between `1` and the array length.
+- Kth Largest Element in an Array payloads must define between 2 and 24 integers plus an integer `k` between `1` and the array length.
+- Top K Frequent Elements payloads must define between 2 and 24 integers plus an integer `k` between `1` and the number of distinct values.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.
 - Valid Parentheses payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.

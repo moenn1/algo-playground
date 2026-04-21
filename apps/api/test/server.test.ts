@@ -237,7 +237,7 @@ describe("TraceDeck API foundation", () => {
     });
   });
 
-  it("resolves heap presets and validates custom kth-largest inputs", async () => {
+  it("resolves heap presets and validates custom heap inputs", async () => {
     const server = await createServer();
 
     const presetResponse = await server.inject({
@@ -280,6 +280,69 @@ describe("TraceDeck API foundation", () => {
         domain: "heap"
       },
       footprint: "9 lanes / k 4"
+    });
+
+    const topKPresetResponse = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/heap.reference-top-frequencies/resolve",
+      payload: {
+        algorithmId: "top-k-frequent-elements"
+      }
+    });
+
+    expect(topKPresetResponse.statusCode).toBe(200);
+    expect(topKPresetResponse.json()).toMatchObject({
+      algorithm: {
+        id: "top-k-frequent-elements",
+        domain: "heap"
+      },
+      preset: {
+        id: "heap.reference-top-frequencies",
+        domain: "heap"
+      },
+      footprint: "6 lanes / k 2"
+    });
+
+    const topKValidateResponse = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "top-k-frequent-elements",
+        payload: {
+          array: [4, 1, -1, 2, -1, 2, 3, 3],
+          k: 2
+        }
+      }
+    });
+
+    expect(topKValidateResponse.statusCode).toBe(200);
+    expect(topKValidateResponse.json()).toMatchObject({
+      algorithm: {
+        id: "top-k-frequent-elements",
+        domain: "heap"
+      },
+      footprint: "8 lanes / k 2"
+    });
+  });
+
+  it("rejects top-k-frequent payloads whose k exceeds the distinct value count", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "top-k-frequent-elements",
+        payload: {
+          array: [1, 1, 2, 2, 3],
+          k: 4
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Top K Frequent Elements input k must be between 1 and the number of distinct values."
     });
   });
 

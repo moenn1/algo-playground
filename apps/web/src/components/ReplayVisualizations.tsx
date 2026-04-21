@@ -529,12 +529,23 @@ function formatHashPair(values: number[]): string {
   return `${values[0]} + ${values[1]}`;
 }
 
-function formatHeapEntry(entry: { value: number; index: number } | null): string {
+function formatHeapEntry(
+  entry:
+    | {
+        value: number;
+        index: number;
+      }
+    | {
+        value: number;
+        frequency: number;
+      }
+    | null
+): string {
   if (!entry) {
     return "Pending";
   }
 
-  return `${entry.value}@${entry.index}`;
+  return "frequency" in entry ? `${entry.value} × ${entry.frequency}` : `${entry.value}@${entry.index}`;
 }
 
 function getStackTokenTone(
@@ -2554,6 +2565,112 @@ export function HashStage({ run, stepIndex }: { run: HashRun; stepIndex: number 
 
 export function HeapStage({ run, stepIndex }: { run: HeapRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+
+  if (step.state.kind === "top-k-frequent-elements") {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} heap</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="window-stage">
+          <div className="window-banner">
+            <span>Top {step.state.k} frequencies</span>
+            <strong>
+              {step.state.currentValue !== null && step.state.currentFrequency !== null
+                ? `${step.state.currentValue} × ${step.state.currentFrequency}`
+                : step.state.result.length > 0
+                  ? `Top ${step.state.k} frequent values resolve to ${step.state.result.join(", ")}`
+                  : "Awaiting first frequency candidate"}
+            </strong>
+            <p>
+              {step.state.result.length > 0
+                ? `Final ranked output ${step.state.result.join(", ")} comes from cutoff ${formatHeapEntry(step.state.candidateEntry)}.`
+                : step.state.evictedEntry
+                  ? `Evicted ${formatHeapEntry(step.state.evictedEntry)} while rebalancing the size-${step.state.k} heap.`
+                  : step.state.candidateEntry
+                    ? `Current cutoff is ${formatHeapEntry(step.state.candidateEntry)}.`
+                    : `${step.state.frequencyLedger.length} distinct value${step.state.frequencyLedger.length === 1 ? "" : "s"} counted so far.`}
+            </p>
+          </div>
+          <div className="window-grid">
+            {step.state.frequencyLedger.length > 0 ? (
+              step.state.frequencyLedger.map((entry) => {
+                const isCurrent = step.state.currentValue === entry.value;
+                const isStored = step.state.heapEntries.some(
+                  (heapEntry) => heapEntry.value === entry.value
+                );
+                const className = [
+                  "window-cell",
+                  isStored ? "window-cell-best" : "",
+                  isCurrent ? "window-cell-candidate" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <div className={className} key={`heap-frequency-card-${entry.value}`}>
+                    <span className="window-cell-index">{entry.firstIndex}</span>
+                    <strong className="window-cell-value">{entry.value}</strong>
+                    <span className="graph-node-meta">{entry.frequency} hits</span>
+                  </div>
+                );
+              })
+            ) : (
+              step.state.array.map((value, index) => (
+                <div className="window-cell" key={`heap-array-card-${index}`}>
+                  <span className="window-cell-index">{index}</span>
+                  <strong className="window-cell-value">{value}</strong>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Cutoff root</span>
+            <strong>{formatHeapEntry(step.state.candidateEntry)}</strong>
+            <p>
+              {step.state.heapEntries.length >= step.state.k
+                ? `${step.state.k} heap slots filled`
+                : `${step.state.heapEntries.length} of ${step.state.k} filled`}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Heap order</span>
+            <div className="pill-row">
+              {step.state.heapEntries.length > 0 ? (
+                step.state.heapEntries.map((entry) => (
+                  <span className="pill" key={`heap-entry-${entry.value}`}>
+                    {entry.value}×{entry.frequency}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">Heap empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Ranked top-k</span>
+            <div className="pill-row">
+              {step.state.rankedEntries.length > 0 ? (
+                step.state.rankedEntries.map((entry) => (
+                  <span className="pill" key={`heap-ranked-${entry.value}`}>
+                    {entry.value}×{entry.frequency}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No ranked candidates</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared heap replay for Top K Frequent Elements, including deterministic first-seen frequency counting, explicit size-`k` cutoff replacement, stable tie-break ordering, and reuse of the shared `inspections`, `pushes`, and `pops` metrics.
+- Wired Top K Frequent Elements through the input-service presets and validation, replay shell, library catalog, seeded demo data, and heap-family documentation so TraceDeck now covers a second reusable heap story alongside kth-largest cutoff replay.
 - Added a second shared window runtime for Longest Substring Without Repeating Characters, including deterministic duplicate checkpoints, explicit shrink steps, and stable reuse of the `expansions`, `shrinks`, and `bestUpdates` metrics.
 - Wired Longest Substring Without Repeating Characters through the input-service presets and validation, replay shell, library catalog, seeded demo data, and window-family documentation so TraceDeck now covers a recognizable string sliding-window problem alongside the existing numeric target-window replay.
 - Added a shared graph replay for Walls and Gates, including deterministic multi-source gate seeding, explicit room-distance fills, and terminal blocked-room reporting through the execution engine.

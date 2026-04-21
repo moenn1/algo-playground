@@ -13,6 +13,7 @@ export const supportedAlgorithmIds = [
   "longest-substring-without-repeating-characters",
   "two-sum",
   "kth-largest-element-in-an-array",
+  "top-k-frequent-elements",
   "merge-intervals",
   "longest-common-subsequence",
   "valid-parentheses",

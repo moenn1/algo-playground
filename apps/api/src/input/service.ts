@@ -88,6 +88,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Kth Largest Element in an Array",
     domain: "heap"
   },
+  "top-k-frequent-elements": {
+    id: "top-k-frequent-elements",
+    label: "Top K Frequent Elements",
+    domain: "heap"
+  },
   "merge-intervals": {
     id: "merge-intervals",
     label: "Merge Intervals",
@@ -167,7 +172,10 @@ const substringWindowAlgorithms = [
   supportedAlgorithms["longest-substring-without-repeating-characters"]
 ] as const;
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
-const heapAlgorithms = [supportedAlgorithms["kth-largest-element-in-an-array"]] as const;
+const kthLargestHeapAlgorithms = [
+  supportedAlgorithms["kth-largest-element-in-an-array"]
+] as const;
+const topKFrequentHeapAlgorithms = [supportedAlgorithms["top-k-frequent-elements"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
 const validParenthesesAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
@@ -212,6 +220,10 @@ const defaultHashInput: HashInputPayload = {
 };
 const defaultHeapInput: HeapInputPayload = {
   array: [3, 2, 1, 5, 6, 4],
+  k: 2
+};
+const defaultTopKFrequentHeapInput: HeapInputPayload = {
+  array: [1, 1, 1, 2, 2, 3],
   k: 2
 };
 const defaultIntervalInput: IntervalInputPayload = {
@@ -893,7 +905,13 @@ function serializeHashInput(input: HashInputPayload) {
   );
 }
 
-function normalizeHeapInput(payload: unknown): HeapInputPayload {
+function normalizeHeapBaseInput(
+  payload: unknown,
+  options: {
+    minimumLength: number;
+    minimumLabel: string;
+  }
+) {
   const candidate =
     typeof payload === "string"
       ? (() => {
@@ -914,8 +932,11 @@ function normalizeHeapInput(payload: unknown): HeapInputPayload {
     k?: unknown;
   };
 
-  if (!Array.isArray(value.array) || value.array.length < 2) {
-    throw new HttpError(400, "Heap input must include an array with at least two integers.");
+  if (!Array.isArray(value.array) || value.array.length < options.minimumLength) {
+    throw new HttpError(
+      400,
+      `Heap input must include an array with at least ${options.minimumLabel}.`
+    );
   }
 
   if (value.array.length > 24) {
@@ -934,14 +955,40 @@ function normalizeHeapInput(payload: unknown): HeapInputPayload {
     throw new HttpError(400, "Heap input k must be an integer.");
   }
 
-  if (value.k < 1 || value.k > array.length) {
-    throw new HttpError(400, "Heap input k must be between 1 and the array length.");
-  }
-
   return {
     array,
     k: value.k
   };
+}
+
+function normalizeKthLargestElementInput(payload: unknown): HeapInputPayload {
+  const heap = normalizeHeapBaseInput(payload, {
+    minimumLength: 2,
+    minimumLabel: "two integers"
+  });
+
+  if (heap.k < 1 || heap.k > heap.array.length) {
+    throw new HttpError(400, "Heap input k must be between 1 and the array length.");
+  }
+
+  return heap;
+}
+
+function normalizeTopKFrequentElementsInput(payload: unknown): HeapInputPayload {
+  const heap = normalizeHeapBaseInput(payload, {
+    minimumLength: 1,
+    minimumLabel: "one integer"
+  });
+  const distinctCount = new Set(heap.array).size;
+
+  if (heap.k < 1 || heap.k > distinctCount) {
+    throw new HttpError(
+      400,
+      "Top K Frequent Elements input k must be between 1 and the number of distinct values."
+    );
+  }
+
+  return heap;
 }
 
 function serializeHeapInput(input: HeapInputPayload) {
@@ -1819,7 +1866,10 @@ function normalizeAlgorithmInput(
   }
 
   if (algorithm.domain === "heap") {
-    const heap = normalizeHeapInput(payload);
+    const heap =
+      algorithm.id === "kth-largest-element-in-an-array"
+        ? normalizeKthLargestElementInput(payload)
+        : normalizeTopKFrequentElementsInput(payload);
 
     return {
       input: heap,
@@ -2377,7 +2427,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "heap",
-      algorithms: heapAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: kthLargestHeapAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -2394,13 +2444,50 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "duplicates",
       kind: "curated",
       domain: "heap",
-      algorithms: heapAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: kthLargestHeapAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: {
         array: [3, 2, 3, 1, 2, 4, 5, 5, 6],
         k: 4
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "heap.reference-top-frequencies",
+      label: "Reference top frequencies",
+      description:
+        "Use the canonical Top K Frequent Elements fixture so replay shows frequency counting, heap seeding, and the final ranked frequency output.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "heap",
+      algorithms: topKFrequentHeapAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultTopKFrequentHeapInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "heap.tie-frequency-cutoff",
+      label: "Tie-frequency cutoff",
+      description:
+        "Force several values to share the same count so replay has to apply the deterministic heap tie-break when the top-k frontier fills.",
+      scenario: "tie-break",
+      kind: "curated",
+      domain: "heap",
+      algorithms: topKFrequentHeapAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [4, 1, -1, 2, -1, 2, 3, 3],
+        k: 2
       },
       options: {}
     })

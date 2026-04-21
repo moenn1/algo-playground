@@ -18,6 +18,7 @@ import {
   defaultDijkstraInput,
   defaultLongestSubstringInput,
   defaultKthLargestElementInput,
+  defaultTopKFrequentElementsInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
   defaultNumberOfIslandsInput,
@@ -504,6 +505,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "heap"
   },
   {
+    id: "top-k-frequent-elements",
+    name: "Top K Frequent Elements",
+    badge: "Heap",
+    accent: "gold",
+    description:
+      "Frequency-heap replay records count building, size-k cutoff updates, and the final ranked frequency output.",
+    inputLabel: "Heap Input",
+    inputHint: "JSON with an integer array and a k between 1 and the number of distinct values.",
+    defaultInput: serializeHeapInput(defaultTopKFrequentElementsInput),
+    domain: "heap"
+  },
+  {
     id: "merge-intervals",
     name: "Merge Intervals",
     badge: "Intervals",
@@ -840,7 +853,7 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
   }
 
   if (algorithm.domain === "heap") {
-    const input = parseHeapInputText(inputText);
+    const input = parseHeapInputText(inputText, algorithm.id);
     return buildHeapRunFromInput(algorithm, input);
   }
 

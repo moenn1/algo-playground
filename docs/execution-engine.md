@@ -18,6 +18,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `longest-substring-without-repeating-characters`
 - `two-sum`
 - `kth-largest-element-in-an-array`
+- `top-k-frequent-elements`
 - `merge-intervals`
 - `longest-common-subsequence`
 - `valid-parentheses`
@@ -149,8 +150,11 @@ The runtime records explicit `Initialization`, per-value `Lookup` and `Store`, a
 
 ## Heap Runtime Model
 
-Kth Largest Element in an Array establishes the first heap-selection runtime shape:
+The heap runtime family now covers both Kth Largest Element in an Array and Top K Frequent Elements through one replay-safe discriminated union plus a shared metric vocabulary.
 
+Kth Largest Element in an Array records:
+
+- `state.kind`: `"kth-largest-element-in-an-array"`
 - `state.array`: the integer array under scan
 - `state.k`: the requested rank that the runtime must preserve inside the heap
 - `state.currentIndex` and `state.currentValue`: the active array slot under inspection, or `null` outside active scan work
@@ -161,13 +165,29 @@ Kth Largest Element in an Array establishes the first heap-selection runtime sha
 - `state.evictedEntry`: the root displaced by a larger value during a replacement step
 - `state.result`: the terminal kth-largest value once the scan completes
 
+Top K Frequent Elements records:
+
+- `state.kind`: `"top-k-frequent-elements"`
+- `state.array`: the integer array under scan
+- `state.k`: the requested number of ranked frequency winners
+- `state.currentIndex`, `state.currentValue`, and `state.currentFrequency`: the distinct value currently being counted or inspected, or `null` outside active work
+- `state.frequencyLedger`: the first-seen-order ledger of `{ value, frequency, firstIndex }` entries that drives deterministic replay and serialization
+- `state.heapEntries`: the live size-`k` min-heap of `{ value, frequency, firstIndex }` entries in internal heap order
+- `state.rankedEntries`: the same top-`k` candidates sorted for human-readable ranking by frequency descending and value ascending
+- `state.processedIndices`: the distinct-value slots already inspected after counting completes
+- `state.candidateEntry`: the current heap root once the heap is full, or `null` while the heap is still seeding
+- `state.evictedEntry`: the heap entry displaced by a stronger frequency candidate during a replacement step
+- `state.result`: the terminal top-`k` value list once the scan completes
+
 Shared heap metrics keep top-`k` selection work readable:
 
 - `inspections`: array values inspected so far
 - `pushes`: heap insertions committed so far
 - `pops`: heap-root removals committed through replacement steps so far
 
-The runtime records explicit `Initialization`, `Inspect`, `Push`, `Replace`, `Skip`, and terminal `Done` checkpoints so replay can jump directly between heap seeding, cutoff changes, rejected values, and the final threshold without reconstructing hidden priority-queue state in the browser.
+Kth Largest Element in an Array records explicit `Initialization`, `Inspect`, `Push`, `Replace`, `Skip`, and terminal `Done` checkpoints so replay can jump directly between heap seeding, cutoff changes, rejected values, and the final threshold without reconstructing hidden priority-queue state in the browser.
+
+Top K Frequent Elements adds a deterministic `Count` phase ahead of the heap scan, then records `Inspect`, `Push`, `Replace`, `Skip`, and terminal `Done` checkpoints so replay can reopen the frequency ledger, tie-break cutoff, and final ranked output without rebuilding the counts in the UI.
 
 ## Dynamic-Programming Runtime Model
 

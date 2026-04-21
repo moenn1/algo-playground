@@ -153,10 +153,10 @@ const domainReference: Record<
     checkpoints: "Checkpoint stops separate failed lookups, table stores, and the winning complement hit so classic hash-map problems stay easy to scrub."
   },
   heap: {
-    lens: "Track the size-k cutoff heap, root replacements, and the final kth-largest threshold without reconstructing hidden heap state.",
+    lens: "Track the size-k cutoff heap, root replacements, frequency candidates, and the final ranked output without reconstructing hidden heap state.",
     flow: "Heap playback records the current value, internal heap order, ranked top-k view, and active cutoff directly in every snapshot.",
-    metrics: "Heap metrics emphasize `inspections`, `pushes`, and `pops` so top-k selection work stays readable across future heap problems.",
-    checkpoints: "Checkpoint stops separate seed pushes, root replacements, skips, and the final cutoff so heap-selection traces stay easy to scrub."
+    metrics: "Heap metrics emphasize `inspections`, `pushes`, and `pops` so heap-selection and frequency-ranking work stay readable across future heap problems.",
+    checkpoints: "Checkpoint stops separate counting, seed pushes, root replacements, skips, and the final cutoff so heap replay stays easy to scrub."
   },
   interval: {
     lens: "Track sorted ranges, overlap checks, active merge spans, and committed outputs without guessing which interval group is live.",
@@ -339,12 +339,23 @@ function formatIntervalValue(interval: number[]): string {
   return `[${interval[0]}, ${interval[1]}]`;
 }
 
-function formatHeapEntryValue(entry: { value: number; index: number } | null): string {
+function formatHeapEntryValue(
+  entry:
+    | {
+        value: number;
+        index: number;
+      }
+    | {
+        value: number;
+        frequency: number;
+      }
+    | null
+): string {
   if (!entry) {
     return "Pending";
   }
 
-  return `${entry.value}@${entry.index}`;
+  return "frequency" in entry ? `${entry.value} × ${entry.frequency}` : `${entry.value}@${entry.index}`;
 }
 
 function hasGridCoordinate(cells: number[][], row: number, column: number): boolean {
@@ -620,6 +631,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
 
   if (isHeapRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "top-k-frequent-elements") {
+      if (step.state.result.length > 0) {
+        return `Top ${step.state.k}: ${truncateText(step.state.result.join(", "), 28)}`;
+      }
+
+      if (step.state.currentValue !== null && step.state.currentFrequency !== null) {
+        return `${step.state.currentValue} × ${step.state.currentFrequency}`;
+      }
+
+      if (step.state.candidateEntry) {
+        return `Cutoff ${formatHeapEntryValue(step.state.candidateEntry)}`;
+      }
+
+      return `Frequency heap ${step.state.heapEntries.length}/${step.state.k}`;
+    }
 
     if (step.state.result !== null) {
       return `${step.state.k}th largest = ${step.state.result}`;
@@ -1060,6 +1087,22 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
         : isHeapRun(run)
           ? (() => {
               const heapStep = getRunStep(run, stepIndex);
+
+              if (heapStep.state.kind === "top-k-frequent-elements") {
+                if (heapStep.state.result.length > 0) {
+                  return `Top ${heapStep.state.k} frequent: ${truncateText(heapStep.state.result.join(", "), 24)}`;
+                }
+
+                if (heapStep.state.evictedEntry) {
+                  return `Evicted ${heapStep.state.evictedEntry.value}`;
+                }
+
+                if (heapStep.state.candidateEntry) {
+                  return `Cutoff ${heapStep.state.candidateEntry.value} × ${heapStep.state.candidateEntry.frequency}`;
+                }
+
+                return `${heapStep.state.heapEntries.length} of ${heapStep.state.k} heap slots filled`;
+              }
 
               if (heapStep.state.result !== null) {
                 return `${heapStep.state.k}th largest locked at ${heapStep.state.result}`;
@@ -1940,6 +1983,52 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
   if (isHeapRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "top-k-frequent-elements") {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>k</span>
+              <strong>{step.state.k}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Current</span>
+              <strong>
+                {step.state.currentValue !== null && step.state.currentFrequency !== null
+                  ? `${step.state.currentValue} × ${step.state.currentFrequency}`
+                  : "Waiting"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Cutoff</span>
+              <strong>{formatHeapEntryValue(step.state.candidateEntry)}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Result</span>
+              <strong>
+                {step.state.result.length > 0 ? step.state.result.join(", ") : "Pending"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.rankedEntries.length > 0 ? (
+              step.state.rankedEntries.map((entry) => (
+                <span className="number-pill" key={`heap-ranked-pill-${entry.value}`}>
+                  {entry.value}×{entry.frequency}
+                </span>
+              ))
+            ) : (
+              step.state.array.map((value, index) => (
+                <span className="number-pill" key={`heap-array-pill-${index}`}>
+                  {index}:{value}
+                </span>
+              ))
+            )}
+          </div>
+        </>
+      );
+    }
 
     return (
       <>

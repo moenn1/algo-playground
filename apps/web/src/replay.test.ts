@@ -532,8 +532,43 @@ describe("buildRun", () => {
 
     expect(heapRun.algorithm.id).toBe("kth-largest-element-in-an-array");
     expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("kth-largest-element-in-an-array");
+    if (finalStep.state.kind !== "kth-largest-element-in-an-array") {
+      throw new Error("Expected the kth-largest-element-in-an-array heap state.");
+    }
     expect(finalStep.state.result).toBe(5);
     expect(finalStep.state.rankedEntries.map((entry) => entry.value)).toEqual([6, 5]);
+    expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.result");
+  });
+
+  it("builds top-k-frequent replay runs from the shared heap engine", () => {
+    const run = buildRun(
+      "top-k-frequent-elements",
+      JSON.stringify(
+        {
+          array: [1, 1, 1, 2, 2, 3],
+          k: 2
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "heap") {
+      throw new Error("Expected a heap run.");
+    }
+
+    const heapRun = run as HeapRun;
+    const finalStep = heapRun.trace.steps[heapRun.trace.steps.length - 1]!;
+
+    expect(heapRun.algorithm.id).toBe("top-k-frequent-elements");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("top-k-frequent-elements");
+    if (finalStep.state.kind !== "top-k-frequent-elements") {
+      throw new Error("Expected the top-k-frequent-elements heap state.");
+    }
+    expect(finalStep.state.result).toEqual([1, 2]);
+    expect(finalStep.state.frequencyLedger).toHaveLength(3);
     expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.result");
   });
 

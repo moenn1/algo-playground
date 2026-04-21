@@ -319,6 +319,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A classic heap interview problem that adds a real priority-queue state model to the catalog without needing a dense tree renderer.",
     nextAlgorithmIds: ["two-sum", "largest-rectangle-in-histogram"]
   },
+  "top-k-frequent-elements": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 12.75,
+    timeToExplore: "7 min",
+    complexity: "The runtime combines a counting ledger with a size-k heap, so the replay has to separate frequency building from cutoff maintenance.",
+    outcome: "See exactly when counts accumulate, when a value-frequency pair enters or leaves the heap frontier, and how deterministic tie-breaks shape the final top-k ranking.",
+    metricsLens: "Inspections, pushes, and pops expose how much counting and heap churn happened before the ranked output stabilized.",
+    skills: ["frequency ledgers", "top-k heaps", "deterministic tie-breaks"],
+    spotlight: "A strong second heap problem because it reuses the same size-k cutoff primitive while adding a richer counting story than simple kth-threshold selection.",
+    nextAlgorithmIds: ["kth-largest-element-in-an-array", "two-sum"]
+  },
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",

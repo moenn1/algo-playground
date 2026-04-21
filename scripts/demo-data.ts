@@ -165,6 +165,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "heap", "duplicate-cutoff"]
   },
   {
+    key: "heap-reference-top-frequencies",
+    algorithmId: "top-k-frequent-elements",
+    presetId: "heap.reference-top-frequencies",
+    recordedAt: "2026-04-20T09:07:51.850Z",
+    tags: ["seeded-demo", "heap", "reference-top-frequencies"]
+  },
+  {
+    key: "heap-tie-frequency-cutoff",
+    algorithmId: "top-k-frequent-elements",
+    presetId: "heap.tie-frequency-cutoff",
+    recordedAt: "2026-04-20T09:07:51.900Z",
+    tags: ["seeded-demo", "heap", "tie-frequency-cutoff"]
+  },
+  {
     key: "interval-reference-overlap",
     algorithmId: "merge-intervals",
     presetId: "interval.reference-overlap",

@@ -107,6 +107,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("largest-rectangle-in-histogram");
   });
 
+  it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "frequency ledgers tie-breaks"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("top-k-frequent-elements");
+  });
+
   it("surfaces min-stack study paths through minimum-ledger metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,
