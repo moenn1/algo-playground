@@ -18,6 +18,7 @@ import {
   buildRottingOrangesTrace,
   buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
+  buildZeroOneMatrixTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
@@ -34,6 +35,7 @@ import {
   defaultRottingOrangesInput,
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
+  defaultZeroOneMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   formatGraphDistance,
@@ -398,6 +400,9 @@ describe("graph execution engine", () => {
         "shortest-path-binary-matrix"
       )
     ).toEqual(defaultShortestPathBinaryMatrixInput);
+    expect(parseGraphInputText(serializeGraphInput(defaultZeroOneMatrixInput), "01-matrix")).toEqual(
+      defaultZeroOneMatrixInput
+    );
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultSurroundedRegionsInput),
@@ -807,6 +812,52 @@ describe("graph execution engine", () => {
     expect(unreachableFinalStep.state.pathLength).toBeNull();
     expect(unreachableFinalStep.state.path).toEqual([]);
     expect(unreachableFinalStep.state.visitedOpen).toEqual(["0,0", "0,1", "0,2", "0,3", "1,3"]);
+  });
+
+  it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {
+    const resolvedTrace = buildZeroOneMatrixTrace(defaultZeroOneMatrixInput);
+    const stalledTrace = buildZeroOneMatrixTrace({
+      grid: [
+        [1, 1, 1],
+        [1, 1, 1],
+        [1, 1, 1]
+      ]
+    });
+    const resolvedFinalStep = resolvedTrace.steps[resolvedTrace.steps.length - 1]!;
+    const stalledFinalStep = stalledTrace.steps[stalledTrace.steps.length - 1]!;
+
+    expect(resolvedFinalStep.phase).toBe("Resolution");
+    expect(resolvedFinalStep.state.kind).toBe("01-matrix");
+    if (resolvedFinalStep.state.kind !== "01-matrix") {
+      throw new Error("Expected the 01-matrix state.");
+    }
+    expect(resolvedFinalStep.state.fullyResolved).toBe(true);
+    expect(resolvedFinalStep.state.maxDistance).toBe(2);
+    expect(resolvedFinalStep.state.unresolvedCells).toEqual([]);
+    expect(resolvedFinalStep.state.grid).toEqual([
+      [0, 0, 0],
+      [0, 1, 0],
+      [1, 2, 1]
+    ]);
+
+    expect(stalledFinalStep.phase).toBe("Stalled");
+    expect(stalledFinalStep.state.kind).toBe("01-matrix");
+    if (stalledFinalStep.state.kind !== "01-matrix") {
+      throw new Error("Expected the 01-matrix state.");
+    }
+    expect(stalledFinalStep.state.fullyResolved).toBe(false);
+    expect(stalledFinalStep.state.maxDistance).toBeNull();
+    expect(stalledFinalStep.state.unresolvedCells).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "1,0",
+      "1,1",
+      "1,2",
+      "2,0",
+      "2,1",
+      "2,2"
+    ]);
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {

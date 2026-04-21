@@ -473,7 +473,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much queue churn and distance-filling work happened before the map resolved or stalled.",
     skills: ["multi-source bfs", "distance fills", "blocked room ledgers"],
     spotlight: "A strong graph continuation because it reuses the grid BFS surface from Rotting Oranges while switching the outcome from contagion timing to stable shortest-distance fills.",
-    nextAlgorithmIds: ["number-of-islands", "course-schedule-ii"]
+    nextAlgorithmIds: ["01-matrix", "number-of-islands"]
+  },
+  "01-matrix": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.83,
+    timeToExplore: "7 min",
+    complexity: "The frontier stays BFS-readable, but every update has to preserve a full nearest-zero distance matrix while proving which 1 cells still lack any source.",
+    outcome: "See exactly when zero cells seed the wave, which 1 cells lock their nearest-zero distance next, and how missing zero sources leave the terminal unresolved ledger explicit.",
+    metricsLens: "Settled, frontier, inspections, and updates expose how much queue churn and distance-filling work happened before the nearest-zero matrix stabilized or stalled.",
+    skills: ["multi-source bfs", "nearest-zero distances", "distance matrices"],
+    spotlight: "A strong immediate follow-up to Walls and Gates because it reuses the same distance-fill runtime while removing walls and making every 1 cell prove its nearest zero.",
+    nextAlgorithmIds: ["walls-and-gates", "shortest-path-binary-matrix"]
   },
   "number-of-islands": {
     stage: "core",
@@ -545,7 +557,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much blocked-cell scanning and queue churn happened before the shortest route locked in.",
     skills: ["8-direction bfs", "traceback", "blocked-cell ledgers"],
     spotlight: "A strong graph continuation because it keeps the grid frontier model while adding an explicit path-recovery phase instead of stopping at reachability alone.",
-    nextAlgorithmIds: ["pacific-atlantic-water-flow", "walls-and-gates"]
+    nextAlgorithmIds: ["pacific-atlantic-water-flow", "01-matrix"]
   },
   "surrounded-regions": {
     stage: "core",

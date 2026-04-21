@@ -24,6 +24,7 @@ export type GraphAlgorithmId =
   | "pacific-atlantic-water-flow"
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
+  | "01-matrix"
   | "surrounded-regions"
   | "walls-and-gates";
 
@@ -45,6 +46,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",
+  "01-matrix",
   "surrounded-regions",
   "walls-and-gates"
 ];
@@ -87,6 +89,10 @@ export interface ShortestPathBinaryMatrixInput extends JsonObject {
   grid: number[][];
 }
 
+export interface ZeroOneMatrixInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInput extends JsonObject {
   grid: string[][];
 }
@@ -104,6 +110,7 @@ export type GraphInput =
   | PacificAtlanticWaterFlowInput
   | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
+  | ZeroOneMatrixInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
 
@@ -329,6 +336,21 @@ export interface ShortestPathBinaryMatrixExecutionState extends JsonObject {
   reachable: boolean | null;
 }
 
+export interface ZeroOneMatrixExecutionState extends JsonObject {
+  kind: "01-matrix";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  zeroCells: string[];
+  updatedCells: string[];
+  remainingCells: string[];
+  fullyResolved: boolean | null;
+  maxDistance: number | null;
+  unresolvedCells: string[];
+}
+
 export interface SurroundedRegionsExecutionState extends JsonObject {
   kind: "surrounded-regions";
   grid: string[][];
@@ -375,6 +397,7 @@ export type GraphExecutionState =
   | PacificAtlanticWaterFlowExecutionState
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
+  | ZeroOneMatrixExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
@@ -623,6 +646,20 @@ interface ShortestPathBinaryMatrixRuntimeState {
   reachable: boolean | null;
 }
 
+interface ZeroOneMatrixRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  zeroCells: string[];
+  updatedCells: string[];
+  remainingCells: Set<string>;
+  fullyResolved: boolean | null;
+  maxDistance: number | null;
+  unresolvedCells: string[];
+}
+
 interface ShortestBridgeRuntimeState {
   grid: number[][];
   settled: string[];
@@ -723,6 +760,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "shortest-path-binary-matrix",
     label: "Shortest Path in Binary Matrix",
     implementationVersion: "graph-engine-0.10.0"
+  },
+  "01-matrix": {
+    id: "01-matrix",
+    label: "01 Matrix",
+    implementationVersion: "graph-engine-0.16.0"
   },
   "surrounded-regions": {
     id: "surrounded-regions",
@@ -926,6 +968,14 @@ export const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInput
     [0, 0, 0, 1, 0],
     [1, 1, 0, 0, 0],
     [1, 1, 1, 1, 0]
+  ]
+};
+
+export const defaultZeroOneMatrixInput: ZeroOneMatrixInput = {
+  grid: [
+    [0, 0, 0],
+    [0, 1, 0],
+    [1, 1, 1]
   ]
 };
 
@@ -1211,6 +1261,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       blockedCells: state.blockedCells.slice(),
       pathLength: state.pathLength,
       reachable: state.reachable
+    };
+  }
+
+  if (state.kind === "01-matrix") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      zeroCells: state.zeroCells.slice(),
+      updatedCells: state.updatedCells.slice(),
+      remainingCells: state.remainingCells.slice(),
+      fullyResolved: state.fullyResolved,
+      maxDistance: state.maxDistance,
+      unresolvedCells: state.unresolvedCells.slice()
     };
   }
 
@@ -1731,6 +1798,52 @@ function normalizeShortestPathBinaryMatrixInput(
   };
 }
 
+function normalizeZeroOneMatrixInput(candidate: unknown): ZeroOneMatrixInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("01 Matrix input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("01 Matrix input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("01 Matrix input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("01 Matrix input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Surrounded Regions input must be an object with a grid field.");
@@ -1873,6 +1986,8 @@ export function parseGraphInputText(
       return normalizeShortestBridgeInput(parsed);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(parsed);
+    case "01-matrix":
+      return normalizeZeroOneMatrixInput(parsed);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
@@ -1912,6 +2027,8 @@ export function normalizeGraphInput(
       return normalizeShortestBridgeInput(input);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(input);
+    case "01-matrix":
+      return normalizeZeroOneMatrixInput(input);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
@@ -2591,6 +2708,29 @@ function createShortestPathBinaryMatrixRecorder() {
   });
 }
 
+function createZeroOneMatrixRecorder() {
+  return createTraceRecorder<ZeroOneMatrixRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "01-matrix",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "01-matrix",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        zeroCells: runtimeState.zeroCells.slice(),
+        updatedCells: runtimeState.updatedCells.slice(),
+        remainingCells: Array.from(runtimeState.remainingCells).sort(compareCellIds),
+        fullyResolved: runtimeState.fullyResolved,
+        maxDistance: runtimeState.maxDistance,
+        unresolvedCells: runtimeState.unresolvedCells.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createSurroundedRegionsRecorder() {
   return createTraceRecorder<
     SurroundedRegionsRuntimeState,
@@ -2666,6 +2806,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
+    | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
@@ -7697,6 +7838,328 @@ export function buildShortestPathBinaryMatrixTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildZeroOneMatrixTrace(
+  input: ZeroOneMatrixInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["01-matrix"];
+  const normalizedInput = normalizeZeroOneMatrixInput(input);
+  const grid: number[][] = normalizedInput.grid.map((row) =>
+    row.map((cell) => (cell === 0 ? 0 : wallsAndGatesInfinity))
+  );
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const zeroCells: string[] = [];
+  const remainingCells = new Set<string>();
+  const recorder = createZeroOneMatrixRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let updatedCells: string[] = [];
+  let fullyResolved: boolean | null = null;
+  let maxDistance: number | null = null;
+  let unresolvedCells: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const inputValue = normalizedInput.grid[row]![column]!;
+      const cell = makeCellId(row, column);
+
+      if (inputValue === 0) {
+        zeroCells.push(cell);
+        frontier.push(cell);
+      } else {
+        remainingCells.add(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+
+  const createRuntimeState = (): ZeroOneMatrixRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    zeroCells,
+    updatedCells,
+    remainingCells,
+    fullyResolved,
+    maxDistance,
+    unresolvedCells
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      frontier.length > 0
+        ? `${frontier.length} zero cell${frontier.length === 1 ? "" : "s"} seed the multi-source BFS before any 1 cell receives its nearest-zero distance.`
+        : `${remainingCells.size} one cell${remainingCells.size === 1 ? "" : "s"} wait for a zero source that never appears in the input grid.`,
+    explanation: {
+      summary: "Seed every zero-valued source and convert 1 cells into explicit unresolved distance slots.",
+      details:
+        "The opening frame stores the normalized distance grid, ordered zero frontier, and every unresolved cell directly so replay never reconstructs the starting matrix from hidden BFS state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "01-matrix-initial",
+        path: frontier.length > 0 ? "state.frontier" : "state.remainingCells",
+        kind: "collection",
+        intent: "focus",
+        label:
+          frontier.length > 0
+            ? `${frontier.length} zero source${frontier.length === 1 ? "" : "s"} queued`
+            : `${remainingCells.size} unresolved one cell${remainingCells.size === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  if (remainingCells.size === 0) {
+    fullyResolved = true;
+    maxDistance = 0;
+
+    recorder.push({
+      phase: "Resolution",
+      description: "Every cell is already 0, so the distance matrix resolves immediately without any BFS expansion.",
+      explanation: {
+        summary: "Publish the terminal matrix immediately when no 1 cells need a nearest-zero distance.",
+        details:
+          "The terminal frame still records the zero-source ledger directly so replay can explain why no queue growth or distance fill was required.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "01-matrix-final-immediate",
+          path: "state.maxDistance",
+          kind: "node",
+          intent: "result",
+          label: "All cells already zero"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  if (frontier.length === 0) {
+    fullyResolved = false;
+    unresolvedCells = Array.from(remainingCells).sort(compareCellIds);
+
+    recorder.push({
+      phase: "Stalled",
+      description: `No zero source exists, so cells ${unresolvedCells.map(formatCellLabel).join(", ")} cannot resolve to any nearest-zero distance.`,
+      explanation: {
+        summary: "Publish the unresolved matrix when the BFS frontier never receives a zero-valued source.",
+        details:
+          "Replay preserves the unresolved cell ledger directly so the terminal failure does not depend on rechecking the input matrix for missing sources.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "01-matrix-no-zero-source",
+          path: "state.unresolvedCells",
+          kind: "collection",
+          intent: "result",
+          label: "No zero source"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    updatedCells = [];
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} becomes the active BFS source for nearest-zero distance filling.`,
+      explanation: {
+        summary: "Expand the next resolved distance cell from the ordered multi-source frontier.",
+        details:
+          "Replay records the active source before any neighbor checks begin so each distance wave stays readable without recomputing queue order.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `01-matrix-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expand ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row, column } = parseCellId(currentCell);
+    const currentDistance = grid[row]![column]!;
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const neighborValue = grid[neighborRow]![neighborColumn]!;
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (neighborValue !== wallsAndGatesInfinity) {
+        recorder.push({
+          phase: "Inspect",
+          description:
+            neighborValue === 0
+              ? `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that cell is already a zero source.`
+              : `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that cell already holds nearest-zero distance ${neighborValue}.`,
+          explanation: {
+            summary:
+              neighborValue === 0
+                ? "Inspect a zero source without enqueuing it again."
+                : "Inspect an already resolved distance cell without replacing its earlier nearest-zero value.",
+            details:
+              neighborValue === 0
+                ? "Zero cells remain fixed at distance 0, so replay preserves the original multi-source seed without duplicate queue work."
+                : "Previously resolved cells keep their first recorded distance, which preserves the BFS proof that the shortest nearest-zero value arrived first.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `01-matrix-inspect-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label:
+                neighborValue === 0
+                  ? `Zero ${formatCellLabel(neighbor)}`
+                  : `Distance ${neighborValue} at ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const nextDistance = currentDistance + 1;
+      grid[neighborRow]![neighborColumn] = nextDistance;
+      frontier.push(neighbor);
+      updatedCells.push(neighbor);
+      remainingCells.delete(neighbor);
+      maxDistance = maxDistance === null ? nextDistance : Math.max(maxDistance, nextDistance);
+      metrics.updates += 1;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Update",
+        description: `Cell ${formatCellLabel(neighbor)} locks nearest-zero distance ${nextDistance} and joins the frontier.`,
+        explanation: {
+          summary: "Publish one newly resolved cell and enqueue it for the next BFS expansion wave.",
+          details:
+            "The updated distance grid and frontier are recorded immediately so replay can jump to any nearest-zero assignment without browser-side recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `01-matrix-update-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: `state.grid.${neighborRow}.${neighborColumn}`,
+            kind: "node",
+            intent: "frontier",
+            label: `Distance ${nextDistance}`
+          }
+        ]
+      });
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed for nearest-zero replay.`,
+      explanation: {
+        summary: "Seal one BFS source after all of its neighboring distance checks are recorded.",
+        details:
+          "This checkpoint captures the updated matrix, unresolved-cell ledger, and queue state directly so replay can jump between BFS wave boundaries safely.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `01-matrix-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} processed`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  updatedCells = [];
+  unresolvedCells = Array.from(remainingCells).sort(compareCellIds);
+  fullyResolved = unresolvedCells.length === 0;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: fullyResolved ? "Resolution" : "Stalled",
+    description: fullyResolved
+      ? `Every 1 cell resolves to its nearest 0 with a maximum recorded distance of ${maxDistance ?? 0}.`
+      : `Cells ${unresolvedCells.map(formatCellLabel).join(", ")} remain unresolved after the frontier empties.`,
+    explanation: {
+      summary: fullyResolved
+        ? "Publish the terminal nearest-zero distance matrix once every 1 cell is resolved."
+        : "Publish the unresolved cell ledger once the BFS frontier can no longer expand.",
+      details: fullyResolved
+        ? "The terminal frame stores the fully resolved distance grid and farthest nearest-zero distance directly so replay never recomputes the matrix offline."
+        : "The remaining unresolved cells stay explicit in the terminal frame so replay can explain the missing zero source without another input scan.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "01-matrix-final",
+        path: fullyResolved ? "state.maxDistance" : "state.unresolvedCells",
+        kind: fullyResolved ? "node" : "collection",
+        intent: "result",
+        label: fullyResolved
+          ? `Max distance ${maxDistance ?? 0}`
+          : `Unresolved ${unresolvedCells.map(formatCellLabel).join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildSurroundedRegionsTrace(
   input: SurroundedRegionsInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -8394,6 +8857,8 @@ export function buildGraphTrace(
       return buildShortestBridgeTrace(graph as ShortestBridgeInput);
     case "shortest-path-binary-matrix":
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
+    case "01-matrix":
+      return buildZeroOneMatrixTrace(graph as ZeroOneMatrixInput);
     case "surrounded-regions":
       return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":

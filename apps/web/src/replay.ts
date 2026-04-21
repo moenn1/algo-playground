@@ -33,6 +33,7 @@ import {
   defaultRottingOrangesInput,
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
+  defaultZeroOneMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   defaultTwoSumInput,
@@ -326,6 +327,17 @@ export function isShortestBridgeInput(
 }
 
 export function isShortestPathBinaryMatrixInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
+export function isZeroOneMatrixInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: number[][] }> {
   return (
@@ -893,6 +905,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with a grid using 0 for open cells and 1 for blocked cells.",
     defaultInput: serializeGraphInput(defaultShortestPathBinaryMatrixInput),
+    domain: "graph"
+  },
+  {
+    id: "01-matrix",
+    name: "01 Matrix",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Multi-source zero replay records nearest-zero distance fills, explicit unresolved cells when no zero source exists, and the terminal distance matrix without browser-side recomputation.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for sources and 1 for unresolved cells.",
+    defaultInput: serializeGraphInput(defaultZeroOneMatrixInput),
     domain: "graph"
   },
   {

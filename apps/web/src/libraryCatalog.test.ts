@@ -354,6 +354,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-path-binary-matrix");
   });
 
+  it("surfaces 01-matrix study paths through nearest-zero metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "nearest zero distance matrix multi-source"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("01-matrix");
+  });
+
   it("surfaces shortest-bridge study paths through bridge-wave metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

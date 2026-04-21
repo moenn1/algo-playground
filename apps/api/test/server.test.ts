@@ -888,6 +888,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 nodes / 4 edges"
     });
 
+    const zeroMatrixPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-zero-matrix/resolve",
+      payload: {
+        algorithmId: "01-matrix"
+      }
+    });
+
+    expect(zeroMatrixPreset.statusCode).toBe(200);
+    expect(zeroMatrixPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-zero-matrix"
+      },
+      algorithm: {
+        id: "01-matrix",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const noZeroMatrixPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.no-zero-matrix/resolve",
+      payload: {
+        algorithmId: "01-matrix"
+      }
+    });
+
+    expect(noZeroMatrixPreset.statusCode).toBe(200);
+    expect(noZeroMatrixPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.no-zero-matrix"
+      },
+      algorithm: {
+        id: "01-matrix",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2371,6 +2413,38 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "5 x 5 grid"
+    });
+
+    const validateZeroOneMatrixInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "01-matrix",
+        payload: {
+          grid: [
+            [0, 0, 0],
+            [0, 1, 0],
+            [1, 1, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateZeroOneMatrixInput.statusCode).toBe(200);
+    expect(validateZeroOneMatrixInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "01-matrix",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 0, 0],
+          [0, 1, 0],
+          [1, 1, 1]
+        ]
+      },
+      footprint: "3 x 3 grid"
     });
 
     const validateCountComponentsInput = await server.inject({

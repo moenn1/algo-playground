@@ -653,6 +653,47 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds 01-matrix replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "01-matrix",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 0, 0],
+            [0, 1, 0],
+            [1, 1, 1]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("01-matrix");
+    expect(finalStep.state.kind).toBe("01-matrix");
+    if (finalStep.state.kind !== "01-matrix") {
+      throw new Error("Expected the 01-matrix graph state.");
+    }
+    expect(finalStep.state.fullyResolved).toBe(true);
+    expect(finalStep.state.maxDistance).toBe(2);
+    expect(finalStep.state.grid).toEqual([
+      [0, 0, 0],
+      [0, 1, 0],
+      [1, 2, 1]
+    ]);
+    expect(
+      run.trace.steps.some((step) =>
+        getTraceStepPaths(step).some((path) => path.startsWith("state.grid"))
+      )
+    ).toBe(true);
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for 01 Matrix, including deterministic multi-source zero seeding, explicit nearest-zero distance fills, and replay-safe unresolved-cell reporting when no zero source exists.
+- Wired 01 Matrix through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct nearest-zero distance-matrix problem alongside blocked-grid shortest paths, room-distance fills, island analysis, dependency scheduling, capture, and other graph replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 42 algorithms with runs, 84 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Count Connected Components, including deterministic input-order Union-Find scans, explicit same-component no-op edges, and replay-safe terminal component ledgers without hidden recomputation.
 - Wired Count Connected Components through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct component-counting Union-Find problem alongside tree validation, first-cycle detection, dependency scheduling, returned course-order replay, infection, island analysis, pathfinding, capture, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 41 algorithms with runs, 82 total runs, and 2 saved comparisons.

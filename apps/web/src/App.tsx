@@ -52,6 +52,7 @@ import {
   isCourseScheduleInput,
   isNumberOfIslandsInput,
   isRottingOrangesInput,
+  isZeroOneMatrixInput,
   isWallsAndGatesInput,
   type AccentTone,
   type DynamicProgrammingRun,
@@ -783,6 +784,26 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   const step = getRunStep(run, stepIndex);
 
   if (isGraphRun(run)) {
+    if (step.state.kind === "01-matrix" && isZeroOneMatrixInput(run.input)) {
+      if (step.state.fullyResolved === false && step.state.unresolvedCells.length > 0) {
+        return `Unresolved ${truncateText(step.state.unresolvedCells.join(" · "), 36)}`;
+      }
+
+      if (step.state.maxDistance !== null && step.state.fullyResolved === true) {
+        return `All 1 cells filled by distance ${step.state.maxDistance}`;
+      }
+
+      if (step.state.current) {
+        return `Fill from ${step.state.current}`;
+      }
+
+      if (step.state.updatedCells.length > 0) {
+        return `Update ${truncateText(step.state.updatedCells.join(" · "), 36)}`;
+      }
+
+      return `${step.state.remainingCells.length} cell${step.state.remainingCells.length === 1 ? "" : "s"} still pending`;
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       if (step.state.fullyReachable === false && step.state.unreachableRooms.length > 0) {
         return `Blocked rooms ${truncateText(step.state.unreachableRooms.join(" · "), 36)}`;
@@ -872,6 +893,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.componentCount} component${step.state.componentCount === 1 ? "" : "s"} total`;
     }
 
+    if (step.state.kind === "01-matrix" && isZeroOneMatrixInput(run.input)) {
+      if (step.state.fullyResolved === false && step.state.unresolvedCells.length > 0) {
+        return `No zero source · ${step.state.unresolvedCells.length} unresolved`;
+      }
+
+      if (step.state.current) {
+        return `Distance wave from ${step.state.current}`;
+      }
+
+      if (step.state.maxDistance !== null) {
+        return `Max nearest-zero distance ${step.state.maxDistance}`;
+      }
+
+      return `${step.state.remainingCells.length} 1 cell${step.state.remainingCells.length === 1 ? "" : "s"} awaiting distance`;
+    }
+
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
         return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
@@ -900,6 +937,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "number-of-islands" &&
       step.state.kind !== "max-area-of-island" &&
       step.state.kind !== "island-perimeter" &&
+      step.state.kind !== "01-matrix" &&
       step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
@@ -1294,6 +1332,12 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             if (graphStep.state.kind === "count-connected-components") {
               return `${graphStep.state.componentCount} component${graphStep.state.componentCount === 1 ? "" : "s"}`;
+            }
+
+            if (graphStep.state.kind === "01-matrix") {
+              return graphStep.state.fullyResolved === false
+                ? `${graphStep.state.unresolvedCells.length} unresolved 1 cell${graphStep.state.unresolvedCells.length === 1 ? "" : "s"}`
+                : `Max nearest-zero distance ${graphStep.state.maxDistance ?? 0}`;
             }
 
             return `${graphStep.state.settled.length} nodes settled`;
@@ -1692,6 +1736,47 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
   if (isGraphRun(run)) {
     const step = getRunStep(run, stepIndex);
 
+    if (step.state.kind === "01-matrix" && isZeroOneMatrixInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Remaining</span>
+              <strong>{step.state.remainingCells.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Updated</span>
+              <strong>{step.state.updatedCells.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.fullyResolved === null
+                  ? "Filling"
+                  : step.state.fullyResolved
+                    ? `Max ${step.state.maxDistance ?? 0}`
+                    : "Stalled"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`zero-matrix-row-${rowIndex}`}>
+                {rowIndex}:
+                {row
+                  .map((value) => (value === 2147483647 ? "inf" : value.toString()))
+                  .join(" ")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       return (
         <>
@@ -1930,6 +2015,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       <div className="distance-grid">
         {Object.entries(
           step.state.kind === "course-schedule" ||
+            step.state.kind === "01-matrix" ||
             step.state.kind === "number-of-islands" ||
             step.state.kind === "max-area-of-island" ||
             step.state.kind === "island-perimeter" ||

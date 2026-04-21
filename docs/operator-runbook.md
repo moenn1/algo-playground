@@ -100,6 +100,8 @@ The demo seed currently materializes:
 - Shortest Bridge on `graph.single-gap-bridge`
 - Shortest Path in Binary Matrix on `graph.reference-binary-path`
 - Shortest Path in Binary Matrix on `graph.sealed-binary-exit`
+- 01 Matrix on `graph.reference-zero-matrix`
+- 01 Matrix on `graph.no-zero-matrix`
 - Surrounded Regions on `graph.reference-capture`
 - Surrounded Regions on `graph.border-safe`
 - Walls and Gates on `graph.reference-gates`
@@ -107,7 +109,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 41 algorithms with runs, 82 runs total, and 2 saved comparisons.
+That seed currently produces 42 algorithms with runs, 84 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

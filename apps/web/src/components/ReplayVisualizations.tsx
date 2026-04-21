@@ -25,6 +25,7 @@ import {
   isRottingOrangesInput,
   isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
+  isZeroOneMatrixInput,
   isSurroundedRegionsInput,
   isWallsAndGatesInput,
   type SearchRun,
@@ -184,6 +185,7 @@ function formatGraphNodeStatus(
     step.state.kind === "pacific-atlantic-water-flow" ||
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
+    step.state.kind === "01-matrix" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
@@ -192,6 +194,7 @@ function formatGraphNodeStatus(
     isPacificAtlanticWaterFlowInput(run.input) ||
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
+    isZeroOneMatrixInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -239,6 +242,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isNumberOfIslandsInput(run.input) ||
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
+    isZeroOneMatrixInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isWallsAndGatesInput(run.input)
@@ -970,6 +974,73 @@ function formatGateCellStatus(
   }
 }
 
+function formatZeroOneMatrixCellValue(value: number): string {
+  if (value === 0) {
+    return "Zero";
+  }
+
+  if (value === 2147483647) {
+    return "Pending";
+  }
+
+  return `Dist ${value}`;
+}
+
+function getZeroOneMatrixCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "01-matrix" }>>
+): "current" | "frontier" | "settled" | "updated" | "gate" | "room" | "blocked" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (value === 0 && step.state.zeroCells.includes(cell)) {
+    return "gate";
+  }
+
+  if (step.state.updatedCells.includes(cell)) {
+    return "updated";
+  }
+
+  if (step.state.unresolvedCells.includes(cell)) {
+    return "blocked";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  return "room";
+}
+
+function formatZeroOneMatrixCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "01-matrix" }>>
+): string {
+  switch (getZeroOneMatrixCellTone(cell, value, step)) {
+    case "current":
+      return value === 0 ? "Active zero" : "Fill source";
+    case "frontier":
+      return value === 0 ? "Queued zero" : "Queued distance";
+    case "updated":
+      return `Distance ${value}`;
+    case "settled":
+      return value === 0 ? "Processed zero" : `Settled ${value}`;
+    case "gate":
+      return "Zero source";
+    case "blocked":
+      return "Unresolved 1";
+    default:
+      return value === 2147483647 ? "Pending 1" : `Distance ${value}`;
+  }
+}
+
 function formatInterval(interval: number[]): string {
   if (interval.length !== 2) {
     return "Pending";
@@ -1554,6 +1625,189 @@ export function TwoPointersStage({
 
 export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+  if (step.state.kind === "01-matrix" && isZeroOneMatrixInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} distance grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="01 Matrix status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active source</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled distance</span>
+          <span className="graph-legend-pill graph-legend-pill-path">
+            {step.state.fullyResolved === false ? "Unresolved 1 cell" : "Zero source"}
+          </span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage gate-stage">
+            <div className="gate-banner">
+              <span>
+                {step.state.zeroCells.length} zero source
+                {step.state.zeroCells.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.fullyResolved === false
+                  ? `${step.state.unresolvedCells.length} cell${step.state.unresolvedCells.length === 1 ? "" : "s"} remain unresolved`
+                  : step.state.fullyResolved === true
+                    ? `Every 1 cell reaches a zero within ${step.state.maxDistance ?? 0} step${step.state.maxDistance === 1 ? "" : "s"}`
+                    : `${step.state.remainingCells.length} cell${step.state.remainingCells.length === 1 ? "" : "s"} still pending`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `Expanding ${step.state.current}`
+                    : "No edge under inspection"}
+              </p>
+            </div>
+            <div
+              className="gate-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getZeroOneMatrixCellTone(cell, value, step);
+                  const className = ["gate-cell", `gate-cell-${tone}`].filter(Boolean).join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="gate-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="gate-cell-value">{formatZeroOneMatrixCellValue(value)}</strong>
+                      <span className="gate-cell-status">
+                        {formatZeroOneMatrixCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Fill focus</span>
+              <strong>{step.state.current ?? "Pending extraction"}</strong>
+              <p>
+                {step.state.current
+                  ? `${step.state.remainingCells.length} cell${step.state.remainingCells.length === 1 ? "" : "s"} still unresolved`
+                  : `${step.state.frontier.length} cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued distance sources</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Processed</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled zero and distance cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No processed cells yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Remaining</strong>
+                  <span className="graph-node-status">{step.state.remainingCells.length}</span>
+                </div>
+                <span className="graph-node-distance">Pending 1 cells</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingCells.length > 0
+                    ? step.state.remainingCells.join(" · ")
+                    : "All 1 cells resolved"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.fullyResolved === null
+                      ? "Filling"
+                      : step.state.fullyResolved
+                        ? "Resolved"
+                        : "Stalled"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.maxDistance !== null
+                    ? `Max distance ${step.state.maxDistance}`
+                    : "No terminal distance yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.unresolvedCells.length > 0
+                    ? `Unresolved: ${step.state.unresolvedCells.join(" · ")}`
+                    : "Nearest-zero distances are recorded directly in the grid."}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Updated cells</span>
+            <div className="pill-row">
+              {step.state.updatedCells.length > 0 ? (
+                step.state.updatedCells.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No new distances this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Zero ledger</span>
+            <strong>{step.state.zeroCells.join(" · ")}</strong>
+            <p>
+              {step.state.zeroCells.length > 0
+                ? "Every zero source seeds the BFS distance wave."
+                : "No zero source exists in this input."}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Reachability</span>
+            <strong>
+              {step.state.fullyResolved === null
+                ? "Wave active"
+                : step.state.fullyResolved
+                  ? "All resolved"
+                  : "Missing source"}
+            </strong>
+            <p>
+              {step.state.unresolvedCells.length > 0
+                ? `Pending 1 cells remain at ${step.state.unresolvedCells.join(", ")}`
+                : "Replay records every nearest-zero fill directly from the matrix snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
     return (
       <>

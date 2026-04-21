@@ -571,6 +571,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "sealed-binary-exit"]
   },
   {
+    key: "graph-reference-zero-matrix",
+    algorithmId: "01-matrix",
+    presetId: "graph.reference-zero-matrix",
+    recordedAt: "2026-04-20T09:16:27.000Z",
+    tags: ["seeded-demo", "graph", "reference-zero-matrix"]
+  },
+  {
+    key: "graph-no-zero-matrix",
+    algorithmId: "01-matrix",
+    presetId: "graph.no-zero-matrix",
+    recordedAt: "2026-04-20T09:16:28.000Z",
+    tags: ["seeded-demo", "graph", "no-zero-matrix"]
+  },
+  {
     key: "graph-reference-capture",
     algorithmId: "surrounded-regions",
     presetId: "graph.reference-capture",

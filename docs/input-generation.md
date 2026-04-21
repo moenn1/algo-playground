@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `01-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -141,6 +141,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.single-gap-bridge`: curated bridge case where one water cell closes the gap immediately
 - `graph.reference-binary-path`: curated blocked grid with one deterministic open route to the exit
 - `graph.sealed-binary-exit`: curated blocked grid where the exit remains unreachable after search exhaustion
+- `graph.reference-zero-matrix`: curated nearest-zero matrix where BFS distance fills fan out from several zero sources
+- `graph.no-zero-matrix`: curated nearest-zero matrix with no zero source so the unresolved `1` ledger publishes immediately
 - `graph.reference-capture`: curated capture grid with one border-safe region and several enclosed flips
 - `graph.border-safe`: curated capture grid where every `O` stays connected to the border
 - `graph.reference-gates`: curated room map where every empty room reaches a gate with a stable shortest distance

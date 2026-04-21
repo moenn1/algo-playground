@@ -45,6 +45,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `pacific-atlantic-water-flow`
 - `shortest-bridge`
 - `shortest-path-binary-matrix`
+- `01-matrix`
 - `surrounded-regions`
 - `walls-and-gates`
 
@@ -493,6 +494,21 @@ Shortest Path in Binary Matrix records:
 - `state.pathLength`: the terminal shortest-path length in cells when the destination is reachable
 - `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
 
+01 Matrix records:
+
+- `state.kind`: `"01-matrix"`
+- `state.grid`: the nearest-zero distance grid snapshot for the current BFS frame, with unresolved `1` cells held at infinity until their distance locks
+- `state.settled`: cells whose outgoing nearest-zero checks are fully recorded
+- `state.frontier`: the ordered queue of zero sources or already resolved distance cells waiting to expand
+- `state.current`: the zero or resolved-distance cell currently acting as the fill source
+- `state.activeEdge`: the active source-to-neighbor inspection
+- `state.zeroCells`: the deterministic row-major ledger of zero-valued source cells
+- `state.updatedCells`: the `1` cells assigned a nearest-zero distance during the current frame
+- `state.remainingCells`: unresolved `1` cells that have not yet received any nearest-zero distance
+- `state.fullyResolved`: `true`, `false`, or `null` while the runtime is still in progress
+- `state.maxDistance`: the farthest nearest-zero distance published once at least one `1` cell resolves
+- `state.unresolvedCells`: the remaining `1` cells when the frontier stalls because no zero source exists
+
 Surrounded Regions records:
 
 - `state.kind`: `"surrounded-regions"`
@@ -531,7 +547,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges or neighbor relationships inspected so far
 - `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Network Delay Time records the weighted relay frontier with that same deterministic ordering while publishing reached-versus-unreachable ledgers, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Redundant Connection records that same input-order edge queue but stops at the first same-component edge, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Max Area of Island records that same queue and scan discipline while publishing a largest-island scoreboard after each completed component, Island Perimeter records the remaining land ledger in row-major order while each active land cell expands into four deterministic edge inspections, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Network Delay Time records the weighted relay frontier with that same deterministic ordering while publishing reached-versus-unreachable ledgers, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Redundant Connection records that same input-order edge queue but stops at the first same-component edge, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Max Area of Island records that same queue and scan discipline while publishing a largest-island scoreboard after each completed component, Island Perimeter records the remaining land ledger in row-major order while each active land cell expands into four deterministic edge inspections, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, 01 Matrix records the multi-source zero frontier in row-major source order before publishing nearest-zero fills, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 

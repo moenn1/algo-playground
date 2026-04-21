@@ -16,6 +16,7 @@ import type {
   PathfindingGraphInputPayload,
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
+  ZeroOneMatrixInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
   ResolveInputPresetInput,
@@ -228,6 +229,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Shortest Path in Binary Matrix",
     domain: "graph"
   },
+  "01-matrix": {
+    id: "01-matrix",
+    label: "01 Matrix",
+    domain: "graph"
+  },
   "surrounded-regions": {
     id: "surrounded-regions",
     label: "Surrounded Regions",
@@ -297,6 +303,7 @@ const shortestBridgeAlgorithms = [supportedAlgorithms["shortest-bridge"]] as con
 const shortestPathBinaryMatrixAlgorithms = [
   supportedAlgorithms["shortest-path-binary-matrix"]
 ] as const;
+const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
 const surroundedRegionsAlgorithms = [supportedAlgorithms["surrounded-regions"]] as const;
 const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
@@ -502,6 +509,13 @@ const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInputPayload
     [0, 0, 0, 1, 0],
     [1, 1, 0, 0, 0],
     [1, 1, 1, 1, 0]
+  ]
+};
+const defaultZeroOneMatrixInput: ZeroOneMatrixInputPayload = {
+  grid: [
+    [0, 0, 0],
+    [0, 1, 0],
+    [1, 1, 1]
   ]
 };
 const defaultSurroundedRegionsInput: SurroundedRegionsInputPayload = {
@@ -2169,6 +2183,63 @@ function normalizeShortestPathBinaryMatrixInput(
   };
 }
 
+function normalizeZeroOneMatrixInput(payload: unknown): ZeroOneMatrixInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "01 Matrix input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "01 Matrix input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "01 Matrix input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "01 Matrix input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "01 Matrix input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(payload: unknown): SurroundedRegionsInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2328,6 +2399,8 @@ function normalizeGraphInput(
       return normalizeShortestBridgeInput(payload);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(payload);
+    case "01-matrix":
+      return normalizeZeroOneMatrixInput(payload);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(payload);
     case "walls-and-gates":
@@ -3943,6 +4016,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           [1, 1, 1, 0],
           [0, 0, 1, 1],
           [0, 1, 1, 0]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-zero-matrix",
+      label: "Reference 01 matrix",
+      description:
+        "Use the canonical nearest-zero grid so replay shows multi-source zero seeding, deterministic distance fills, and the farthest resolved 1 cell.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: zeroOneMatrixAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultZeroOneMatrixInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.no-zero-matrix",
+      label: "No-zero matrix",
+      description:
+        "Remove every zero source so replay can publish the unresolved 1-cell ledger immediately instead of filling any nearest-zero distances.",
+      scenario: "missing-source",
+      kind: "curated",
+      domain: "graph",
+      algorithms: zeroOneMatrixAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [1, 1, 1],
+          [1, 1, 1],
+          [1, 1, 1]
         ]
       },
       options: {}
