@@ -613,6 +613,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "zero-removal-detour"]
   },
   {
+    key: "graph-reference-rising-water",
+    algorithmId: "swim-in-rising-water",
+    presetId: "graph.reference-rising-water",
+    recordedAt: "2026-04-21T19:07:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-rising-water"]
+  },
+  {
+    key: "graph-ridge-detour-swim",
+    algorithmId: "swim-in-rising-water",
+    presetId: "graph.ridge-detour-swim",
+    recordedAt: "2026-04-21T19:08:00.000Z",
+    tags: ["seeded-demo", "graph", "ridge-detour-swim"]
+  },
+  {
     key: "graph-reference-food-path",
     algorithmId: "shortest-path-to-get-food",
     presetId: "graph.reference-food-path",

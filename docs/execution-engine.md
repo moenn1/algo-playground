@@ -48,6 +48,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `nearest-exit-from-entrance-in-maze`
 - `shortest-path-in-a-grid-with-obstacles-elimination`
 - `minimum-obstacle-removal-to-reach-corner`
+- `swim-in-rising-water`
 - `shortest-path-to-get-food`
 - `01-matrix`
 - `as-far-from-land-as-possible`
@@ -563,6 +564,23 @@ Minimum Obstacle Removal to Reach Corner records:
 - `state.bestRemovalsByCell`: the cheapest removal-count ledger recorded so far for each discovered cell
 - `state.removedObstacleCells`: the subset of obstacle cells that belong to the published optimal route
 - `state.minimumRemovals`: the returned minimum number of removed obstacles once the target is extracted from the deque
+
+Swim in Rising Water records:
+
+- `state.kind`: `"swim-in-rising-water"`
+- `state.grid`: the elevation grid snapshot for the current weighted search or traceback frame
+- `state.settled`: cells whose minimum swim time is already final
+- `state.frontier`: the ordered weighted frontier of cells still waiting to expand
+- `state.current`: the cell currently acting as the weighted search focus or traceback cursor
+- `state.currentWaterLevel`: the current extracted or traceback swim time attached to the active cell
+- `state.activeEdge`: the active source-to-neighbor inspection or predecessor traceback edge
+- `state.phaseMode`: `"search"`, `"traceback"`, or `"resolved"` so replay can distinguish live weighted expansion from route reconstruction
+- `state.start`: the fixed top-left source cell
+- `state.target`: the fixed bottom-right destination cell
+- `state.path`: the explicit minimum-water route ledger published during traceback
+- `state.visitedCells`: cells that have already received a recorded swim time
+- `state.bestTimeByCell`: the cheapest water-level ledger recorded so far for each discovered cell
+- `state.swimTime`: the returned minimum water level once the target is extracted from the weighted frontier
 
 Shortest Path to Get Food records:
 

@@ -28,6 +28,7 @@ import {
   isNearestExitFromEntranceInMazeInput,
   isShortestPathGridWithObstaclesEliminationInput,
   isMinimumObstacleRemovalToReachCornerInput,
+  isSwimInRisingWaterInput,
   isShortestPathToGetFoodInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
@@ -193,6 +194,7 @@ function formatGraphNodeStatus(
     step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
     step.state.kind === "minimum-obstacle-removal-to-reach-corner" ||
+    step.state.kind === "swim-in-rising-water" ||
     step.state.kind === "01-matrix" ||
     step.state.kind === "as-far-from-land-as-possible" ||
     step.state.kind === "map-of-highest-peak" ||
@@ -206,6 +208,7 @@ function formatGraphNodeStatus(
     isShortestPathBinaryMatrixInput(run.input) ||
     isShortestPathGridWithObstaclesEliminationInput(run.input) ||
     isMinimumObstacleRemovalToReachCornerInput(run.input) ||
+    isSwimInRisingWaterInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -258,6 +261,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isShortestPathBinaryMatrixInput(run.input) ||
     isShortestPathGridWithObstaclesEliminationInput(run.input) ||
     isMinimumObstacleRemovalToReachCornerInput(run.input) ||
+    isSwimInRisingWaterInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -1215,6 +1219,76 @@ function formatMinimumObstacleRemovalCellStatus(
   }
 
   return "Open";
+}
+
+function getSwimInRisingWaterCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "swim-in-rising-water" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.settled.includes(cell) || step.state.visitedCells.includes(cell)) {
+    return "active";
+  }
+
+  return "land";
+}
+
+function formatSwimInRisingWaterCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "swim-in-rising-water" }>>
+): string {
+  const bestTime = step.state.bestTimeByCell[cell];
+
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback"
+      ? `Traceback focus · t=${step.state.currentWaterLevel ?? 0}`
+      : `Search focus · t=${step.state.currentWaterLevel ?? 0}`;
+  }
+
+  if (step.state.path.includes(cell)) {
+    if (cell === step.state.start) {
+      return "Start";
+    }
+
+    if (cell === step.state.target) {
+      return "Target";
+    }
+
+    return typeof bestTime === "number" ? `Swim route · t=${bestTime}` : "Swim route";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return typeof bestTime === "number" ? `Queued · t=${bestTime}` : "Queued";
+  }
+
+  if (cell === step.state.start) {
+    return "Start";
+  }
+
+  if (cell === step.state.target) {
+    return "Target";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return typeof bestTime === "number" ? `Settled · t=${bestTime}` : "Settled";
+  }
+
+  if (step.state.visitedCells.includes(cell)) {
+    return typeof bestTime === "number" ? `Seen · t=${bestTime}` : "Seen";
+  }
+
+  return "Unseen";
 }
 
 function formatGateCellValue(value: number): string {
@@ -4502,6 +4576,198 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.minimumRemovals !== null
                 ? `Replay keeps the minimum removal count and removed-obstacle ledger explicit through ${step.state.target}.`
                 : "The weighted deque is still reordering zero-cost and one-cost relaxations."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "swim-in-rising-water" && isSwimInRisingWaterInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} weighted grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Swim in Rising Water status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Weighted frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Recovered route</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Best-time ledger</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.grid.length * step.state.grid[0]!.length} elevation cell
+                {step.state.grid.length * step.state.grid[0]!.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.swimTime !== null
+                  ? `Swim time ${step.state.swimTime}`
+                  : `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `${step.state.current} · t=${step.state.currentWaterLevel ?? 0}`
+                    : step.state.start}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getSwimInRisingWaterCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+                  const bestTime = step.state.bestTimeByCell[cell];
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {cell === step.state.start
+                          ? "Start"
+                          : cell === step.state.target
+                            ? "Target"
+                            : `H ${value}`}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatSwimInRisingWaterCellStatus(cell, step)}
+                        {typeof bestTime === "number" ? ` · best ${bestTime}` : ""}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Water-level focus</span>
+              <strong>
+                {step.state.current
+                  ? `${step.state.current} · t=${step.state.currentWaterLevel ?? 0}`
+                  : "Awaiting next weighted extract"}
+              </strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} route cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} remain in the frontier`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Weighted frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Ordered by current swim time</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier
+                        .map((cell) => `${cell}:${step.state.bestTimeByCell[cell] ?? 0}`)
+                        .join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Best water levels</strong>
+                  <span className="graph-node-status">
+                    {Object.keys(step.state.bestTimeByCell).length}
+                  </span>
+                </div>
+                <span className="graph-node-distance">Minimum recorded swim time per cell</span>
+                <span className="graph-node-meta">
+                  {Object.entries(step.state.bestTimeByCell)
+                    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+                    .map(([cell, swimTime]) => `${cell}:${swimTime}`)
+                    .join(" · ")}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Recovered route</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.swimTime !== null
+                    ? `Water level ${step.state.swimTime}`
+                    : "No route published yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.swimTime !== null
+                      ? step.state.swimTime
+                      : step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.swimTime !== null
+                    ? `${step.state.visitedCells.length} cell${step.state.visitedCells.length === 1 ? "" : "s"} recorded in the best-time ledger`
+                    : `${step.state.settled.length} settled cell${step.state.settled.length === 1 ? "" : "s"} finalized so far`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Recovered route</span>
+            <div className="pill-row">
+              {step.state.path.length > 0 ? (
+                step.state.path.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No route published yet</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Settled cells</span>
+            <strong>{step.state.settled.length}</strong>
+            <p>
+              {step.state.settled.length > 0
+                ? step.state.settled
+                    .map((cell) => `${cell}:${step.state.bestTimeByCell[cell] ?? 0}`)
+                    .join(", ")
+                : "No finalized cells yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Water outcome</span>
+            <strong>{step.state.swimTime ?? step.state.currentWaterLevel ?? 0}</strong>
+            <p>
+              {step.state.swimTime !== null
+                ? `Replay keeps the minimum water level and traceback route explicit through ${step.state.target}.`
+                : "The weighted frontier is still reordering candidate water levels."}
             </p>
           </div>
         </div>

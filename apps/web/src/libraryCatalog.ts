@@ -623,7 +623,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much weighted deque churn happened before the minimum obstacle-removal answer stabilized.",
     skills: ["0-1 bfs", "weighted deque ordering", "cost traceback"],
     spotlight: "A strong follow-up to obstacle-elimination replay because it keeps the same blocked-grid surface while replacing fixed-budget feasibility with a deterministic minimum-cost runtime.",
-    nextAlgorithmIds: ["01-matrix", "dijkstra"]
+    nextAlgorithmIds: ["swim-in-rising-water", "dijkstra"]
+  },
+  "swim-in-rising-water": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.9475,
+    timeToExplore: "7 min",
+    complexity: "The grid stays compact, but every relaxation can raise the live water level, so the replay has to keep deterministic weighted-frontier ordering and a full best-time ledger visible at each step.",
+    outcome: "See exactly when a lower-water detour overtakes a tempting high ridge, when the target first becomes a candidate, and how traceback rebuilds the route that survives the minimum rising tide.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much Dijkstra-style grid churn happened before the minimum swim time stabilized.",
+    skills: ["weighted frontiers", "best-time ledgers", "water-level traceback"],
+    spotlight: "A useful bridge from 0-1 BFS to full weighted pathfinding because it keeps the same grid surface while making frontier order depend on the current minimum water level instead of fixed edge buckets.",
+    nextAlgorithmIds: ["dijkstra", "shortest-path-to-get-food"]
   },
   "shortest-path-to-get-food": {
     stage: "core",

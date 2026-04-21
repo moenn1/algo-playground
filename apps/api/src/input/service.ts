@@ -17,6 +17,7 @@ import type {
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
   MinimumObstacleRemovalToReachCornerInputPayload,
+  SwimInRisingWaterInputPayload,
   NearestExitFromEntranceInMazeInputPayload,
   ShortestPathGridWithObstaclesEliminationInputPayload,
   ShortestPathToGetFoodInputPayload,
@@ -250,6 +251,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Minimum Obstacle Removal to Reach Corner",
     domain: "graph"
   },
+  "swim-in-rising-water": {
+    id: "swim-in-rising-water",
+    label: "Swim in Rising Water",
+    domain: "graph"
+  },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
     label: "Shortest Path to Get Food",
@@ -348,6 +354,7 @@ const shortestPathGridWithObstaclesEliminationAlgorithms = [
 const minimumObstacleRemovalToReachCornerAlgorithms = [
   supportedAlgorithms["minimum-obstacle-removal-to-reach-corner"]
 ] as const;
+const swimInRisingWaterAlgorithms = [supportedAlgorithms["swim-in-rising-water"]] as const;
 const shortestPathToGetFoodAlgorithms = [supportedAlgorithms["shortest-path-to-get-food"]] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
 const asFarFromLandAsPossibleAlgorithms = [
@@ -590,6 +597,15 @@ const defaultMinimumObstacleRemovalToReachCornerInput: MinimumObstacleRemovalToR
       [1, 1, 0]
     ]
   };
+const defaultSwimInRisingWaterInput: SwimInRisingWaterInputPayload = {
+  grid: [
+    [0, 1, 2, 3, 4],
+    [24, 23, 22, 21, 5],
+    [12, 13, 14, 15, 16],
+    [11, 17, 18, 19, 20],
+    [10, 9, 8, 7, 6]
+  ]
+};
 const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInputPayload = {
   grid: [
     ["X", "X", "X", "X", "X"],
@@ -2570,6 +2586,64 @@ function normalizeMinimumObstacleRemovalToReachCornerInput(
   };
 }
 
+function normalizeSwimInRisingWaterInput(payload: unknown): SwimInRisingWaterInputPayload {
+  if (typeof payload === "string") {
+    try {
+      return normalizeSwimInRisingWaterInput(JSON.parse(payload));
+    } catch {
+      throw new HttpError(400, "Swim in Rising Water input strings must contain valid JSON.");
+    }
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new HttpError(400, "Swim in Rising Water input must be an object with a grid field.");
+  }
+
+  const value = payload as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Swim in Rising Water input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Swim in Rising Water input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty integer row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be a non-negative integer.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Swim in Rising Water input rows must all be the same length.");
+  }
+
+  if (grid.length !== columnCount) {
+    throw new HttpError(400, "Swim in Rising Water input must use a square grid.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(payload: unknown): ShortestPathToGetFoodInputPayload {
   const candidate =
     typeof payload === "string"
@@ -3004,6 +3078,8 @@ function normalizeGraphInput(
       return normalizeShortestPathGridWithObstaclesEliminationInput(payload);
     case "minimum-obstacle-removal-to-reach-corner":
       return normalizeMinimumObstacleRemovalToReachCornerInput(payload);
+    case "swim-in-rising-water":
+      return normalizeSwimInRisingWaterInput(payload);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(payload);
     case "01-matrix":
@@ -3040,6 +3116,7 @@ function isGridGraphPayload(
   | NearestExitFromEntranceInMazeInputPayload
   | ShortestPathGridWithObstaclesEliminationInputPayload
   | MinimumObstacleRemovalToReachCornerInputPayload
+  | SwimInRisingWaterInputPayload
   | ShortestPathToGetFoodInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
@@ -4782,6 +4859,47 @@ const presetDefinitions: InputPresetDefinition[] = [
           [0, 0, 0, 1],
           [1, 1, 0, 1],
           [1, 1, 0, 0]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-rising-water",
+      label: "Reference rising water",
+      description:
+        "Use the canonical rising-water basin so replay can show weighted frontier extraction, best-time relaxations, and explicit traceback into the first route that survives the minimum water level.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: swimInRisingWaterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultSwimInRisingWaterInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.ridge-detour-swim",
+      label: "Ridge detour swim",
+      description:
+        "Force the weighted frontier to reject a tempting high ridge so replay can show a lower-water detour overtaking the direct path before the target is settled.",
+      scenario: "detour",
+      kind: "curated",
+      domain: "graph",
+      algorithms: swimInRisingWaterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [0, 7, 8, 9],
+          [1, 2, 3, 10],
+          [12, 13, 4, 11],
+          [15, 14, 5, 6]
         ]
       },
       options: {}

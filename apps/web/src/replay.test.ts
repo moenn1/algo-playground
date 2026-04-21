@@ -358,6 +358,40 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds swim-in-rising-water replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "swim-in-rising-water",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 7, 8, 9],
+            [1, 2, 3, 10],
+            [12, 13, 4, 11],
+            [15, 14, 5, 6]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("swim-in-rising-water");
+    expect(finalStep.state.kind).toBe("swim-in-rising-water");
+    if (finalStep.state.kind !== "swim-in-rising-water") {
+      throw new Error("Expected the swim-in-rising-water graph state.");
+    }
+    expect(finalStep.state.swimTime).toBe(6);
+    expect(finalStep.state.path).toEqual(["0,0", "1,0", "1,1", "1,2", "2,2", "3,2", "3,3"]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds count-connected-components replay runs from the shared graph engine", () => {
     const run = buildRun(
       "count-connected-components",

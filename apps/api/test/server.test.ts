@@ -1140,6 +1140,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "4 x 4 grid"
     });
 
+    const referenceRisingWaterPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-rising-water/resolve",
+      payload: {
+        algorithmId: "swim-in-rising-water"
+      }
+    });
+
+    expect(referenceRisingWaterPreset.statusCode).toBe(200);
+    expect(referenceRisingWaterPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-rising-water"
+      },
+      algorithm: {
+        id: "swim-in-rising-water",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
+    const ridgeDetourSwimPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.ridge-detour-swim/resolve",
+      payload: {
+        algorithmId: "swim-in-rising-water"
+      }
+    });
+
+    expect(ridgeDetourSwimPreset.statusCode).toBe(200);
+    expect(ridgeDetourSwimPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.ridge-detour-swim"
+      },
+      algorithm: {
+        id: "swim-in-rising-water",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const foodPathPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-food-path/resolve",
@@ -2907,6 +2949,40 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validateSwimInRisingWaterInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "swim-in-rising-water",
+        payload: {
+          grid: [
+            [0, 7, 8, 9],
+            [1, 2, 3, 10],
+            [12, 13, 4, 11],
+            [15, 14, 5, 6]
+          ]
+        }
+      }
+    });
+
+    expect(validateSwimInRisingWaterInput.statusCode).toBe(200);
+    expect(validateSwimInRisingWaterInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "swim-in-rising-water",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 7, 8, 9],
+          [1, 2, 3, 10],
+          [12, 13, 4, 11],
+          [15, 14, 5, 6]
+        ]
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const validateSurroundedRegionsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -3312,6 +3388,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.json()).toMatchObject({
       error:
         "Shortest Path in a Grid with Obstacles Elimination input must end on an open bottom-right cell."
+    });
+  });
+
+  it("rejects swim-in-rising-water payloads that are not square", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "swim-in-rising-water",
+        payload: {
+          grid: [
+            [0, 2, 3],
+            [1, 4, 5]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Swim in Rising Water input must use a square grid."
     });
   });
 

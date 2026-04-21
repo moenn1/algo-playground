@@ -21,6 +21,7 @@ import {
   buildNearestExitFromEntranceInMazeTrace,
   buildShortestPathGridWithObstaclesEliminationTrace,
   buildMinimumObstacleRemovalToReachCornerTrace,
+  buildSwimInRisingWaterTrace,
   buildShortestPathToGetFoodTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
@@ -44,6 +45,7 @@ import {
   defaultNearestExitFromEntranceInMazeInput,
   defaultShortestPathGridWithObstaclesEliminationInput,
   defaultMinimumObstacleRemovalToReachCornerInput,
+  defaultSwimInRisingWaterInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -424,6 +426,12 @@ describe("graph execution engine", () => {
         "minimum-obstacle-removal-to-reach-corner"
       )
     ).toEqual(defaultMinimumObstacleRemovalToReachCornerInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultSwimInRisingWaterInput),
+        "swim-in-rising-water"
+      )
+    ).toEqual(defaultSwimInRisingWaterInput);
     expect(parseGraphInputText(serializeGraphInput(defaultZeroOneMatrixInput), "01-matrix")).toEqual(
       defaultZeroOneMatrixInput
     );
@@ -1033,6 +1041,65 @@ describe("graph execution engine", () => {
       "3,3"
     ]);
     expect(detourFinalStep.state.removedObstacleCells).toEqual([]);
+  });
+
+  it("records deterministic swim routes and weighted water-level detours", () => {
+    const firstTrace = buildSwimInRisingWaterTrace(defaultSwimInRisingWaterInput);
+    const secondTrace = buildSwimInRisingWaterTrace(defaultSwimInRisingWaterInput);
+    const detourTrace = buildSwimInRisingWaterTrace({
+      grid: [
+        [0, 7, 8, 9],
+        [1, 2, 3, 10],
+        [12, 13, 4, 11],
+        [15, 14, 5, 6]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const detourFinalStep = detourTrace.steps[detourTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("swim-in-rising-water");
+    if (referenceFinalStep.state.kind !== "swim-in-rising-water") {
+      throw new Error("Expected the swim-in-rising-water graph state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.swimTime).toBe(16);
+    expect(referenceFinalStep.state.path).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "0,3",
+      "0,4",
+      "1,4",
+      "2,4",
+      "2,3",
+      "2,2",
+      "2,1",
+      "2,0",
+      "3,0",
+      "4,0",
+      "4,1",
+      "4,2",
+      "4,3",
+      "4,4"
+    ]);
+
+    expect(detourFinalStep.phase).toBe("Resolution");
+    expect(detourFinalStep.state.kind).toBe("swim-in-rising-water");
+    if (detourFinalStep.state.kind !== "swim-in-rising-water") {
+      throw new Error("Expected the swim-in-rising-water graph state.");
+    }
+    expect(detourFinalStep.state.swimTime).toBe(6);
+    expect(detourFinalStep.state.path).toEqual([
+      "0,0",
+      "1,0",
+      "1,1",
+      "1,2",
+      "2,2",
+      "3,2",
+      "3,3"
+    ]);
   });
 
   it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {

@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `nearest-exit-from-entrance-in-maze`, `shortest-path-in-a-grid-with-obstacles-elimination`, `minimum-obstacle-removal-to-reach-corner`, `shortest-path-to-get-food`, `01-matrix`, `as-far-from-land-as-possible`, `map-of-highest-peak`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `nearest-exit-from-entrance-in-maze`, `shortest-path-in-a-grid-with-obstacles-elimination`, `minimum-obstacle-removal-to-reach-corner`, `swim-in-rising-water`, `shortest-path-to-get-food`, `01-matrix`, `as-far-from-land-as-possible`, `map-of-highest-peak`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -145,6 +145,10 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.sealed-maze-exit`: curated corridor maze where the only boundary opening remains unreachable
 - `graph.reference-obstacle-elimination`: curated blocked grid where one obstacle spend shortens the route
 - `graph.trapped-obstacle-budget`: curated blocked grid where the elimination budget still cannot reach the target
+- `graph.reference-minimum-obstacle-removal`: curated weighted blocked grid where replay records the cheapest removal route
+- `graph.zero-removal-detour`: curated weighted blocked grid where a longer open detour beats direct obstacle cuts
+- `graph.reference-rising-water`: curated elevation basin where replay publishes the first route that survives the minimum tide
+- `graph.ridge-detour-swim`: curated elevation grid where a lower-water detour overtakes a tempting ridge
 - `graph.reference-food-path`: curated pantry corridor with one deterministic route to the food
 - `graph.sealed-food-path`: curated pantry corridor where the food remains isolated behind walls
 - `graph.reference-zero-matrix`: curated nearest-zero matrix where BFS distance fills fan out from several zero sources
@@ -190,6 +194,10 @@ The binary-matrix path presets resolve for Shortest Path in Binary Matrix and us
 The maze-exit presets resolve for Nearest Exit from Entrance in Maze and use `{ "grid": string[][], "entrance": [row, column] }` as the normalized contract, where `"."` is an open corridor cell, `"+"` is a wall, and the entrance must point at an open cell. The curated pair covers one reachable boundary exit and one isolated boundary exit so replay can show both traceback and stalled-frontier `-1` outcomes.
 
 The obstacle-budget presets resolve for Shortest Path in a Grid with Obstacles Elimination and use `{ "grid": number[][], "eliminations": number }` as the normalized contract, where `0` is open, `1` is an obstacle, the top-left and bottom-right cells must stay open, and `eliminations` is a non-negative integer budget capped at `8`. The curated pair covers one reachable shortest route that spends budget and one blocked layout where the budget still cannot reach the target, so replay can show both augmented-state traceback and stalled-frontier `-1` outcomes.
+
+The minimum-removal presets resolve for Minimum Obstacle Removal to Reach Corner and use `{ "grid": number[][] }` as the normalized contract, where `0` is open, `1` is a removable obstacle, and the top-left source plus bottom-right target are implied by grid position. The curated pair covers one route that must remove obstacles and one longer detour that wins with zero removals so replay can show both 0-1 BFS cost ordering and explicit traceback through the cheapest route.
+
+The rising-water presets resolve for Swim in Rising Water and use `{ "grid": number[][] }` as the normalized contract, where each cell is a non-negative integer elevation, the grid must stay square, and the top-left plus bottom-right cells are the implicit source and target. The curated pair covers one canonical basin and one ridge-detour layout so replay can show deterministic weighted-frontier ordering, minimum-water relaxations, and explicit traceback into the route that survives the lowest tide.
 
 The food-path presets resolve for Shortest Path to Get Food and use `{ "grid": string[][] }` as the normalized contract, where `"*"` is the start, `"#"` is the food target, `"O"` is open pantry space, and `"X"` is a wall. The curated pair covers one reachable food route and one isolated food target so replay can show both traceback and stalled-frontier `-1` outcomes.
 

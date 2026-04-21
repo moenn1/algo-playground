@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Swim in Rising Water, including deterministic weighted-frontier ordering, explicit minimum-water relaxations, and replay-safe traceback that records the route surviving the lowest tide.
+- Wired Swim in Rising Water through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct weighted elevation-grid pathfinding problem alongside minimum-removal deque replay, maze exits, obstacle-budget replay, pantry routes, nearest-zero matrices, shoreline distances, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 49 algorithms with runs, 98 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Minimum Obstacle Removal to Reach Corner, including deterministic 0-1 BFS deque ordering, explicit minimum-removal relaxations, and replay-safe traceback that records both the optimal route and the obstacles actually removed.
 - Wired Minimum Obstacle Removal to Reach Corner through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct weighted blocked-grid pathfinding problem alongside maze exits, obstacle-budget replay, pantry routes, nearest-zero matrices, shoreline distances, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 48 algorithms with runs, 96 total runs, and 2 saved comparisons.

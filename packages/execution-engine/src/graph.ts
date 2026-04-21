@@ -27,6 +27,7 @@ export type GraphAlgorithmId =
   | "nearest-exit-from-entrance-in-maze"
   | "shortest-path-in-a-grid-with-obstacles-elimination"
   | "minimum-obstacle-removal-to-reach-corner"
+  | "swim-in-rising-water"
   | "shortest-path-to-get-food"
   | "01-matrix"
   | "as-far-from-land-as-possible"
@@ -55,6 +56,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "nearest-exit-from-entrance-in-maze",
   "shortest-path-in-a-grid-with-obstacles-elimination",
   "minimum-obstacle-removal-to-reach-corner",
+  "swim-in-rising-water",
   "shortest-path-to-get-food",
   "01-matrix",
   "as-far-from-land-as-possible",
@@ -115,6 +117,10 @@ export interface MinimumObstacleRemovalToReachCornerInput extends JsonObject {
   grid: number[][];
 }
 
+export interface SwimInRisingWaterInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface ShortestPathToGetFoodInput extends JsonObject {
   grid: string[][];
 }
@@ -151,6 +157,7 @@ export type GraphInput =
   | NearestExitFromEntranceInMazeInput
   | ShortestPathGridWithObstaclesEliminationInput
   | MinimumObstacleRemovalToReachCornerInput
+  | SwimInRisingWaterInput
   | ShortestPathToGetFoodInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
@@ -444,6 +451,23 @@ export interface MinimumObstacleRemovalToReachCornerExecutionState extends JsonO
   minimumRemovals: number | null;
 }
 
+export interface SwimInRisingWaterExecutionState extends JsonObject {
+  kind: "swim-in-rising-water";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  currentWaterLevel: number | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  visitedCells: string[];
+  bestTimeByCell: Record<string, number>;
+  swimTime: number | null;
+}
+
 export interface ShortestPathToGetFoodExecutionState extends JsonObject {
   kind: "shortest-path-to-get-food";
   grid: string[][];
@@ -557,6 +581,7 @@ export type GraphExecutionState =
   | NearestExitFromEntranceInMazeExecutionState
   | ShortestPathGridWithObstaclesEliminationExecutionState
   | MinimumObstacleRemovalToReachCornerExecutionState
+  | SwimInRisingWaterExecutionState
   | ShortestPathToGetFoodExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
@@ -851,6 +876,22 @@ interface MinimumObstacleRemovalToReachCornerRuntimeState {
   minimumRemovals: number | null;
 }
 
+interface SwimInRisingWaterRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  currentWaterLevel: number | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  visitedCells: Set<string>;
+  bestTimeByCell: Record<string, number>;
+  swimTime: number | null;
+}
+
 interface ZeroOneMatrixRuntimeState {
   grid: number[][];
   settled: string[];
@@ -1043,6 +1084,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "minimum-obstacle-removal-to-reach-corner",
     label: "Minimum Obstacle Removal to Reach Corner",
     implementationVersion: "graph-engine-0.22.0"
+  },
+  "swim-in-rising-water": {
+    id: "swim-in-rising-water",
+    label: "Swim in Rising Water",
+    implementationVersion: "graph-engine-0.23.0"
   },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
@@ -1300,6 +1346,16 @@ export const defaultMinimumObstacleRemovalToReachCornerInput: MinimumObstacleRem
       [1, 1, 0]
     ]
   };
+
+export const defaultSwimInRisingWaterInput: SwimInRisingWaterInput = {
+  grid: [
+    [0, 1, 2, 3, 4],
+    [24, 23, 22, 21, 5],
+    [12, 13, 14, 15, 16],
+    [11, 17, 18, 19, 20],
+    [10, 9, 8, 7, 6]
+  ]
+};
 
 export const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInput = {
   grid: [
@@ -1798,6 +1854,27 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       },
       removedObstacleCells: state.removedObstacleCells.slice(),
       minimumRemovals: state.minimumRemovals
+    };
+  }
+
+  if (state.kind === "swim-in-rising-water") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      currentWaterLevel: state.currentWaterLevel,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      start: state.start,
+      target: state.target,
+      path: state.path.slice(),
+      visitedCells: state.visitedCells.slice(),
+      bestTimeByCell: {
+        ...state.bestTimeByCell
+      },
+      swimTime: state.swimTime
     };
   }
 
@@ -2496,6 +2573,56 @@ function normalizeMinimumObstacleRemovalToReachCornerInput(
   };
 }
 
+function normalizeSwimInRisingWaterInput(candidate: unknown): SwimInRisingWaterInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Swim in Rising Water input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Swim in Rising Water input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Swim in Rising Water input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty integer row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be a non-negative integer.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Swim in Rising Water input rows must all be the same length.");
+  }
+
+  if (grid.length !== columnCount) {
+    throw new Error("Swim in Rising Water input must use a square grid.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(candidate: unknown): ShortestPathToGetFoodInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Shortest Path to Get Food input must be an object with a grid field.");
@@ -2860,6 +2987,8 @@ export function parseGraphInputText(
       return normalizeShortestPathGridWithObstaclesEliminationInput(parsed);
     case "minimum-obstacle-removal-to-reach-corner":
       return normalizeMinimumObstacleRemovalToReachCornerInput(parsed);
+    case "swim-in-rising-water":
+      return normalizeSwimInRisingWaterInput(parsed);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(parsed);
     case "01-matrix":
@@ -2913,6 +3042,8 @@ export function normalizeGraphInput(
       return normalizeShortestPathGridWithObstaclesEliminationInput(input);
     case "minimum-obstacle-removal-to-reach-corner":
       return normalizeMinimumObstacleRemovalToReachCornerInput(input);
+    case "swim-in-rising-water":
+      return normalizeSwimInRisingWaterInput(input);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(input);
     case "01-matrix":
@@ -3441,6 +3572,37 @@ function updateZeroOneFrontier(
   frontier.splice(insertIndex, 0, cell);
 }
 
+function insertWeightedCellFrontier(
+  frontier: string[],
+  cell: string,
+  bestCostByCell: Record<string, number>
+) {
+  const existingIndex = frontier.indexOf(cell);
+
+  if (existingIndex >= 0) {
+    frontier.splice(existingIndex, 1);
+  }
+
+  const cellCost = bestCostByCell[cell] ?? Number.POSITIVE_INFINITY;
+  let insertIndex = 0;
+
+  while (insertIndex < frontier.length) {
+    const frontierCell = frontier[insertIndex]!;
+    const frontierCost = bestCostByCell[frontierCell] ?? Number.POSITIVE_INFINITY;
+
+    if (
+      cellCost < frontierCost ||
+      (cellCost === frontierCost && compareCellIds(cell, frontierCell) < 0)
+    ) {
+      break;
+    }
+
+    insertIndex += 1;
+  }
+
+  frontier.splice(insertIndex, 0, cell);
+}
+
 function getNeighborCellIds(
   row: number,
   column: number,
@@ -3786,6 +3948,33 @@ function createMinimumObstacleRemovalToReachCornerRecorder() {
   });
 }
 
+function createSwimInRisingWaterRecorder() {
+  return createTraceRecorder<SwimInRisingWaterRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "swim-in-rising-water",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "swim-in-rising-water",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        currentWaterLevel: runtimeState.currentWaterLevel,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        start: runtimeState.start,
+        target: runtimeState.target,
+        path: runtimeState.path.slice(),
+        visitedCells: Array.from(runtimeState.visitedCells).sort(compareCellIds),
+        bestTimeByCell: {
+          ...runtimeState.bestTimeByCell
+        },
+        swimTime: runtimeState.swimTime
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createShortestPathToGetFoodRecorder() {
   return createTraceRecorder<
     ShortestPathToGetFoodRuntimeState,
@@ -3968,6 +4157,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createNearestExitFromEntranceInMazeRecorder>
     | ReturnType<typeof createShortestPathGridWithObstaclesEliminationRecorder>
     | ReturnType<typeof createMinimumObstacleRemovalToReachCornerRecorder>
+    | ReturnType<typeof createSwimInRisingWaterRecorder>
     | ReturnType<typeof createShortestPathToGetFoodRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
@@ -10329,6 +10519,338 @@ export function buildMinimumObstacleRemovalToReachCornerTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildSwimInRisingWaterTrace(
+  input: SwimInRisingWaterInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["swim-in-rising-water"];
+  const normalizedInput = normalizeSwimInRisingWaterInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const startCell = makeCellId(0, 0);
+  const targetCell = makeCellId(rowCount - 1, columnCount - 1);
+  const settled: string[] = [];
+  const frontier: string[] = [startCell];
+  const visitedCells = new Set<string>([startCell]);
+  const path: string[] = [];
+  const bestTimeByCell: Record<string, number> = {
+    [startCell]: grid[0]![0]!
+  };
+  const predecessors = new Map<string, string>();
+  const recorder = createSwimInRisingWaterRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let currentWaterLevel: number | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let swimTime: number | null = null;
+
+  const createRuntimeState = (): SwimInRisingWaterRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    currentWaterLevel,
+    activeEdge,
+    phaseMode,
+    start: startCell,
+    target: targetCell,
+    path,
+    visitedCells,
+    bestTimeByCell,
+    swimTime
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description: `${formatCellLabel(startCell)} seeds the weighted grid search at water level ${grid[0]![0]!} before replay targets ${formatCellLabel(targetCell)}.`,
+    explanation: {
+      summary: "Publish the elevation grid, start cell, and destination before the weighted frontier expansion begins.",
+      details:
+        "The opening frame keeps the initial water level and best-time ledger explicit so later frontier reordering never depends on hidden priority-queue state in the browser.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "swim-in-rising-water-initial",
+        path: "state.target",
+        kind: "node",
+        intent: "focus",
+        label: `Target ${formatCellLabel(targetCell)}`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const extractedCell = frontier.shift();
+
+    if (!extractedCell) {
+      break;
+    }
+
+    current = extractedCell;
+    currentWaterLevel = bestTimeByCell[extractedCell] ?? null;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(extractedCell)} leaves the weighted frontier with current water level ${currentWaterLevel ?? 0}.`,
+      explanation: {
+        summary: "Extract the grid cell with the lightest recorded swim time.",
+        details:
+          "The weighted frontier stays deterministic: lower swim time first, then cell order as a stable tie-break whenever two routes reach the same water level.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `swim-in-rising-water-current-${extractedCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `${formatCellLabel(extractedCell)} · t=${currentWaterLevel ?? 0}`
+        }
+      ]
+    });
+
+    if (extractedCell === targetCell) {
+      settled.push(extractedCell);
+      metrics.settled = settled.length;
+      swimTime = currentWaterLevel ?? 0;
+
+      recorder.push({
+        phase: "Target",
+        description: `${formatCellLabel(extractedCell)} is extracted at water level ${swimTime}, so replay can stop search and switch to traceback.`,
+        explanation: {
+          summary: "Seal the destination once its weighted frontier cost becomes final.",
+          details:
+            "This is a grid-shaped Dijkstra run: once the target leaves the frontier, the recorded swim time is the minimum water level that permits a full route.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: "swim-in-rising-water-target",
+            path: "state.target",
+            kind: "node",
+            intent: "result",
+            label: `Target ${formatCellLabel(extractedCell)}`
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row, column } = parseCellId(extractedCell);
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const candidateWaterLevel = Math.max(currentWaterLevel ?? 0, grid[neighborRow]![neighborColumn]!);
+      const bestSeen = bestTimeByCell[neighbor];
+
+      activeEdge = [extractedCell, neighbor];
+      metrics.inspections += 1;
+
+      if (typeof bestSeen === "number" && candidateWaterLevel >= bestSeen) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the recorded swim time ${bestSeen} because the candidate route would require water level ${candidateWaterLevel}.`,
+          explanation: {
+            summary: "Skip a non-improving weighted grid relaxation.",
+            details:
+              "The best-time ledger is recorded directly in the trace, so replay can justify every discarded route without re-running the weighted frontier.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `swim-in-rising-water-skip-${extractedCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.bestTimeByCell",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} stays at ${bestSeen}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      bestTimeByCell[neighbor] = candidateWaterLevel;
+      predecessors.set(neighbor, extractedCell);
+      insertWeightedCellFrontier(frontier, neighbor, bestTimeByCell);
+      visitedCells.add(neighbor);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: neighbor === targetCell ? "Target Candidate" : "Relax",
+        description:
+          neighbor === targetCell
+            ? `${formatCellLabel(neighbor)} becomes a target candidate at water level ${candidateWaterLevel}, but replay waits for frontier extraction before sealing the answer.`
+            : `${formatCellLabel(neighbor)} improves to swim time ${candidateWaterLevel} and rejoins the weighted frontier in deterministic cost order.`,
+        explanation: {
+          summary:
+            neighbor === targetCell
+              ? "Queue the destination with its new swim time without publishing the result early."
+              : "Record one improved weighted route and refresh the frontier ordering.",
+          details:
+            "Each relax frame stores the best-time ledger and reordered frontier directly so replay can explain why one elevation path overtakes another.",
+          tags: ["frontier", "candidate"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `swim-in-rising-water-relax-${extractedCell}-${neighbor}-${metrics.updates}`,
+            path: neighbor === targetCell ? "state.target" : "state.frontier",
+            kind: neighbor === targetCell ? "node" : "collection",
+            intent: neighbor === targetCell ? "candidate" : "frontier",
+            label:
+              neighbor === targetCell
+                ? `Target t=${candidateWaterLevel}`
+                : `${formatCellLabel(neighbor)} · t=${candidateWaterLevel}`
+          }
+        ]
+      });
+    }
+
+    settled.push(extractedCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(extractedCell)} is settled with final swim time ${currentWaterLevel ?? 0}.`,
+      explanation: {
+        summary: "Seal one weighted extraction after its improving relaxations are recorded.",
+        details:
+          "The settled ledger marks cells whose best swim time is final, which lets replay jump between checkpoints without re-running frontier churn.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `swim-in-rising-water-settled-${extractedCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(extractedCell)} · t=${currentWaterLevel ?? 0}`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "traceback";
+  current = targetCell;
+  currentWaterLevel = swimTime;
+  activeEdge = [];
+
+  recorder.push({
+    phase: "Traceback",
+    description:
+      "Switch from weighted frontier expansion to predecessor traceback so replay can publish the exact path that first survives the minimum water level.",
+    explanation: {
+      summary: "Begin reconstructing the winning swim route from the target back to the source.",
+      details:
+        "The traceback frames build the path ledger directly into the trace so the browser never has to infer which frontier decisions formed the final route.",
+      tags: ["checkpoint", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "swim-in-rising-water-traceback-start",
+        path: "state.phaseMode",
+        kind: "value",
+        intent: "focus",
+        label: "Traceback"
+      }
+    ]
+  });
+
+  let tracebackCell: string | null = targetCell;
+
+  while (tracebackCell) {
+    const previousCell: string | null = predecessors.get(tracebackCell) ?? null;
+
+    current = tracebackCell;
+    currentWaterLevel = bestTimeByCell[tracebackCell] ?? null;
+    activeEdge = previousCell ? [previousCell, tracebackCell] : [];
+    path.unshift(tracebackCell);
+
+    recorder.push({
+      phase: "Traceback",
+      description: previousCell
+        ? `${formatCellLabel(tracebackCell)} joins the swim route at water level ${currentWaterLevel ?? 0}, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+        : `${formatCellLabel(tracebackCell)} closes the route as the starting cell.`,
+      explanation: {
+        summary: previousCell
+          ? "Prepend one predecessor-linked cell to the final swim route."
+          : "Finish the route at the start cell.",
+        details:
+          "Each traceback frame keeps the path and best-time ledgers explicit, which lets replay explain the returned route without re-running the weighted search.",
+        tags: ["path", "checkpoint"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `swim-in-rising-water-path-${tracebackCell}-${path.length}`,
+          path: "state.path",
+          kind: "collection",
+          intent: "result",
+          label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+        }
+      ]
+    });
+
+    tracebackCell = previousCell;
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  currentWaterLevel = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The swim reaches ${formatCellLabel(targetCell)} once the water rises to ${swimTime ?? 0}.`,
+    explanation: {
+      summary: "Publish the final swim time together with the route that attains it.",
+      details:
+        "The terminal frame stores the answer, path, and best-time ledger directly so replay can justify the returned minimum water level without recomputing weighted grid state.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "swim-in-rising-water-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `Water level ${swimTime ?? 0}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestPathToGetFoodTrace(
   input: ShortestPathToGetFoodInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -12418,6 +12940,8 @@ export function buildGraphTrace(
       return buildMinimumObstacleRemovalToReachCornerTrace(
         graph as MinimumObstacleRemovalToReachCornerInput
       );
+    case "swim-in-rising-water":
+      return buildSwimInRisingWaterTrace(graph as SwimInRisingWaterInput);
     case "shortest-path-to-get-food":
       return buildShortestPathToGetFoodTrace(graph as ShortestPathToGetFoodInput);
     case "01-matrix":

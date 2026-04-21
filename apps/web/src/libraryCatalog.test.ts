@@ -207,6 +207,19 @@ describe("libraryCatalog", () => {
     );
   });
 
+  it("surfaces swim study paths through weighted-water metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "rising tide weighted frontier water-level traceback"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("swim-in-rising-water");
+  });
+
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

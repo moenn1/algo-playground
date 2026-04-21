@@ -36,6 +36,7 @@ import {
   defaultNearestExitFromEntranceInMazeInput,
   defaultShortestPathGridWithObstaclesEliminationInput,
   defaultMinimumObstacleRemovalToReachCornerInput,
+  defaultSwimInRisingWaterInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -380,6 +381,20 @@ export function isMinimumObstacleRemovalToReachCornerInput(
     !("eliminations" in input) &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
+export function isSwimInRisingWaterInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    !("entrance" in input) &&
+    !("eliminations" in input) &&
+    input.grid.length === input.grid[0]?.length &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && cell >= 0)
     )
   );
 }
@@ -1031,6 +1046,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "swim-in-rising-water",
+    name: "Swim in Rising Water",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Weighted elevation replay records Dijkstra-style frontier ordering, minimum-water relaxations, and explicit traceback into the first route that survives the rising tide.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a square grid of non-negative integer elevations.",
+    defaultInput: serializeGraphInput(defaultSwimInRisingWaterInput),
+    domain: "graph"
+  },
+  {
     id: "shortest-path-to-get-food",
     name: "Shortest Path to Get Food",
     badge: "Graph",
@@ -1367,6 +1394,7 @@ export function describeInputFootprint(run: ReplayRun): string {
     : isShortestPathGridWithObstaclesEliminationInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid / k ${run.input.eliminations}`
     : isMinimumObstacleRemovalToReachCornerInput(run.input)
+      || isSwimInRisingWaterInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
     : isRottingOrangesInput(run.input) ||
         isNumberOfIslandsInput(run.input) ||
