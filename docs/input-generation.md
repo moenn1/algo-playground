@@ -172,8 +172,10 @@ Both dynamic-programming presets currently resolve for Longest Common Subsequenc
 - `stack.early-mismatch`: curated crossing mismatch that fails on the first invalid closer
 - `stack.reference-forecast`: curated canonical forecast with multiple warmer-day resolutions
 - `stack.late-spike`: curated forecast where one late warm day resolves several waiting days at once
+- `stack.reference-histogram`: curated canonical skyline where one flush closes the widest rectangle after several deterministic pops
+- `stack.inner-valley`: curated valley-shaped skyline that forces several candidate rectangles to resolve before the final best span is clear
 
-The bracket presets resolve for Valid Parentheses. The forecast presets resolve for Daily Temperatures.
+The bracket presets resolve for Valid Parentheses. The forecast presets resolve for Daily Temperatures. The histogram presets resolve for Largest Rectangle in Histogram.
 
 ## Validation Rules
 
@@ -196,6 +198,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.
 - Valid Parentheses payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.
 - Daily Temperatures payloads must define between 2 and 24 integer temperatures in the inclusive range `0` through `150`.
+- Largest Rectangle in Histogram payloads must define between 1 and 24 integer heights in the inclusive range `0` through `150`.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

@@ -390,6 +390,36 @@ describe("buildRun", () => {
     expect(finalStep.state.resolvedWaits).toEqual([1, 1, 4, 2, 1, 1, 0, 0]);
     expect(finalStep.state.stackIndices).toEqual([6, 7]);
   });
+
+  it("builds histogram replay runs from the shared stack engine", () => {
+    const run = buildRun(
+      "largest-rectangle-in-histogram",
+      JSON.stringify(
+        {
+          heights: [2, 1, 5, 6, 2, 3]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "stack") {
+      throw new Error("Expected a stack run.");
+    }
+
+    const stackRun = run as StackRun;
+    const finalStep = stackRun.trace.steps[stackRun.trace.steps.length - 1]!;
+
+    expect(stackRun.algorithm.id).toBe("largest-rectangle-in-histogram");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("largest-rectangle-in-histogram");
+    if (finalStep.state.kind !== "largest-rectangle-in-histogram") {
+      throw new Error("Expected the histogram stack state.");
+    }
+    expect(finalStep.state.bestArea).toBe(10);
+    expect(finalStep.state.bestStart).toBe(2);
+    expect(finalStep.state.bestEnd).toBe(3);
+  });
 });
 
 describe("replay visualizations", () => {

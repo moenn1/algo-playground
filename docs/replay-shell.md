@@ -65,7 +65,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - The hash stage renders the active array slot, requested complement, insertion-ordered lookup table, and final matched pair directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
-- The stack stage renders either token-by-token validation status for Valid Parentheses or a temperature skyline plus unresolved-day stack for Daily Temperatures directly from the shared execution-engine snapshots.
+- The stack stage renders token-by-token validation status for Valid Parentheses, a temperature skyline plus unresolved-day stack for Daily Temperatures, or histogram bars with the candidate stack and best rectangle for Largest Rectangle in Histogram directly from the shared execution-engine snapshots.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
 - Graph replay now pairs the SVG network map with a structural-state rail for node status, distance inspection, and route focus so the interface can surface graph state without inventing browser-only metadata.
 - Saved-run history now lives on its own page and loads replay payloads on demand so persistence browsing stays responsive with larger trace payloads.

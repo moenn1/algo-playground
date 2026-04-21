@@ -158,10 +158,10 @@ const domainReference: Record<
     checkpoints: "Checkpoint stops separate table fill from traceback so large grids still stay readable in replay."
   },
   stack: {
-    lens: "Track unresolved stack entries, comparisons, and resolved outputs whether the problem is validating brackets or waiting for a warmer day.",
+    lens: "Track unresolved stack entries, comparisons, and resolved outputs whether the problem is validating brackets, waiting for warmer days, or closing histogram rectangles.",
     flow: "Stack playback records the active cursor, full stack contents, and per-step result signals directly in each snapshot instead of reconstructing browser-only state.",
-    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so monotonic-stack scans and bracket validation stay comparable inside one reusable runtime family.",
-    checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, or clean terminal ledger instead of inferring stack outcomes after the fact."
+    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so bracket validation and monotonic-stack scans stay comparable inside one reusable runtime family.",
+    checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, histogram pop, or clean terminal ledger instead of inferring stack outcomes after the fact."
   },
   graph: {
     lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
@@ -284,6 +284,17 @@ function isDailyTemperaturesStackStep(
   state: Extract<StackRun["trace"]["steps"][number]["state"], { kind: "daily-temperatures" }>;
 } {
   return step.state.kind === "daily-temperatures";
+}
+
+function isLargestRectangleStackStep(
+  step: StackRun["trace"]["steps"][number]
+): step is StackRun["trace"]["steps"][number] & {
+  state: Extract<
+    StackRun["trace"]["steps"][number]["state"],
+    { kind: "largest-rectangle-in-histogram" }
+  >;
+} {
+  return step.state.kind === "largest-rectangle-in-histogram";
 }
 
 function formatGridCoordinate(cell: number[]): string | null {
@@ -617,19 +628,39 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return "Awaiting first token";
     }
 
-    if (step.state.currentResolvedIndex !== null && step.state.currentWait !== null) {
-      return `Resolve day ${step.state.currentResolvedIndex} in ${step.state.currentWait} day${step.state.currentWait === 1 ? "" : "s"}`;
+    if (isDailyTemperaturesStackStep(step)) {
+      if (step.state.currentResolvedIndex !== null && step.state.currentWait !== null) {
+        return `Resolve day ${step.state.currentResolvedIndex} in ${step.state.currentWait} day${step.state.currentWait === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.cursor !== null && step.state.currentTemperature !== null) {
+        return `Inspect day ${step.state.cursor} = ${step.state.currentTemperature}°`;
+      }
+
+      if (step.state.stackIndices.length > 0) {
+        return `${step.state.stackIndices.length} unresolved day${step.state.stackIndices.length === 1 ? "" : "s"}`;
+      }
+
+      return "Forecast settled";
     }
 
-    if (step.state.cursor !== null && step.state.currentTemperature !== null) {
-      return `Inspect day ${step.state.cursor} = ${step.state.currentTemperature}°`;
+    if (step.state.currentResolvedIndex !== null && step.state.currentArea !== null) {
+      return `Resolve area ${step.state.currentArea} from bar ${step.state.currentResolvedIndex}`;
+    }
+
+    if (step.state.cursor !== null && step.state.currentHeight !== null) {
+      return `Inspect bar ${step.state.cursor} = ${step.state.currentHeight}`;
+    }
+
+    if (step.state.bestArea > 0 && step.state.bestStart !== null && step.state.bestEnd !== null) {
+      return `Best area ${step.state.bestArea} across ${step.state.bestStart}-${step.state.bestEnd}`;
     }
 
     if (step.state.stackIndices.length > 0) {
-      return `${step.state.stackIndices.length} unresolved day${step.state.stackIndices.length === 1 ? "" : "s"}`;
+      return `${step.state.stackIndices.length} candidate bar${step.state.stackIndices.length === 1 ? "" : "s"}`;
     }
 
-    return "Forecast settled";
+    return "Histogram settled";
   }
 
   const step = getRunStep(run, stepIndex);
@@ -896,18 +927,37 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
                 return `${stackStep.state.processedIndices.length} tokens processed`;
               }
 
+              if (isDailyTemperaturesStackStep(stackStep)) {
+                if (
+                  stackStep.state.currentResolvedIndex !== null &&
+                  stackStep.state.currentWait !== null
+                ) {
+                  return `Resolved day ${stackStep.state.currentResolvedIndex} with wait ${stackStep.state.currentWait}`;
+                }
+
+                if (stackStep.state.stackIndices.length > 0) {
+                  return `${stackStep.state.stackIndices.length} unresolved day(s) pending`;
+                }
+
+                return `${stackStep.state.processedIndices.length} days scanned`;
+              }
+
               if (
                 stackStep.state.currentResolvedIndex !== null &&
-                stackStep.state.currentWait !== null
+                stackStep.state.currentArea !== null
               ) {
-                return `Resolved day ${stackStep.state.currentResolvedIndex} with wait ${stackStep.state.currentWait}`;
+                return `Resolved area ${stackStep.state.currentArea} from bar ${stackStep.state.currentResolvedIndex}`;
+              }
+
+              if (stackStep.state.bestArea > 0) {
+                return `Best area ${stackStep.state.bestArea}`;
               }
 
               if (stackStep.state.stackIndices.length > 0) {
-                return `${stackStep.state.stackIndices.length} unresolved day(s) pending`;
+                return `${stackStep.state.stackIndices.length} candidate bar(s) pending`;
               }
 
-              return `${stackStep.state.processedIndices.length} days scanned`;
+              return `${stackStep.state.processedIndices.length} bars scanned`;
             })()
         : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
@@ -1545,6 +1595,46 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
             {step.state.temperatures.map((temperature, index) => (
               <span className="number-pill" key={`stack-temperature-pill-${index}`}>
                 {index}:{temperature}°/{step.state.resolvedWaits[index]}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    if (isLargestRectangleStackStep(step)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Current bar</span>
+              <strong>
+                {step.state.cursor !== null && step.state.currentHeight !== null
+                  ? `${step.state.cursor}:${step.state.currentHeight}`
+                  : "Done"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Comparison bar</span>
+              <strong>
+                {step.state.comparisonIndex !== null
+                  ? `Bar ${step.state.comparisonIndex}`
+                  : "None"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Candidate stack</span>
+              <strong>{step.state.stackIndices.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Best area</span>
+              <strong>{step.state.bestArea}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.heights.map((height, index) => (
+              <span className="number-pill" key={`stack-histogram-pill-${index}`}>
+                {index}:{height}
               </span>
             ))}
           </div>

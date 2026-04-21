@@ -2,6 +2,7 @@ import {
   type DailyTemperaturesExecutionState,
   type ContainerWithMostWaterExecutionState,
   type GraphExecutionState,
+  type LargestRectangleInHistogramExecutionState,
   type SortingExecutionState,
   type ValidParenthesesExecutionState,
   type TrappingRainWaterExecutionState,
@@ -282,6 +283,12 @@ function isDailyTemperaturesStackState(
   return state.kind === "daily-temperatures";
 }
 
+function isLargestRectangleStackState(
+  state: StackRun["trace"]["steps"][number]["state"]
+): state is LargestRectangleInHistogramExecutionState {
+  return state.kind === "largest-rectangle-in-histogram";
+}
+
 function formatDailyTemperatureStatus(
   index: number,
   step: TraceStep<DailyTemperaturesExecutionState>
@@ -308,6 +315,42 @@ function formatDailyTemperatureStatus(
 
   if (step.phase === "Done") {
     return "No warmer day";
+  }
+
+  if (step.state.processedIndices.includes(index)) {
+    return "Scanned";
+  }
+
+  return "Pending";
+}
+
+function formatLargestRectangleStatus(
+  index: number,
+  step: TraceStep<LargestRectangleInHistogramExecutionState>
+): string {
+  if (step.state.cursor === index) {
+    return "Current";
+  }
+
+  if (step.state.comparisonIndex === index) {
+    return "Compare";
+  }
+
+  if (step.state.currentResolvedIndex === index && step.state.currentArea !== null) {
+    return `Area ${step.state.currentArea}`;
+  }
+
+  if (step.state.stackIndices.includes(index)) {
+    return "Candidate";
+  }
+
+  if (
+    step.state.bestStart !== null &&
+    step.state.bestEnd !== null &&
+    index >= step.state.bestStart &&
+    index <= step.state.bestEnd
+  ) {
+    return "Best span";
   }
 
   if (step.state.processedIndices.includes(index)) {
@@ -865,6 +908,146 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
 
 export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+
+  if (isLargestRectangleStackState(step.state)) {
+    const minHeight = Math.min(...step.state.heights);
+    const maxHeight = Math.max(...step.state.heights);
+    const range = Math.max(1, maxHeight - minHeight);
+    const waitingLabel =
+      step.state.stackIndices.length > 0
+        ? step.state.stackIndices.map((index) => `Bar ${index}`).join(", ")
+        : "No candidate bars";
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} stack</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="stack-stage">
+          <div className="stack-banner">
+            <span>{step.state.heights.length} histogram bars queued</span>
+            <strong>
+              {step.state.cursor !== null && step.state.currentHeight !== null
+                ? `Inspect bar ${step.state.cursor} = ${step.state.currentHeight}`
+                : step.phase === "Flush"
+                  ? "Flush remaining candidates"
+                  : "Histogram settled"}
+            </strong>
+            <p>
+              {step.state.currentResolvedIndex !== null &&
+              step.state.currentArea !== null &&
+              step.state.currentSpanStart !== null &&
+              step.state.currentSpanEnd !== null
+                ? `Bar ${step.state.currentResolvedIndex} closes area ${step.state.currentArea} across bars ${step.state.currentSpanStart}-${step.state.currentSpanEnd}.`
+                : step.state.comparisonIndex !== null && step.state.cursor !== null
+                  ? `Compare bar ${step.state.cursor} against stacked bar ${step.state.comparisonIndex}.`
+                  : step.phase === "Flush"
+                    ? "The terminal boundary is resolving every remaining candidate rectangle."
+                    : step.state.stackIndices.length > 0
+                      ? `${step.state.stackIndices.length} candidate bar${step.state.stackIndices.length === 1 ? "" : "s"} still define open left boundaries.`
+                      : "No candidate bar is waiting on the stack."}
+            </p>
+          </div>
+          <div className="stack-visual-grid">
+            <div className="sort-stage" aria-label="Histogram state">
+              {step.state.heights.map((height, index) => {
+                const isBest =
+                  step.state.bestStart !== null &&
+                  step.state.bestEnd !== null &&
+                  index >= step.state.bestStart &&
+                  index <= step.state.bestEnd;
+                const classes = [
+                  "sort-bar",
+                  step.state.cursor === index ? "sort-bar-active" : "",
+                  step.state.comparisonIndex === index ? "sort-bar-swap" : "",
+                  step.state.currentResolvedIndex === index || isBest ? "sort-bar-sorted" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <div className={classes} key={`histogram-${index}-${height}`}>
+                    <span className="sort-bar-value">{height}</span>
+                    <div
+                      className="sort-bar-rod"
+                      style={{ height: `${18 + ((height - minHeight + 1) / (range + 1)) * 180}px` }}
+                    />
+                    <span className="sort-bar-index">{index}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="stack-stack-rail">
+              <article className="mini-card">
+                <span>Candidate stack</span>
+                <strong>{step.state.stackIndices.length} bar(s)</strong>
+                <p>{waitingLabel}</p>
+              </article>
+              <div className="stack-stack-grid">
+                {step.state.stackIndices.length > 0 ? (
+                  [...step.state.stackIndices]
+                    .map((bar, index) => ({
+                      bar,
+                      height: step.state.stackHeights[index] ?? null
+                    }))
+                    .reverse()
+                    .map(({ bar, height }, index) => (
+                      <article className="stack-frame-card" key={`histogram-frame-${bar}`}>
+                        <span>{index === 0 ? "Top" : `Depth ${index}`}</span>
+                        <strong>{height !== null ? `${height}` : "Pending"}</strong>
+                        <p>Bar {bar} remains an open left boundary</p>
+                      </article>
+                    ))
+                ) : (
+                  <div className="stack-frame-empty">Stack empty</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Current bar</span>
+            <strong>{step.state.cursor !== null ? step.state.cursor : "Done"}</strong>
+            <p>{step.state.currentHeight !== null ? `Height ${step.state.currentHeight}` : "No active bar"}</p>
+          </div>
+          <div className="mini-card">
+            <span>Comparison</span>
+            <strong>{step.state.comparisonIndex !== null ? `Bar ${step.state.comparisonIndex}` : "None"}</strong>
+            <p>
+              {step.state.comparisonIndex !== null
+                ? `Height ${step.state.heights[step.state.comparisonIndex]}`
+                : "No stacked bar under inspection"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Best rectangle</span>
+            <strong>{step.state.bestArea}</strong>
+            <p>
+              {step.state.bestStart !== null && step.state.bestEnd !== null
+                ? `Bars ${step.state.bestStart}-${step.state.bestEnd} at height ${step.state.bestHeight ?? "?"}`
+                : "No rectangle recorded yet"}
+            </p>
+          </div>
+        </div>
+        <div className="sort-lane-strip" aria-label="Histogram ledger">
+          {step.state.heights.map((height, index) => (
+            <article className="lane-chip lane-chip-idle" key={`histogram-ledger-${index}`}>
+              <div className="lane-chip-header">
+                <span>Bar {index}</span>
+                <strong>{height}</strong>
+              </div>
+              <span className="lane-chip-status">{formatLargestRectangleStatus(index, step)}</span>
+            </article>
+          ))}
+        </div>
+      </>
+    );
+  }
 
   if (isDailyTemperaturesStackState(step.state)) {
     const minTemperature = Math.min(...step.state.temperatures);

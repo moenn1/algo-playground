@@ -46,6 +46,8 @@ The demo seed currently materializes:
 - Valid Parentheses on `stack.early-mismatch`
 - Daily Temperatures on `stack.reference-forecast`
 - Daily Temperatures on `stack.late-spike`
+- Largest Rectangle in Histogram on `stack.reference-histogram`
+- Largest Rectangle in Histogram on `stack.inner-valley`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

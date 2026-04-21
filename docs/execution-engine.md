@@ -167,19 +167,20 @@ The runtime records explicit `Initialization`, `Sort`, `Seed Active`, `Compare`,
 
 ## Stack Runtime Model
 
-The stack runtime family now covers both bracket validation and monotonic-stack wait resolution:
+The stack runtime family now covers bracket validation, monotonic-stack wait resolution, and histogram rectangle resolution:
 
 - Valid Parentheses records `state.expression`, `state.currentChar`, `state.stackTokens`, `state.stackIndices`, `state.matchedPairs`, `state.expectedCloser`, `state.failureIndex`, `state.failureReason`, and terminal `state.valid`
 - Daily Temperatures records `state.temperatures`, `state.currentTemperature`, `state.comparisonIndex`, `state.stackIndices`, `state.stackTemperatures`, `state.resolvedWaits`, `state.currentResolvedIndex`, and `state.currentWait`
-- Both algorithms share `state.cursor` and `state.processedIndices` so replay can frame one active scan position and one deterministic processed-prefix ledger
+- Largest Rectangle in Histogram records `state.heights`, `state.currentHeight`, `state.comparisonIndex`, `state.stackIndices`, `state.stackHeights`, `state.currentResolvedIndex`, `state.currentArea`, `state.currentWidth`, `state.currentSpanStart`, `state.currentSpanEnd`, `state.bestArea`, `state.bestStart`, `state.bestEnd`, and `state.bestHeight`
+- All stack algorithms share `state.cursor` and `state.processedIndices` so replay can frame one active scan position and one deterministic processed-prefix ledger
 
-Shared stack metrics keep stack work legible across both algorithms:
+Shared stack metrics keep stack work legible across all three algorithms:
 
 - `comparisons`: closer checks or monotonic-stack comparisons performed so far
 - `pushes`: stack entries pushed onto the stack so far
 - `pops`: matched or resolved stack entries popped so far
 
-The runtime records explicit `Initialization` and `Push` checkpoints for both algorithms. Valid Parentheses adds `Match`, `Reject`, `Unclosed`, and terminal `Done` frames, while Daily Temperatures adds `Inspect`, `Compare`, `Resolve`, and terminal `Done` frames so replay can jump directly to a mismatch, a warmer-day burst, or the final wait ledger without replay-time inference.
+The runtime records explicit `Initialization` and `Push` checkpoints for all stack algorithms. Valid Parentheses adds `Match`, `Reject`, `Unclosed`, and terminal `Done` frames. Daily Temperatures adds `Inspect`, `Compare`, `Resolve`, and terminal `Done` frames. Largest Rectangle in Histogram adds `Inspect`, `Compare`, `Resolve`, `Flush`, and terminal `Done` frames so replay can jump directly to a mismatch, a warmer-day burst, a resolved rectangle span, or the final best-area ledger without replay-time inference.
 
 ## Graph Runtime Model
 
@@ -217,11 +218,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
 - Valid Parentheses records opener pushes, closer matches, and terminal mismatch frames explicitly so replay can restore the exact stack and failure reason for any token boundary.
 - Daily Temperatures records monotonic-stack comparisons, resolved waits, and terminal zero-wait days explicitly so replay can restore the exact unresolved-day stack and final wait ledger for any frame.
+- Largest Rectangle in Histogram records stack comparisons, resolved span widths, deterministic best-rectangle updates, and final flush work explicitly so replay can restore the exact candidate stack and best-area ledger for any frame.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, BFS replay, and Dijkstra replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, BFS replay, and Dijkstra replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -233,12 +233,24 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons, pushes, and pops reveal how much monotonic-stack churn happened before the forecast fully settled.",
     skills: ["monotonic stacks", "wait ledgers", "burst resolutions"],
     spotlight: "A high-signal stack problem that shows how one reusable stack runtime can power more than bracket validation.",
-    nextAlgorithmIds: ["trapping-rain-water", "minimum-size-subarray-sum"]
+    nextAlgorithmIds: ["largest-rectangle-in-histogram", "trapping-rain-water"]
+  },
+  "largest-rectangle-in-histogram": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 9,
+    timeToExplore: "7 min",
+    complexity: "Each shorter bar can collapse several older candidates at once, so the trace stays linear while the rectangle story changes abruptly.",
+    outcome: "See exactly when a monotonic-stack pop settles a rectangle width, when the best area improves, and how the terminal boundary flush closes the last candidates.",
+    metricsLens: "Comparisons, pushes, and pops expose how much histogram churn happened before the widest rectangle was proven.",
+    skills: ["histogram spans", "monotonic stacks", "area resolution"],
+    spotlight: "A classic stack staple that reuses the same replay primitives while adding a more geometric rectangle story than bracket matching or wait ledgers.",
+    nextAlgorithmIds: ["trapping-rain-water", "merge-intervals"]
   },
   "container-with-most-water": {
     stage: "core",
     focus: "state-tracking",
-    order: 9,
+    order: 10,
     timeToExplore: "6 min",
     complexity: "Only two pointers move, but every frame has to balance width loss against the chance of finding a taller wall.",
     outcome: "See exactly when replay measures a container, records a new best basin, and prunes the shorter wall from future consideration.",
@@ -250,7 +262,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "trapping-rain-water": {
     stage: "core",
     focus: "state-tracking",
-    order: 10,
+    order: 11,
     timeToExplore: "7 min",
     complexity: "The pointers still move from both sides, but every settled wall now depends on boundary maxima and per-index water fills.",
     outcome: "See exactly when a boundary max rises, when a basin segment traps water, and how the final per-index reservoir total forms.",
@@ -262,7 +274,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "two-sum": {
     stage: "foundation",
     focus: "state-tracking",
-    order: 11,
+    order: 12,
     timeToExplore: "5 min",
     complexity: "One pass and one lookup table keep the trace compact while the complement state still changes meaningfully every frame.",
     outcome: "See exactly when a value checks for its complement, when a failed lookup becomes a store, and when the winning pair locks.",
@@ -274,7 +286,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",
-    order: 12,
+    order: 13,
     timeToExplore: "6 min",
     complexity: "Sorted range order keeps the scan linear while the active merge span still changes meaningfully over time.",
     outcome: "See exactly when a range extends the active span, when a gap forces an output commit, and how the final interval list forms.",
@@ -286,7 +298,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-sort": {
     stage: "core",
     focus: "partitioning",
-    order: 13,
+    order: 14,
     timeToExplore: "6 min",
     complexity: "Split and merge phases ask the viewer to connect multiple local windows.",
     outcome: "Track recursive decomposition and the write-heavy merge path back to a stable final ordering.",
@@ -298,7 +310,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "quick-sort": {
     stage: "advanced",
     focus: "partitioning",
-    order: 14,
+    order: 15,
     timeToExplore: "7 min",
     complexity: "Pivot locks and recursive partitions create dense local transitions across the deck.",
     outcome: "Inspect how partition boundaries move and why one pivot choice can reshape the next trace segment.",
@@ -310,7 +322,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "longest-common-subsequence": {
     stage: "advanced",
     focus: "dependencies",
-    order: 15,
+    order: 16,
     timeToExplore: "8 min",
     complexity: "A full table plus traceback shifts the user from linear scans to dependency-heavy state.",
     outcome: "Separate matrix fill work from traceback recovery while keeping the current cell and dependencies visible.",
@@ -322,7 +334,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   dijkstra: {
     stage: "advanced",
     focus: "pathfinding",
-    order: 16,
+    order: 17,
     timeToExplore: "8 min",
     complexity: "Weighted frontier ordering makes every inspection and update more consequential.",
     outcome: "Read tentative distances, inspected edges, and recovered shortest paths without hidden queue state.",

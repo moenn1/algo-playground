@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared stack runtime for Largest Rectangle in Histogram, including deterministic monotonic-stack flush checkpoints, stable rectangle-span state, and reuse of the shared `comparisons`, `pushes`, and `pops` metrics.
+- Wired Largest Rectangle in Histogram through the replay shell, input-service presets and validation, demo seed data, library catalog, and stack-domain documentation so TraceDeck now covers a third reusable stack problem with product-grade replay support.
 - Added a shared stack runtime for Daily Temperatures, including deterministic monotonic-stack comparisons, explicit warmer-day resolution checkpoints, and stable `comparisons`, `pushes`, and `pops` metrics.
 - Wired Daily Temperatures through the replay shell, input-service presets and validation, demo seed data, library catalog, and stack-domain documentation so TraceDeck now covers a second reusable stack problem with product-grade replay support.
 - Added a shared two-pointer runtime for Trapping Rain Water, including deterministic boundary-max updates, explicit per-index fill checkpoints, and stable `evaluations`, `moves`, and `fills` metrics.

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildStackTrace,
   buildDailyTemperaturesTrace,
+  buildLargestRectangleInHistogramTrace,
   buildValidParenthesesTrace,
   defaultDailyTemperaturesInput,
+  defaultLargestRectangleInHistogramInput,
   defaultValidParenthesesInput,
   parseStackInputText,
   serializeStackInput,
@@ -18,9 +20,13 @@ describe("stack execution engine", () => {
         ? {
             expression: "({[]})[]"
           }
-        : {
+        : algorithmId === "daily-temperatures"
+          ? {
             temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
-          };
+            }
+          : {
+              heights: [2, 1, 5, 6, 2, 3]
+            };
     const firstTrace = buildStackTrace(algorithmId, input);
     const secondTrace = buildStackTrace(algorithmId, input);
     const finalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
@@ -37,9 +43,17 @@ describe("stack execution engine", () => {
       return;
     }
 
-    expect(finalStep.state.kind).toBe("daily-temperatures");
-    expect(finalStep.state.resolvedWaits).toEqual([1, 1, 4, 2, 1, 1, 0, 0]);
-    expect(finalStep.state.stackIndices).toEqual([6, 7]);
+    if (algorithmId === "daily-temperatures") {
+      expect(finalStep.state.kind).toBe("daily-temperatures");
+      expect(finalStep.state.resolvedWaits).toEqual([1, 1, 4, 2, 1, 1, 0, 0]);
+      expect(finalStep.state.stackIndices).toEqual([6, 7]);
+      return;
+    }
+
+    expect(finalStep.state.kind).toBe("largest-rectangle-in-histogram");
+    expect(finalStep.state.bestArea).toBe(10);
+    expect(finalStep.state.bestStart).toBe(2);
+    expect(finalStep.state.bestEnd).toBe(3);
   });
 
   it("records the first mismatched closer as the terminal frame", () => {
@@ -66,6 +80,21 @@ describe("stack execution engine", () => {
     expect(trace.summary.finalMetrics.pops).toBe(2);
   });
 
+  it("records best histogram rectangles through deterministic pop checkpoints", () => {
+    const trace = buildLargestRectangleInHistogramTrace({
+      heights: [2, 1, 5, 6, 2, 3]
+    });
+    const resolveSteps = trace.steps.filter((step) => step.phase === "Resolve");
+    const finalStep = trace.steps[trace.steps.length - 1]!;
+
+    expect(resolveSteps.length).toBeGreaterThan(0);
+    expect(finalStep.state.bestArea).toBe(10);
+    expect(finalStep.state.bestStart).toBe(2);
+    expect(finalStep.state.bestEnd).toBe(3);
+    expect(finalStep.state.bestHeight).toBe(5);
+    expect(trace.summary.finalMetrics.pops).toBe(6);
+  });
+
   it("serializes and parses replay-safe stack inputs", () => {
     expect(parseStackInputText(serializeStackInput(defaultValidParenthesesInput))).toEqual(
       defaultValidParenthesesInput
@@ -73,5 +102,11 @@ describe("stack execution engine", () => {
     expect(
       parseStackInputText(serializeStackInput(defaultDailyTemperaturesInput), "daily-temperatures")
     ).toEqual(defaultDailyTemperaturesInput);
+    expect(
+      parseStackInputText(
+        serializeStackInput(defaultLargestRectangleInHistogramInput),
+        "largest-rectangle-in-histogram"
+      )
+    ).toEqual(defaultLargestRectangleInHistogramInput);
   });
 });

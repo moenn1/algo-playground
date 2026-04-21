@@ -7,11 +7,15 @@ import {
   type TraceStep
 } from "@tracedeck/trace-core";
 
-export type StackAlgorithmId = "valid-parentheses" | "daily-temperatures";
+export type StackAlgorithmId =
+  | "valid-parentheses"
+  | "daily-temperatures"
+  | "largest-rectangle-in-histogram";
 
 export const stackAlgorithmIds: StackAlgorithmId[] = [
   "valid-parentheses",
-  "daily-temperatures"
+  "daily-temperatures",
+  "largest-rectangle-in-histogram"
 ];
 
 export interface ValidParenthesesInput extends JsonObject {
@@ -22,7 +26,14 @@ export interface DailyTemperaturesInput extends JsonObject {
   temperatures: number[];
 }
 
-export type StackInput = ValidParenthesesInput | DailyTemperaturesInput;
+export interface LargestRectangleInHistogramInput extends JsonObject {
+  heights: number[];
+}
+
+export type StackInput =
+  | ValidParenthesesInput
+  | DailyTemperaturesInput
+  | LargestRectangleInHistogramInput;
 
 export interface ValidParenthesesExecutionState extends JsonObject {
   kind: "valid-parentheses";
@@ -53,9 +64,30 @@ export interface DailyTemperaturesExecutionState extends JsonObject {
   currentWait: number | null;
 }
 
+export interface LargestRectangleInHistogramExecutionState extends JsonObject {
+  kind: "largest-rectangle-in-histogram";
+  heights: number[];
+  cursor: number | null;
+  currentHeight: number | null;
+  comparisonIndex: number | null;
+  stackIndices: number[];
+  stackHeights: number[];
+  processedIndices: number[];
+  currentResolvedIndex: number | null;
+  currentArea: number | null;
+  currentWidth: number | null;
+  currentSpanStart: number | null;
+  currentSpanEnd: number | null;
+  bestArea: number;
+  bestStart: number | null;
+  bestEnd: number | null;
+  bestHeight: number | null;
+}
+
 export type StackExecutionState =
   | ValidParenthesesExecutionState
-  | DailyTemperaturesExecutionState;
+  | DailyTemperaturesExecutionState
+  | LargestRectangleInHistogramExecutionState;
 
 interface StackMetricState {
   pushes: number;
@@ -87,6 +119,11 @@ const stackAlgorithmDefinitions: Record<StackAlgorithmId, StackAlgorithmDefiniti
     id: "daily-temperatures",
     label: "Daily Temperatures",
     implementationVersion: "stack-engine-0.2.0"
+  },
+  "largest-rectangle-in-histogram": {
+    id: "largest-rectangle-in-histogram",
+    label: "Largest Rectangle in Histogram",
+    implementationVersion: "stack-engine-0.3.0"
   }
 };
 
@@ -117,6 +154,10 @@ export const defaultValidParenthesesInput: ValidParenthesesInput = {
 
 export const defaultDailyTemperaturesInput: DailyTemperaturesInput = {
   temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
+};
+
+export const defaultLargestRectangleInHistogramInput: LargestRectangleInHistogramInput = {
+  heights: [2, 1, 5, 6, 2, 3]
 };
 
 function isOpeningToken(token: string): token is OpeningToken {
@@ -161,6 +202,30 @@ function cloneDailyTemperaturesState(
     resolvedWaits: state.resolvedWaits.slice(),
     currentResolvedIndex: state.currentResolvedIndex,
     currentWait: state.currentWait
+  };
+}
+
+function cloneLargestRectangleInHistogramState(
+  state: LargestRectangleInHistogramExecutionState
+): LargestRectangleInHistogramExecutionState {
+  return {
+    kind: state.kind,
+    heights: state.heights.slice(),
+    cursor: state.cursor,
+    currentHeight: state.currentHeight,
+    comparisonIndex: state.comparisonIndex,
+    stackIndices: state.stackIndices.slice(),
+    stackHeights: state.stackHeights.slice(),
+    processedIndices: state.processedIndices.slice(),
+    currentResolvedIndex: state.currentResolvedIndex,
+    currentArea: state.currentArea,
+    currentWidth: state.currentWidth,
+    currentSpanStart: state.currentSpanStart,
+    currentSpanEnd: state.currentSpanEnd,
+    bestArea: state.bestArea,
+    bestStart: state.bestStart,
+    bestEnd: state.bestEnd,
+    bestHeight: state.bestHeight
   };
 }
 
@@ -241,6 +306,44 @@ function normalizeDailyTemperaturesInput(candidate: unknown): DailyTemperaturesI
   };
 }
 
+function normalizeLargestRectangleInHistogramInput(
+  candidate: unknown
+): LargestRectangleInHistogramInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Stack input must be an object with a heights array.");
+  }
+
+  const value = candidate as {
+    heights?: unknown;
+  };
+
+  if (!Array.isArray(value.heights) || value.heights.length === 0) {
+    throw new Error("Largest Rectangle in Histogram input must include at least one height.");
+  }
+
+  if (value.heights.length > 24) {
+    throw new Error(
+      "Largest Rectangle in Histogram input arrays must contain 24 heights or fewer."
+    );
+  }
+
+  const heights = value.heights.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry)) {
+      throw new Error(`heights[${index}] must be an integer.`);
+    }
+
+    if (entry < 0 || entry > 150) {
+      throw new Error(`heights[${index}] must be between 0 and 150.`);
+    }
+
+    return entry;
+  });
+
+  return {
+    heights
+  };
+}
+
 function normalizeStackInput(
   candidate: unknown,
   algorithmId: StackAlgorithmId = "valid-parentheses"
@@ -250,6 +353,8 @@ function normalizeStackInput(
       return normalizeValidParenthesesInput(candidate);
     case "daily-temperatures":
       return normalizeDailyTemperaturesInput(candidate);
+    case "largest-rectangle-in-histogram":
+      return normalizeLargestRectangleInHistogramInput(candidate);
   }
 }
 
@@ -279,9 +384,19 @@ export function serializeStackInput(input: StackInput): string {
     );
   }
 
+  if ("temperatures" in input) {
+    return JSON.stringify(
+      {
+        temperatures: input.temperatures
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
-      temperatures: input.temperatures
+      heights: input.heights
     },
     null,
     2
@@ -773,6 +888,408 @@ export function buildDailyTemperaturesTrace(
   return buildStackEnvelope(definition, normalizedInput, recorder.getSteps());
 }
 
+function getPreviousHistogramIndex(stackIndices: number[]): number {
+  return stackIndices.length > 0 ? stackIndices[stackIndices.length - 1]! : -1;
+}
+
+function updateHistogramBest(
+  area: number,
+  height: number,
+  start: number,
+  end: number,
+  best: {
+    area: number;
+    start: number | null;
+    end: number | null;
+    height: number | null;
+  }
+) {
+  if (area > best.area) {
+    best.area = area;
+    best.start = start;
+    best.end = end;
+    best.height = height;
+    return true;
+  }
+
+  return false;
+}
+
+export function buildLargestRectangleInHistogramTrace(
+  input: LargestRectangleInHistogramInput
+): TraceEnvelope<LargestRectangleInHistogramExecutionState> {
+  const definition = stackAlgorithmDefinitions["largest-rectangle-in-histogram"];
+  const normalizedInput = normalizeLargestRectangleInHistogramInput(input);
+  const heights = normalizedInput.heights.slice();
+  const recorder = createStackRecorder<LargestRectangleInHistogramExecutionState>(
+    definition.id,
+    cloneLargestRectangleInHistogramState
+  );
+  const metrics: StackMetricState = {
+    comparisons: 0,
+    pushes: 0,
+    pops: 0
+  };
+  const stackIndices: number[] = [];
+  const stackHeights: number[] = [];
+  const processedIndices: number[] = [];
+  const best = {
+    area: 0,
+    start: null as number | null,
+    end: null as number | null,
+    height: null as number | null
+  };
+  let cursor: number | null = null;
+  let currentHeight: number | null = null;
+  let comparisonIndex: number | null = null;
+  let currentResolvedIndex: number | null = null;
+  let currentArea: number | null = null;
+  let currentWidth: number | null = null;
+  let currentSpanStart: number | null = null;
+  let currentSpanEnd: number | null = null;
+
+  const createRuntimeState = (): LargestRectangleInHistogramExecutionState =>
+    cloneLargestRectangleInHistogramState({
+      kind: "largest-rectangle-in-histogram",
+      heights,
+      cursor,
+      currentHeight,
+      comparisonIndex,
+      stackIndices,
+      stackHeights,
+      processedIndices,
+      currentResolvedIndex,
+      currentArea,
+      currentWidth,
+      currentSpanStart,
+      currentSpanEnd,
+      bestArea: best.area,
+      bestStart: best.start,
+      bestEnd: best.end,
+      bestHeight: best.height
+    });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The replay begins with an empty monotonic stack, no active rectangle, and the histogram bars ready for the first scan step.",
+    explanation: {
+      summary: "Seed the histogram and empty candidate stack before scanning the first bar.",
+      details:
+        "The timeline stores the untouched histogram, empty stack, and zero best-area baseline explicitly so later jumps never reconstruct rectangle candidates from prior frames.",
+      tags: ["snapshot", "stack"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "largest-rectangle-initial",
+        path: "state.heights",
+        kind: "collection",
+        intent: "focus",
+        label: `${heights.length} histogram bars queued`
+      }
+    ]
+  });
+
+  for (const [index, height] of heights.entries()) {
+    cursor = index;
+    currentHeight = height;
+    comparisonIndex = stackIndices[stackIndices.length - 1] ?? null;
+    currentResolvedIndex = null;
+    currentArea = null;
+    currentWidth = null;
+    currentSpanStart = null;
+    currentSpanEnd = null;
+    processedIndices.push(index);
+
+    recorder.push({
+      phase: "Inspect",
+      description: `Inspect bar ${index} at height ${height} and compare it against the candidate bars waiting on the monotonic stack.`,
+      explanation: {
+        summary: "Start a new histogram scan step with the current bar and the active stack top.",
+        details:
+          "The current bar and the live stack contents are recorded together so replay can show which candidate rectangles remain open before any pop occurs.",
+        tags: ["stack", "inspect"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `largest-rectangle-bar-${index}`,
+          path: "state.cursor",
+          kind: "index",
+          intent: "active",
+          label: `Inspect bar ${index}`,
+          metadata: {
+            index,
+            height
+          }
+        }
+      ]
+    });
+
+    while (stackIndices.length > 0) {
+      comparisonIndex = stackIndices[stackIndices.length - 1] ?? null;
+      metrics.comparisons += 1;
+
+      recorder.push({
+        phase: "Compare",
+        description: `Compare bar ${index} at height ${height} against stacked bar ${comparisonIndex} at height ${comparisonIndex !== null ? heights[comparisonIndex] : "?"}.`,
+        explanation: {
+          summary: "Check whether the current bar closes the rectangle anchored by the stack top.",
+          details:
+            "Each comparison step keeps the current bar, stack top, and candidate stack explicit so replay can follow the monotonic invariant without browser-only reconstruction.",
+          tags: ["stack", "compare"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `largest-rectangle-compare-${index}-${comparisonIndex}`,
+            path: "state.comparisonIndex",
+            kind: "index",
+            intent: "candidate",
+            label: `Compare against bar ${comparisonIndex}`,
+            metadata: {
+              index: comparisonIndex ?? -1
+            }
+          }
+        ]
+      });
+
+      if (comparisonIndex === null || heights[comparisonIndex]! <= height) {
+        break;
+      }
+
+      const resolvedIndex = stackIndices.pop()!;
+      const resolvedHeight = stackHeights.pop()!;
+      const leftBoundary = getPreviousHistogramIndex(stackIndices);
+      const width = index - leftBoundary - 1;
+      const area = resolvedHeight * width;
+      const start = leftBoundary + 1;
+      const end = index - 1;
+      metrics.pops += 1;
+      currentResolvedIndex = resolvedIndex;
+      currentArea = area;
+      currentWidth = width;
+      currentSpanStart = start;
+      currentSpanEnd = end;
+      const becameBest = updateHistogramBest(area, resolvedHeight, start, end, best);
+
+      recorder.push({
+        phase: "Resolve",
+        description: `Bar ${resolvedIndex} at height ${resolvedHeight} resolves a rectangle of area ${area} across width ${width} from bar ${start} through ${end}.`,
+        explanation: {
+          summary: "Pop the stack top once the current bar closes its widest valid rectangle.",
+          details:
+            "The resolved span, width, and area are recorded directly in the snapshot so replay can jump to each closed rectangle without recomputing boundaries from neighboring bars.",
+          tags: ["stack", "resolve"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `largest-rectangle-resolve-${resolvedIndex}-${index}`,
+            path: becameBest ? "state.bestArea" : "state.currentArea",
+            kind: "value",
+            intent: becameBest ? "result" : "mutation",
+            label: becameBest
+              ? `Best area ${area} across bars ${start}-${end}`
+              : `Area ${area} across bars ${start}-${end}`,
+            metadata: {
+              index: resolvedIndex,
+              area,
+              width
+            }
+          }
+        ]
+      });
+
+      currentResolvedIndex = null;
+      currentArea = null;
+      currentWidth = null;
+      currentSpanStart = null;
+      currentSpanEnd = null;
+    }
+
+    stackIndices.push(index);
+    stackHeights.push(height);
+    comparisonIndex = null;
+    metrics.pushes += 1;
+
+    recorder.push({
+      phase: "Push",
+      description: `Push bar ${index} at height ${height} so later bars can test whether its rectangle can extend farther to the right.`,
+      explanation: {
+        summary: "Record the current bar as a new candidate left boundary on the stack.",
+        details:
+          "Replay stores both the candidate bar index and its height so the stack rail stays readable without mapping indices back through the histogram on every frame.",
+        tags: ["stack", "push"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `largest-rectangle-push-${index}`,
+          path: "state.stackIndices",
+          kind: "collection",
+          intent: "mutation",
+          label: `Push bar ${index} at height ${height}`
+        }
+      ]
+    });
+  }
+
+  cursor = null;
+  currentHeight = null;
+  comparisonIndex = stackIndices[stackIndices.length - 1] ?? null;
+  currentResolvedIndex = null;
+  currentArea = null;
+  currentWidth = null;
+  currentSpanStart = null;
+  currentSpanEnd = null;
+
+  if (stackIndices.length > 0) {
+    recorder.push({
+      phase: "Flush",
+      description:
+        stackIndices.length > 0
+          ? `The scan has finished, so the remaining ${stackIndices.length} candidate bar${stackIndices.length === 1 ? "" : "s"} must resolve against the terminal boundary.`
+          : "The scan has finished and no candidate bars remain on the stack.",
+      explanation: {
+        summary: "Use the terminal boundary after the last bar to close every remaining candidate rectangle.",
+        details:
+          "The flush checkpoint keeps the unresolved stack visible before the remaining rectangles are popped, which makes the cleanup phase replay-safe instead of implicit.",
+        tags: ["stack", "flush"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "largest-rectangle-flush",
+          path: "state.stackIndices",
+          kind: "collection",
+          intent: "focus",
+          label: `${stackIndices.length} remaining candidate bars`
+        }
+      ]
+    });
+  }
+
+  while (stackIndices.length > 0) {
+    comparisonIndex = stackIndices[stackIndices.length - 1] ?? null;
+    metrics.comparisons += 1;
+
+    recorder.push({
+      phase: "Compare",
+      description: `Compare remaining bar ${comparisonIndex} at height ${comparisonIndex !== null ? heights[comparisonIndex] : "?"} against the terminal boundary after the histogram ends.`,
+      explanation: {
+        summary: "Compare the remaining stack top against the terminal boundary after the histogram ends.",
+        details:
+          "The terminal boundary is recorded as an explicit comparison checkpoint so replay can distinguish cleanup pops from in-scan pops safely.",
+        tags: ["stack", "compare"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `largest-rectangle-final-compare-${comparisonIndex}`,
+          path: "state.comparisonIndex",
+          kind: "index",
+          intent: "candidate",
+          label: `Flush bar ${comparisonIndex}`,
+          metadata: {
+            index: comparisonIndex ?? -1
+          }
+        }
+      ]
+    });
+
+    const resolvedIndex = stackIndices.pop()!;
+    const resolvedHeight = stackHeights.pop()!;
+    const leftBoundary = getPreviousHistogramIndex(stackIndices);
+    const width = heights.length - leftBoundary - 1;
+    const area = resolvedHeight * width;
+    const start = leftBoundary + 1;
+    const end = heights.length - 1;
+    metrics.pops += 1;
+    currentResolvedIndex = resolvedIndex;
+    currentArea = area;
+    currentWidth = width;
+    currentSpanStart = start;
+    currentSpanEnd = end;
+    const becameBest = updateHistogramBest(area, resolvedHeight, start, end, best);
+
+    recorder.push({
+      phase: "Resolve",
+      description: `Bar ${resolvedIndex} at height ${resolvedHeight} resolves a rectangle of area ${area} across width ${width} from bar ${start} through ${end}.`,
+      explanation: {
+        summary: "Pop the remaining stack top against the terminal boundary and publish its final rectangle.",
+        details:
+          "The cleanup resolve frame keeps the final width and area explicit, so replay never has to infer how far the last open rectangle extended after the scan ended.",
+        tags: ["stack", "resolve"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `largest-rectangle-final-resolve-${resolvedIndex}`,
+          path: becameBest ? "state.bestArea" : "state.currentArea",
+          kind: "value",
+          intent: becameBest ? "result" : "mutation",
+          label: becameBest
+            ? `Best area ${area} across bars ${start}-${end}`
+            : `Area ${area} across bars ${start}-${end}`,
+          metadata: {
+            index: resolvedIndex,
+            area,
+            width
+          }
+        }
+      ]
+    });
+
+    currentResolvedIndex = null;
+    currentArea = null;
+    currentWidth = null;
+    currentSpanStart = null;
+    currentSpanEnd = null;
+  }
+
+  comparisonIndex = null;
+
+  recorder.push({
+    phase: "Done",
+    description:
+      best.start !== null && best.end !== null
+        ? `The scan is complete with best area ${best.area} across bars ${best.start}-${best.end}.`
+        : "The scan is complete and no positive-area rectangle was recorded.",
+    explanation: {
+      summary: "Publish the largest rectangle once every bar has resolved against the monotonic stack.",
+      details:
+        "The terminal snapshot keeps the best span and area directly in the replay-safe state so consumers never recompute the winning rectangle from prior pop steps.",
+      tags: ["result", "stack"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "largest-rectangle-done",
+        path: "state.bestArea",
+        kind: "value",
+        intent: "result",
+        label:
+          best.start !== null && best.end !== null
+            ? `Best area ${best.area} across bars ${best.start}-${best.end}`
+            : "Best area 0"
+      }
+    ]
+  });
+
+  return buildStackEnvelope(definition, normalizedInput, recorder.getSteps());
+}
+
 export function buildStackTrace(
   algorithmId: StackAlgorithmId,
   input: StackInput
@@ -782,5 +1299,9 @@ export function buildStackTrace(
       return buildValidParenthesesTrace(input as ValidParenthesesInput);
     case "daily-temperatures":
       return buildDailyTemperaturesTrace(input as DailyTemperaturesInput);
+    case "largest-rectangle-in-histogram":
+      return buildLargestRectangleInHistogramTrace(
+        input as LargestRectangleInHistogramInput
+      );
   }
 }

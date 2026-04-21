@@ -758,6 +758,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "8 days"
     });
 
+    const histogramPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/stack.reference-histogram/resolve",
+      payload: {
+        algorithmId: "largest-rectangle-in-histogram"
+      }
+    });
+
+    expect(histogramPreset.statusCode).toBe(200);
+    expect(histogramPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "stack.reference-histogram"
+      },
+      algorithm: {
+        id: "largest-rectangle-in-histogram",
+        domain: "stack"
+      },
+      footprint: "6 bars"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -1010,6 +1031,30 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "4 days"
     });
+
+    const validateHistogramInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "largest-rectangle-in-histogram",
+        payload: {
+          heights: [2, 1, 5, 6, 2, 3]
+        }
+      }
+    });
+
+    expect(validateHistogramInput.statusCode).toBe(200);
+    expect(validateHistogramInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "largest-rectangle-in-histogram",
+        domain: "stack"
+      },
+      input: {
+        heights: [2, 1, 5, 6, 2, 3]
+      },
+      footprint: "6 bars"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1094,6 +1139,26 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "temperatures[1] must be between 0 and 150."
+    });
+  });
+
+  it("rejects histogram payloads with negative heights", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "largest-rectangle-in-histogram",
+        payload: {
+          heights: [2, -1, 3]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "heights[1] must be between 0 and 150."
     });
   });
 });

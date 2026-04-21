@@ -15,6 +15,7 @@ export const supportedAlgorithmIds = [
   "longest-common-subsequence",
   "valid-parentheses",
   "daily-temperatures",
+  "largest-rectangle-in-histogram",
   "bfs",
   "dijkstra"
 ] as const;
@@ -66,6 +67,7 @@ export interface DynamicProgrammingInputPayload extends JsonObject {
 export interface StackInputPayload extends JsonObject {
   expression?: string;
   temperatures?: number[];
+  heights?: number[];
 }
 
 export interface InputPresetSummary {

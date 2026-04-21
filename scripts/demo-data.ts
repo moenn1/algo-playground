@@ -193,6 +193,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "stack", "late-spike"]
   },
   {
+    key: "stack-reference-histogram",
+    algorithmId: "largest-rectangle-in-histogram",
+    presetId: "stack.reference-histogram",
+    recordedAt: "2026-04-20T09:07:59.875Z",
+    tags: ["seeded-demo", "stack", "reference-histogram"]
+  },
+  {
+    key: "stack-inner-valley",
+    algorithmId: "largest-rectangle-in-histogram",
+    presetId: "stack.inner-valley",
+    recordedAt: "2026-04-20T09:07:59.937Z",
+    tags: ["seeded-demo", "stack", "inner-valley"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

@@ -14,6 +14,7 @@ import {
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
+  defaultLargestRectangleInHistogramInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
   defaultMergeIntervalsInput,
@@ -446,6 +447,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "stack"
   },
   {
+    id: "largest-rectangle-in-histogram",
+    name: "Largest Rectangle in Histogram",
+    badge: "Stack",
+    accent: "ember",
+    description:
+      "Histogram replay records monotonic-stack comparisons, pop-area resolutions, and the final widest rectangle without browser-side recomputation.",
+    inputLabel: "Stack Input",
+    inputHint: "JSON with a non-negative integer heights array.",
+    defaultInput: serializeStackInput(defaultLargestRectangleInHistogramInput),
+    domain: "stack"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -697,7 +710,9 @@ export function describeInputFootprint(run: ReplayRun): string {
   if (isStackRun(run)) {
     return "expression" in run.input
       ? `${run.input.expression.length} tokens`
-      : `${run.input.temperatures.length} days`;
+      : "temperatures" in run.input
+        ? `${run.input.temperatures.length} days`
+        : `${run.input.heights.length} bars`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
