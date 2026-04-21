@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `clone-graph`, `graph-valid-tree`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `clone-graph`, `graph-valid-tree`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -129,6 +129,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.diagonal-islands`: curated diagonal land pattern that stays disconnected under four-directional adjacency
 - `graph.reference-flow`: curated heights grid with a stable dual-ocean coastline intersection
 - `graph.interior-sink`: curated basin where one low interior cell never joins either ocean reachability set
+- `graph.reference-bridge`: curated two-island grid with one stable shortest bridge
+- `graph.single-gap-bridge`: curated bridge case where one water cell closes the gap immediately
 - `graph.reference-binary-path`: curated blocked grid with one deterministic open route to the exit
 - `graph.sealed-binary-exit`: curated blocked grid where the exit remains unreachable after search exhaustion
 - `graph.reference-capture`: curated capture grid with one border-safe region and several enclosed flips
@@ -150,6 +152,8 @@ The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] 
 The island-count presets resolve for Number of Islands and use `{ "grid": string[][] }` as the normalized contract, where `"0"` is water and `"1"` is land. Numeric `0` and `1` values are accepted during validation and normalized to strings.
 
 The dual-ocean presets resolve for Pacific Atlantic Water Flow and use `{ "grid": number[][] }` as the normalized contract, where each cell is a non-negative integer height.
+
+The shortest-bridge presets resolve for Shortest Bridge and use `{ "grid": number[][] }` as the normalized contract, where `0` is water and `1` is land.
 
 The binary-matrix path presets resolve for Shortest Path in Binary Matrix and use `{ "grid": number[][] }` as the normalized contract, where `0` is open and `1` is blocked.
 

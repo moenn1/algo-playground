@@ -14,6 +14,7 @@ import type {
   NumberOfIslandsInputPayload,
   PacificAtlanticWaterFlowInputPayload,
   PathfindingGraphInputPayload,
+  ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
@@ -187,6 +188,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Pacific Atlantic Water Flow",
     domain: "graph"
   },
+  "shortest-bridge": {
+    id: "shortest-bridge",
+    label: "Shortest Bridge",
+    domain: "graph"
+  },
   "shortest-path-binary-matrix": {
     id: "shortest-path-binary-matrix",
     label: "Shortest Path in Binary Matrix",
@@ -247,6 +253,7 @@ const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as con
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
 const pacificAtlanticAlgorithms = [supportedAlgorithms["pacific-atlantic-water-flow"]] as const;
+const shortestBridgeAlgorithms = [supportedAlgorithms["shortest-bridge"]] as const;
 const shortestPathBinaryMatrixAlgorithms = [
   supportedAlgorithms["shortest-path-binary-matrix"]
 ] as const;
@@ -389,6 +396,14 @@ const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInputPayload
     [2, 4, 5, 3, 1],
     [6, 7, 1, 4, 5],
     [5, 1, 1, 2, 4]
+  ]
+};
+const defaultShortestBridgeInput: ShortestBridgeInputPayload = {
+  grid: [
+    [0, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 1],
+    [0, 0, 1, 1]
   ]
 };
 const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInputPayload = {
@@ -1930,6 +1945,63 @@ function normalizePacificAtlanticWaterFlowInput(
   };
 }
 
+function normalizeShortestBridgeInput(payload: unknown): ShortestBridgeInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Shortest Bridge input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Shortest Bridge input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Shortest Bridge input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Shortest Bridge input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Shortest Bridge input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathBinaryMatrixInput(
   payload: unknown
 ): ShortestPathBinaryMatrixInputPayload {
@@ -2146,6 +2218,8 @@ function normalizeGraphInput(
       return normalizeNumberOfIslandsInput(payload);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(payload);
+    case "shortest-bridge":
+      return normalizeShortestBridgeInput(payload);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(payload);
     case "surrounded-regions":
@@ -2171,6 +2245,7 @@ function isGridGraphPayload(
   | RottingOrangesInputPayload
   | NumberOfIslandsInputPayload
   | PacificAtlanticWaterFlowInputPayload
+  | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload {
@@ -3476,6 +3551,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           [10, 10, 10],
           [10, 1, 10],
           [10, 10, 10]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-bridge",
+      label: "Reference shortest bridge",
+      description:
+        "Use a two-island grid with one clear shortest connection so replay shows first-island marking before the outward bridge waves touch the second island.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestBridgeAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultShortestBridgeInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.single-gap-bridge",
+      label: "Single-gap bridge",
+      description:
+        "Keep the islands one water cell apart so replay can show the bridge BFS resolving on its first outward wave.",
+      scenario: "single-gap",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestBridgeAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [1, 1, 0],
+          [0, 0, 0],
+          [0, 1, 1]
         ]
       },
       options: {}

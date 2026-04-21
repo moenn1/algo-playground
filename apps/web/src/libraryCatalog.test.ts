@@ -270,6 +270,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-path-binary-matrix");
   });
 
+  it("surfaces shortest-bridge study paths through bridge-wave metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "island marking bridge waves second island"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-bridge");
+  });
+
   it("surfaces dfs study paths through depth-first stack metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

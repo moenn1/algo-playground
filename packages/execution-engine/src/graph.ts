@@ -16,6 +16,7 @@ export type GraphAlgorithmId =
   | "rotting-oranges"
   | "number-of-islands"
   | "pacific-atlantic-water-flow"
+  | "shortest-bridge"
   | "shortest-path-binary-matrix"
   | "surrounded-regions"
   | "walls-and-gates";
@@ -30,6 +31,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "rotting-oranges",
   "number-of-islands",
   "pacific-atlantic-water-flow",
+  "shortest-bridge",
   "shortest-path-binary-matrix",
   "surrounded-regions",
   "walls-and-gates"
@@ -65,6 +67,10 @@ export interface PacificAtlanticWaterFlowInput extends JsonObject {
   grid: number[][];
 }
 
+export interface ShortestBridgeInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface ShortestPathBinaryMatrixInput extends JsonObject {
   grid: number[][];
 }
@@ -84,6 +90,7 @@ export type GraphInput =
   | RottingOrangesInput
   | NumberOfIslandsInput
   | PacificAtlanticWaterFlowInput
+  | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
@@ -193,6 +200,22 @@ export interface PacificAtlanticWaterFlowExecutionState extends JsonObject {
   dualReachable: string[];
 }
 
+export interface ShortestBridgeExecutionState extends JsonObject {
+  kind: "shortest-bridge";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  phaseMode: "locate-island" | "mark-island" | "expand-bridge" | "resolved";
+  firstIsland: string[];
+  expandedWater: string[];
+  reachedSecondIsland: string[];
+  wave: number;
+  bridgeLength: number | null;
+}
+
 export interface ShortestPathBinaryMatrixExecutionState extends JsonObject {
   kind: "shortest-path-binary-matrix";
   grid: number[][];
@@ -247,6 +270,7 @@ export type GraphExecutionState =
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
   | PacificAtlanticWaterFlowExecutionState
+  | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
@@ -418,6 +442,21 @@ interface ShortestPathBinaryMatrixRuntimeState {
   reachable: boolean | null;
 }
 
+interface ShortestBridgeRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  phaseMode: "locate-island" | "mark-island" | "expand-bridge" | "resolved";
+  firstIsland: Set<string>;
+  expandedWater: Set<string>;
+  reachedSecondIsland: string[];
+  wave: number;
+  bridgeLength: number | null;
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -463,6 +502,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "pacific-atlantic-water-flow",
     label: "Pacific Atlantic Water Flow",
     implementationVersion: "graph-engine-0.9.0"
+  },
+  "shortest-bridge": {
+    id: "shortest-bridge",
+    label: "Shortest Bridge",
+    implementationVersion: "graph-engine-0.11.0"
   },
   "shortest-path-binary-matrix": {
     id: "shortest-path-binary-matrix",
@@ -598,6 +642,15 @@ export const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInput
     [2, 4, 5, 3, 1],
     [6, 7, 1, 4, 5],
     [5, 1, 1, 2, 4]
+  ]
+};
+
+export const defaultShortestBridgeInput: ShortestBridgeInput = {
+  grid: [
+    [0, 1, 1, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 1],
+    [0, 0, 1, 1]
   ]
 };
 
@@ -750,6 +803,24 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       pacificReachable: state.pacificReachable.slice(),
       atlanticReachable: state.atlanticReachable.slice(),
       dualReachable: state.dualReachable.slice()
+    };
+  }
+
+  if (state.kind === "shortest-bridge") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      scan: state.scan,
+      phaseMode: state.phaseMode,
+      firstIsland: state.firstIsland.slice(),
+      expandedWater: state.expandedWater.slice(),
+      reachedSecondIsland: state.reachedSecondIsland.slice(),
+      wave: state.wave,
+      bridgeLength: state.bridgeLength
     };
   }
 
@@ -1183,6 +1254,52 @@ function normalizePacificAtlanticWaterFlowInput(
   };
 }
 
+function normalizeShortestBridgeInput(candidate: unknown): ShortestBridgeInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Shortest Bridge input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Shortest Bridge input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Shortest Bridge input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Shortest Bridge input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathBinaryMatrixInput(
   candidate: unknown
 ): ShortestPathBinaryMatrixInput {
@@ -1360,6 +1477,8 @@ export function parseGraphInputText(
       return normalizeNumberOfIslandsInput(parsed);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(parsed);
+    case "shortest-bridge":
+      return normalizeShortestBridgeInput(parsed);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(parsed);
     case "surrounded-regions":
@@ -1388,6 +1507,8 @@ export function normalizeGraphInput(
       return normalizeNumberOfIslandsInput(input);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(input);
+    case "shortest-bridge":
+      return normalizeShortestBridgeInput(input);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(input);
     case "surrounded-regions":
@@ -1871,6 +1992,30 @@ function createPacificAtlanticWaterFlowRecorder() {
   });
 }
 
+function createShortestBridgeRecorder() {
+  return createTraceRecorder<ShortestBridgeRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "shortest-bridge",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "shortest-bridge",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        scan: runtimeState.scan,
+        phaseMode: runtimeState.phaseMode,
+        firstIsland: Array.from(runtimeState.firstIsland).sort(compareCellIds),
+        expandedWater: Array.from(runtimeState.expandedWater).sort(compareCellIds),
+        reachedSecondIsland: runtimeState.reachedSecondIsland.slice(),
+        wave: runtimeState.wave,
+        bridgeLength: runtimeState.bridgeLength
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createShortestPathBinaryMatrixRecorder() {
   return createTraceRecorder<
     ShortestPathBinaryMatrixRuntimeState,
@@ -1966,6 +2111,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
+    | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
@@ -4466,6 +4612,580 @@ export function buildPacificAtlanticWaterFlowTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildShortestBridgeTrace(
+  input: ShortestBridgeInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["shortest-bridge"];
+  const normalizedInput = normalizeShortestBridgeInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const settledLedger = new Set<string>();
+  const frontier: string[] = [];
+  const firstIsland = new Set<string>();
+  const expandedWater = new Set<string>();
+  const reachedSecondIsland: string[] = [];
+  const bridgeDistanceByCell = new Map<string, number>();
+  const recorder = createShortestBridgeRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let scan: string | null = makeCellId(0, 0);
+  let phaseMode: "locate-island" | "mark-island" | "expand-bridge" | "resolved" =
+    "locate-island";
+  let wave = 0;
+  let bridgeLength: number | null = null;
+
+  const createRuntimeState = (): ShortestBridgeRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    scan,
+    phaseMode,
+    firstIsland,
+    expandedWater,
+    reachedSecondIsland,
+    wave,
+    bridgeLength
+  });
+
+  const settleCell = (cell: string) => {
+    if (settledLedger.has(cell)) {
+      return;
+    }
+
+    settledLedger.add(cell);
+    settled.push(cell);
+    metrics.settled = settled.length;
+  };
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Start with a row-major scan so replay can show exactly where the first island is discovered before the bridge expansion begins.",
+    explanation: {
+      summary: "Publish the empty frontier, scan cursor, and bridge ledgers before any island cell is claimed.",
+      details:
+        "The opening frame stores the row-major scan cursor directly so replay never reconstructs where the first island search started.",
+      tags: ["snapshot", "scan"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-bridge-init",
+        path: "state.scan",
+        kind: "node",
+        intent: "focus",
+        label: `Scan starts at ${formatCellLabel(scan ?? makeCellId(0, 0))}`
+      }
+    ]
+  });
+
+  let seedCell: string | null = null;
+
+  findFirstIsland: for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+      scan = cell;
+      current = null;
+      activeEdge = [];
+
+      if (grid[row]![column] === 0) {
+        recorder.push({
+          phase: "Scan",
+          description: `Inspect ${formatCellLabel(cell)} and continue because water cannot seed the first island.`,
+          explanation: {
+            summary: "Advance the row-major scan over water until the first land cell appears.",
+            details:
+              "Water scans remain explicit so replay can explain why the first island starts later in the grid.",
+            tags: ["scan", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-scan-water-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "candidate",
+              label: `Water at ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      seedCell = cell;
+      phaseMode = "mark-island";
+      frontier.push(cell);
+      firstIsland.add(cell);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Seed Island",
+        description: `Land ${formatCellLabel(cell)} becomes the first-island seed and starts the deterministic marking frontier.`,
+        explanation: {
+          summary: "Stop the row-major search on the first land cell and seed the island frontier immediately.",
+          details:
+            "The seed cell is claimed in-place so replay can separate first-island discovery from later bridge expansion.",
+          tags: ["scan", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-bridge-seed-${cell}`,
+            path: "state.firstIsland",
+            kind: "collection",
+            intent: "frontier",
+            label: `Seed island at ${formatCellLabel(cell)}`
+          }
+        ]
+      });
+
+      scan = null;
+      break findFirstIsland;
+    }
+  }
+
+  if (seedCell === null) {
+    phaseMode = "resolved";
+    scan = null;
+
+    recorder.push({
+      phase: "No Island",
+      description:
+        "The row-major scan never finds land, so no first island exists to mark or expand into a bridge.",
+      explanation: {
+        summary: "Publish the empty-island result when the grid contains no land.",
+        details:
+          "The terminal frame keeps the scan result explicit so replay can explain why the bridge runtime never enters either BFS phase.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-bridge-no-island",
+          path: "state.bridgeLength",
+          kind: "value",
+          intent: "result",
+          label: "No island found"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the first-island queue as the next land cell to mark.`,
+      explanation: {
+        summary: "Expand the next claimed land cell from the first-island frontier.",
+        details:
+          "The queue order stays explicit so replay can follow the exact shape of the first island before bridge expansion starts.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-bridge-mark-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Mark ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (grid[neighborRow]![neighborColumn] === 0) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the marking frontier stable because water defines the island boundary.`,
+          explanation: {
+            summary: "Inspect a water neighbor without extending the first-island frontier.",
+            details:
+              "Water boundaries remain explicit in the trace so replay can show exactly where island marking stops before the bridge phase begins.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-boundary-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label: `Water boundary ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (firstIsland.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the queue stable because the first-island ledger already claimed that land cell.`,
+          explanation: {
+            summary: "Skip a previously claimed island cell without re-enqueuing it.",
+            details:
+              "This keeps the first-island membership deterministic and avoids hidden visited-state deductions during replay.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-known-island-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.firstIsland",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already marked`
+            }
+          ]
+        });
+        continue;
+      }
+
+      firstIsland.add(neighbor);
+      frontier.push(neighbor);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Mark Land",
+        description: `Land ${formatCellLabel(neighbor)} joins the first island and enters the deterministic marking queue.`,
+        explanation: {
+          summary: "Claim one neighboring land cell and append it to the first-island frontier.",
+          details:
+            "The recorded state keeps the island ledger and queue growth together so replay can reopen the exact island boundary without recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-bridge-mark-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: "state.firstIsland",
+            kind: "collection",
+            intent: "frontier",
+            label: `Claim ${formatCellLabel(neighbor)}`
+          }
+        ]
+      });
+    }
+
+    settleCell(currentCell);
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed inside the first island.`,
+      explanation: {
+        summary: "Seal one land cell after its first-island neighbor inspections finish.",
+        details:
+          "This checkpoint preserves the claimed-island ledger and remaining frontier directly so replay can jump into the marking pass at any stable boundary.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-bridge-mark-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} marked`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "expand-bridge";
+  current = null;
+  activeEdge = [];
+  wave = 0;
+  const firstIslandSources = Array.from(firstIsland).sort(compareCellIds);
+  frontier.push(...firstIslandSources);
+  for (const cell of firstIslandSources) {
+    bridgeDistanceByCell.set(cell, 0);
+  }
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Bridge Phase",
+    description:
+      "Restart the frontier from every first-island cell so the bridge BFS can expand outward in deterministic multi-source waves.",
+    explanation: {
+      summary: "Switch from island marking to bridge expansion using the full first-island boundary as the source set.",
+      details:
+        "The phase-change frame records the complete first-island ledger and row-major source order directly so replay can explain every later bridge wave without reconstructing seed cells.",
+      tags: ["checkpoint", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-bridge-bridge-phase",
+        path: "state.frontier",
+        kind: "collection",
+        intent: "focus",
+        label: `${firstIslandSources.length} bridge source${firstIslandSources.length === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  let resolvedBridge = false;
+
+  bridgeSearch: while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    wave = bridgeDistanceByCell.get(currentCell) ?? 0;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: firstIsland.has(currentCell)
+        ? `${formatCellLabel(currentCell)} becomes a bridge source on wave ${wave}, expanding outward from the marked first island.`
+        : `${formatCellLabel(currentCell)} leaves the bridge queue on wave ${wave} as the next flipped-water candidate.`,
+      explanation: {
+        summary: "Expand the next deterministic bridge source from the multi-source BFS queue.",
+        details:
+          "The bridge queue stores both original-island cells and later water expansions explicitly, so replay can show how the shortest bridge grows one wave at a time.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-bridge-expand-current-${currentCell}-${wave}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Wave ${wave} at ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (firstIsland.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the bridge wave stable because it already belongs to the first island.`,
+          explanation: {
+            summary: "Skip a first-island cell during bridge expansion without re-enqueuing it.",
+            details:
+              "The first-island ledger stays explicit across both phases, so replay can distinguish original land from bridge water without hidden state.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-first-island-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.firstIsland",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} stays on island one`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (grid[neighborRow]![neighborColumn] === 1) {
+        reachedSecondIsland.push(neighbor);
+        bridgeLength = wave;
+        metrics.updates += 1;
+        resolvedBridge = true;
+
+        recorder.push({
+          phase: "Contact",
+          description: `Wave ${wave} reaches second-island land at ${formatCellLabel(neighbor)}, so the shortest bridge needs ${bridgeLength} flip${bridgeLength === 1 ? "" : "s"}.`,
+          explanation: {
+            summary: "Stop the bridge BFS on the first contact with land outside the marked first island.",
+            details:
+              "Because the bridge queue is breadth-first and deterministic, the first second-island contact locks the minimum number of water flips immediately.",
+            tags: ["result", "edge"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-contact-${currentCell}-${neighbor}`,
+              path: "state.reachedSecondIsland",
+              kind: "collection",
+              intent: "result",
+              label: `Second island at ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+
+        break bridgeSearch;
+      }
+
+      if (expandedWater.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the bridge queue stable because that water cell already belongs to an earlier wave.`,
+          explanation: {
+            summary: "Skip a previously expanded water cell without duplicating the bridge frontier.",
+            details:
+              "This keeps the bridge-water ledger deterministic and prevents replay from inferring deduplication from hidden BFS state.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-bridge-known-water-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.expandedWater",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already queued`
+            }
+          ]
+        });
+        continue;
+      }
+
+      expandedWater.add(neighbor);
+      frontier.push(neighbor);
+      bridgeDistanceByCell.set(neighbor, wave + 1);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Expand Bridge",
+        description: `Water ${formatCellLabel(neighbor)} joins bridge wave ${wave + 1} as a new flip candidate.`,
+        explanation: {
+          summary: "Append one water cell to the next bridge wave.",
+          details:
+            "The bridge frontier and expanded-water ledger update together in one frame so replay can show the exact wave where each flip candidate entered the search.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-bridge-expand-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: "state.expandedWater",
+            kind: "collection",
+            intent: "frontier",
+            label: `Wave ${wave + 1} adds ${formatCellLabel(neighbor)}`
+          }
+        ]
+      });
+    }
+
+    settleCell(currentCell);
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed for bridge wave ${wave}.`,
+      explanation: {
+        summary: "Seal one bridge source after all of its expansion checks are recorded.",
+        details:
+          "This checkpoint stores the queued wave frontier, expanded-water ledger, and processed cells directly so replay can jump to any stable bridge boundary.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-bridge-expand-settled-${currentCell}-${wave}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} settled on wave ${wave}`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: resolvedBridge ? "Resolution" : "No Bridge",
+    description: resolvedBridge
+      ? `The shortest bridge flips ${bridgeLength ?? 0} water cell${bridgeLength === 1 ? "" : "s"} between the two islands.`
+      : "Bridge expansion exhausts every reachable water wave without touching a second island.",
+    explanation: {
+      summary: resolvedBridge
+        ? "Publish the minimum bridge length once the first second-island contact is recorded."
+        : "Publish the exhausted bridge frontier when no second island is reached.",
+      details: resolvedBridge
+        ? "The terminal frame preserves the marked first island, expanded-water ledger, and contacted second-island cell directly, so replay never recomputes the answer."
+        : "The terminal frame keeps the fully expanded bridge-water ledger explicit so replay can explain the failure without rerunning BFS.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-bridge-final",
+        path: resolvedBridge ? "state.bridgeLength" : "state.expandedWater",
+        kind: resolvedBridge ? "value" : "collection",
+        intent: "result",
+        label: resolvedBridge
+          ? `Bridge length ${bridgeLength ?? 0}`
+          : "No second island reached"
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestPathBinaryMatrixTrace(
   input: ShortestPathBinaryMatrixInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -5611,6 +6331,8 @@ export function buildGraphTrace(
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
     case "pacific-atlantic-water-flow":
       return buildPacificAtlanticWaterFlowTrace(graph as PacificAtlanticWaterFlowInput);
+    case "shortest-bridge":
+      return buildShortestBridgeTrace(graph as ShortestBridgeInput);
     case "shortest-path-binary-matrix":
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
     case "surrounded-regions":

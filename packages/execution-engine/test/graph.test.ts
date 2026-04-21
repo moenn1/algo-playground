@@ -10,6 +10,7 @@ import {
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
   buildRottingOrangesTrace,
+  buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
@@ -20,6 +21,7 @@ import {
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
+  defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
@@ -239,6 +241,9 @@ describe("graph execution engine", () => {
         "pacific-atlantic-water-flow"
       )
     ).toEqual(defaultPacificAtlanticWaterFlowInput);
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultShortestBridgeInput), "shortest-bridge")
+    ).toEqual(defaultShortestBridgeInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultShortestPathBinaryMatrixInput),
@@ -473,6 +478,41 @@ describe("graph execution engine", () => {
     ]);
     expect(interiorSinkFinalStep.state.pacificReachable).not.toContain("1,1");
     expect(interiorSinkFinalStep.state.atlanticReachable).not.toContain("1,1");
+  });
+
+  it("records deterministic island marking and bridge expansion for Shortest Bridge", () => {
+    const firstTrace = buildShortestBridgeTrace(defaultShortestBridgeInput);
+    const secondTrace = buildShortestBridgeTrace(defaultShortestBridgeInput);
+    const singleGapTrace = buildShortestBridgeTrace({
+      grid: [
+        [1, 1, 0],
+        [0, 0, 0],
+        [0, 1, 1]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const singleGapFinalStep = singleGapTrace.steps[singleGapTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("shortest-bridge");
+    if (referenceFinalStep.state.kind !== "shortest-bridge") {
+      throw new Error("Expected the shortest-bridge state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.bridgeLength).toBe(2);
+    expect(referenceFinalStep.state.firstIsland).toEqual(["0,1", "0,2"]);
+    expect(referenceFinalStep.state.reachedSecondIsland).toEqual(["2,3"]);
+    expect(referenceFinalStep.state.expandedWater).toContain("1,2");
+
+    expect(singleGapFinalStep.phase).toBe("Resolution");
+    expect(singleGapFinalStep.state.kind).toBe("shortest-bridge");
+    if (singleGapFinalStep.state.kind !== "shortest-bridge") {
+      throw new Error("Expected the shortest-bridge state.");
+    }
+    expect(singleGapFinalStep.state.bridgeLength).toBe(1);
+    expect(singleGapFinalStep.state.firstIsland).toEqual(["0,0", "0,1"]);
+    expect(singleGapFinalStep.state.reachedSecondIsland).toEqual(["2,1"]);
   });
 
   it("records deterministic shortest paths and unreachable grids for Shortest Path in Binary Matrix", () => {

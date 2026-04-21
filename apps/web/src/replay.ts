@@ -26,6 +26,7 @@ import {
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
+  defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
@@ -304,6 +305,17 @@ export function isPacificAtlanticWaterFlowInput(
     "grid" in input &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && cell >= 0)
+    )
+  );
+}
+
+export function isShortestBridgeInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
     )
   );
 }
@@ -783,6 +795,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "shortest-bridge",
+    name: "Shortest Bridge",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Two-phase replay records first-island marking, outward bridge waves, and the first second-island contact that locks the minimum flip count.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for water and 1 for land.",
+    defaultInput: serializeGraphInput(defaultShortestBridgeInput),
+    domain: "graph"
+  },
+  {
     id: "shortest-path-binary-matrix",
     name: "Shortest Path in Binary Matrix",
     badge: "Graph",
@@ -1082,9 +1106,13 @@ export function describeInputFootprint(run: ReplayRun): string {
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
     : isRottingOrangesInput(run.input) ||
         isNumberOfIslandsInput(run.input) ||
+        isPacificAtlanticWaterFlowInput(run.input) ||
+        isShortestBridgeInput(run.input) ||
+        isShortestPathBinaryMatrixInput(run.input) ||
+        isSurroundedRegionsInput(run.input) ||
         isWallsAndGatesInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
-    : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
+      : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
 }
 
 export function getTraceStepPaths<State extends JsonObject>(

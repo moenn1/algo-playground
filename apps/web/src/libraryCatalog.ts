@@ -463,6 +463,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong grid-graph follow-up because it reuses deterministic frontier instrumentation while adding a clean two-phase intersection model.",
     nextAlgorithmIds: ["surrounded-regions", "walls-and-gates"]
   },
+  "shortest-bridge": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.935,
+    timeToExplore: "7 min",
+    complexity: "The runtime first marks one island and then restarts as a multi-source bridge BFS, so the viewer has to track a clean phase handoff across the same grid.",
+    outcome: "See exactly when the first island is fully claimed, which water cells join each outward bridge wave, and where the second island is touched first.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much work went into island marking versus bridge-wave expansion before the minimum flip count locked in.",
+    skills: ["island marking", "multi-source bfs", "bridge waves"],
+    spotlight: "A strong graph continuation because it reuses grid traversal primitives while turning the answer into a deterministic phase transition from component marking to shortest bridge expansion.",
+    nextAlgorithmIds: ["shortest-path-binary-matrix", "pacific-atlantic-water-flow"]
+  },
   "shortest-path-binary-matrix": {
     stage: "core",
     focus: "pathfinding",

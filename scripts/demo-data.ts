@@ -459,6 +459,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "interior-sink"]
   },
   {
+    key: "graph-reference-bridge",
+    algorithmId: "shortest-bridge",
+    presetId: "graph.reference-bridge",
+    recordedAt: "2026-04-20T09:16:21.000Z",
+    tags: ["seeded-demo", "graph", "reference-bridge"]
+  },
+  {
+    key: "graph-single-gap-bridge",
+    algorithmId: "shortest-bridge",
+    presetId: "graph.single-gap-bridge",
+    recordedAt: "2026-04-20T09:16:21.500Z",
+    tags: ["seeded-demo", "graph", "single-gap-bridge"]
+  },
+  {
     key: "graph-reference-binary-path",
     algorithmId: "shortest-path-binary-matrix",
     presetId: "graph.reference-binary-path",

@@ -23,6 +23,7 @@ import {
   isPacificAtlanticWaterFlowInput,
   isPathfindingGraphInput,
   isRottingOrangesInput,
+  isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
   isSurroundedRegionsInput,
   isWallsAndGatesInput,
@@ -179,6 +180,7 @@ function formatGraphNodeStatus(
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
     step.state.kind === "pacific-atlantic-water-flow" ||
+    step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
@@ -186,6 +188,7 @@ function formatGraphNodeStatus(
     isRottingOrangesInput(run.input) ||
     isNumberOfIslandsInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
+    isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
@@ -232,6 +235,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
 
   if (
     isNumberOfIslandsInput(run.input) ||
+    isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
@@ -686,6 +690,70 @@ function formatPacificAtlanticCellStatus(
   }
 
   return "Unreached";
+}
+
+function getShortestBridgeCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-bridge" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.scan === cell) {
+    return "scan";
+  }
+
+  if (step.state.reachedSecondIsland.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.expandedWater.includes(cell)) {
+    return "active";
+  }
+
+  if (step.state.firstIsland.includes(cell)) {
+    return step.state.settled.includes(cell) ? "settled" : "land";
+  }
+
+  return value === 1 ? "land" : "water";
+}
+
+function formatShortestBridgeCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-bridge" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "mark-island" ? "Mark focus" : "Bridge focus";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return step.state.phaseMode === "mark-island" ? "Island frontier" : `Wave ${step.state.wave + 1} frontier`;
+  }
+
+  if (step.state.scan === cell) {
+    return value === 1 ? "Land scan" : "Water scan";
+  }
+
+  if (step.state.reachedSecondIsland.includes(cell)) {
+    return "Second island";
+  }
+
+  if (step.state.expandedWater.includes(cell)) {
+    return "Bridge water";
+  }
+
+  if (step.state.firstIsland.includes(cell)) {
+    return "First island";
+  }
+
+  return value === 1 ? "Unreached land" : "Water";
 }
 
 function getShortestPathBinaryMatrixCellTone(
@@ -1932,6 +2000,194 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.dualReachable.length > 0
                 ? step.state.dualReachable.join(", ")
                 : "Replay has not published a shared-ocean cell yet."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "shortest-bridge" && isShortestBridgeInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} bridge grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Shortest Bridge status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Claimed or reached land</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Bridge water</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.firstIsland.length} first-island cell
+                {step.state.firstIsland.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.bridgeLength !== null
+                  ? `Shortest bridge uses ${step.state.bridgeLength} flip${step.state.bridgeLength === 1 ? "" : "s"}`
+                  : step.state.phaseMode === "locate-island"
+                    ? "Scanning for the first island"
+                    : step.state.phaseMode === "mark-island"
+                      ? `Marking island ${step.state.firstIsland.length > 0 ? "one" : ""}`.trim()
+                      : `${step.state.frontier.length} bridge source${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? step.state.scan ?? "No neighbor under inspection"}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getShortestBridgeCellTone(cell, value, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">{value === 1 ? "Land" : "Water"}</strong>
+                      <span className="island-cell-status">
+                        {formatShortestBridgeCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Bridge focus</span>
+              <strong>{step.state.current ?? step.state.scan ?? "Resolved"}</strong>
+              <p>
+                {step.state.phaseMode === "expand-bridge"
+                  ? `Wave ${step.state.wave}`
+                  : step.state.phaseMode === "mark-island"
+                    ? "Marking first island"
+                    : step.state.phaseMode === "locate-island"
+                      ? "Row-major discovery"
+                      : "Bridge resolved"}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.phaseMode === "mark-island" ? "Island queue" : "Bridge queue"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>First island</strong>
+                  <span className="graph-node-status">{step.state.firstIsland.length}</span>
+                </div>
+                <span className="graph-node-distance">Claimed land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.firstIsland.length > 0
+                    ? step.state.firstIsland.join(" · ")
+                    : "No island cells claimed yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Bridge water</strong>
+                  <span className="graph-node-status">{step.state.expandedWater.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued or claimed flips</span>
+                <span className="graph-node-meta">
+                  {step.state.expandedWater.length > 0
+                    ? step.state.expandedWater.join(" · ")
+                    : "No bridge water yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.bridgeLength !== null
+                      ? "Resolved"
+                      : step.state.phaseMode === "expand-bridge"
+                        ? `Wave ${step.state.wave}`
+                        : step.state.phaseMode}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.bridgeLength !== null
+                    ? `Bridge length ${step.state.bridgeLength}`
+                    : "Awaiting second-island contact"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.reachedSecondIsland.length > 0
+                    ? `Reached ${step.state.reachedSecondIsland.join(" · ")}`
+                    : "No second-island contact yet"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Processed cells</span>
+            <strong>{step.state.settled.length}</strong>
+            <p>
+              {step.state.settled.length > 0
+                ? step.state.settled.join(", ")
+                : "No processed cells yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Scan and waves</span>
+            <strong>
+              {step.state.scan ?? (step.state.phaseMode === "expand-bridge" ? `Wave ${step.state.wave}` : step.state.phaseMode)}
+            </strong>
+            <p>
+              {step.state.phaseMode === "locate-island"
+                ? "The row-major cursor is still locating island one."
+                : step.state.phaseMode === "mark-island"
+                  ? "Replay is still expanding the first island boundary."
+                  : step.state.phaseMode === "expand-bridge"
+                    ? "Bridge BFS is expanding outward from every first-island cell."
+                    : "The minimum bridge length is locked in the final frame."}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Second island</span>
+            <strong>
+              {step.state.reachedSecondIsland.length > 0
+                ? step.state.reachedSecondIsland.join(" · ")
+                : "Pending"}
+            </strong>
+            <p>
+              {step.state.bridgeLength !== null
+                ? `Replay stores the first second-island contact and the minimum ${step.state.bridgeLength}-flip bridge directly.`
+                : "The bridge BFS has not touched the second island yet."}
             </p>
           </div>
         </div>

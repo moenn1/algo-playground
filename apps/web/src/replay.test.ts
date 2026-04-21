@@ -403,6 +403,42 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds shortest-bridge replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "shortest-bridge",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 1, 1, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0, 1, 1]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("shortest-bridge");
+    expect(finalStep.state.kind).toBe("shortest-bridge");
+    if (finalStep.state.kind !== "shortest-bridge") {
+      throw new Error("Expected the shortest-bridge graph state.");
+    }
+    expect(finalStep.state.bridgeLength).toBe(2);
+    expect(finalStep.state.firstIsland).toEqual(["0,1", "0,2"]);
+    expect(finalStep.state.reachedSecondIsland).toEqual(["2,3"]);
+    expect(
+      run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.expandedWater"))
+    ).toBe(true);
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

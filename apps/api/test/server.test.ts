@@ -972,6 +972,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const referenceBridgePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-bridge/resolve",
+      payload: {
+        algorithmId: "shortest-bridge"
+      }
+    });
+
+    expect(referenceBridgePreset.statusCode).toBe(200);
+    expect(referenceBridgePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-bridge"
+      },
+      algorithm: {
+        id: "shortest-bridge",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
+    const singleGapBridgePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.single-gap-bridge/resolve",
+      payload: {
+        algorithmId: "shortest-bridge"
+      }
+    });
+
+    expect(singleGapBridgePreset.statusCode).toBe(200);
+    expect(singleGapBridgePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.single-gap-bridge"
+      },
+      algorithm: {
+        id: "shortest-bridge",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const binaryPathPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-binary-path/resolve",
@@ -1865,6 +1907,40 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
+    const validateShortestBridgeInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-bridge",
+        payload: {
+          grid: [
+            [0, 1, 1, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0, 1, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateShortestBridgeInput.statusCode).toBe(200);
+    expect(validateShortestBridgeInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "shortest-bridge",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 1, 1, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 1],
+          [0, 0, 1, 1]
+        ]
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const validateShortestPathBinaryMatrixInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2120,6 +2196,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "grid[1][1] must be a non-negative integer height."
+    });
+  });
+
+  it("rejects shortest-bridge payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-bridge",
+        payload: {
+          grid: [
+            [0, 1, 0],
+            [0, 2, 0]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "grid[1][1] must be either 0 or 1."
     });
   });
 
