@@ -67,6 +67,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "sorting", "worst-case"]
   },
   {
+    key: "sorting-baseline-heap",
+    algorithmId: "heap-sort",
+    presetId: "sorting.baseline",
+    recordedAt: "2026-04-20T09:03:30.000Z",
+    tags: ["seeded-demo", "sorting", "baseline"]
+  },
+  {
+    key: "sorting-reverse-heap",
+    algorithmId: "heap-sort",
+    presetId: "sorting.reverse-sorted",
+    recordedAt: "2026-04-20T09:06:45.000Z",
+    tags: ["seeded-demo", "sorting", "worst-case"]
+  },
+  {
     key: "search-reference-hit",
     algorithmId: "binary-search",
     presetId: "search.reference-hit",

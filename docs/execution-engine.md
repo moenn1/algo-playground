@@ -11,6 +11,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `selection-sort`
 - `quick-sort`
 - `merge-sort`
+- `heap-sort`
 - `binary-search`
 - `search-in-rotated-sorted-array`
 - `container-with-most-water`
@@ -51,9 +52,11 @@ Sorting traces currently share two comparison metrics:
 - `comparisons`: value-to-value comparisons performed by the algorithm
 - `writes`: writes committed into the primary array state
 
-The package intentionally avoids algorithm-specific comparison metrics in the shared deck so Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, and Merge Sort can stay directly comparable.
+The package intentionally avoids algorithm-specific comparison metrics in the shared deck so Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, Merge Sort, and Heap Sort can stay directly comparable.
 
 Insertion Sort uses the same state shape without marking any lane as globally final before the terminal frame, because later values can still insert ahead of the current prefix even when the local prefix is ordered.
+
+Heap Sort uses that same state shape while allowing `state.sortedIndices` to grow as an extracted suffix before the terminal frame, because each root swap seals one more maximum value at the end of the array.
 
 ## Search Runtime Model
 

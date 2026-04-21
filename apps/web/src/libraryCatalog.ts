@@ -413,7 +413,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Writes spike in merge phases, which clarifies the cost of preserving sorted structure.",
     skills: ["recursive splits", "merge windows", "stable writes"],
     spotlight: "This is the cleanest route into recursive playback before heavier partition churn.",
-    nextAlgorithmIds: ["quick-sort", "longest-common-subsequence"]
+    nextAlgorithmIds: ["heap-sort", "longest-common-subsequence"]
+  },
+  "heap-sort": {
+    stage: "advanced",
+    focus: "tradeoffs",
+    order: 14.5,
+    timeToExplore: "7 min",
+    complexity: "The replay alternates between heapify structure and sorted-suffix extraction, so the same array carries both active heap work and final lanes at once.",
+    outcome: "See exactly when heapify promotes a child, when the max root is extracted, and how the sorted suffix grows without hidden heap state.",
+    metricsLens: "Comparisons and writes expose the cost of building and repairing the heap against the benefit of deterministic in-place extraction.",
+    skills: ["heapify", "sift down", "suffix extraction"],
+    spotlight: "A strong advanced sorting study because it keeps the shared array state but changes the control flow completely from pass, partition, or merge-based traces.",
+    nextAlgorithmIds: ["quick-sort", "dijkstra"]
   },
   "quick-sort": {
     stage: "advanced",

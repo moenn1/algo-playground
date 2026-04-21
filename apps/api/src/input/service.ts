@@ -53,6 +53,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Merge Sort",
     domain: "sorting"
   },
+  "heap-sort": {
+    id: "heap-sort",
+    label: "Heap Sort",
+    domain: "sorting"
+  },
   "binary-search": {
     id: "binary-search",
     label: "Binary Search",
@@ -165,7 +170,8 @@ const sortingAlgorithms = [
   supportedAlgorithms["insertion-sort"],
   supportedAlgorithms["selection-sort"],
   supportedAlgorithms["quick-sort"],
-  supportedAlgorithms["merge-sort"]
+  supportedAlgorithms["merge-sort"],
+  supportedAlgorithms["heap-sort"]
 ] as const;
 const binarySearchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const rotatedSearchAlgorithms = [

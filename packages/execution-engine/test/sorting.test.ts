@@ -41,4 +41,16 @@ describe("buildSortingTrace", () => {
     expect(finalStep.state.sortedIndices).toEqual([0, 1, 2, 3, 4, 5]);
     expect(trace.summary.finalMetrics.writes).toBeGreaterThan(0);
   });
+
+  it("records heap sort suffix growth while preserving deterministic heap writes", () => {
+    const trace = buildSortingTrace("heap-sort", [4, 10, 3, 5, 1]);
+    const extractedSuffixStep = trace.steps.find((step) => step.state.sortedIndices.length > 0);
+    const finalStep = trace.steps[trace.steps.length - 1]!;
+
+    expect(extractedSuffixStep).toBeDefined();
+    expect(finalStep.state.array).toEqual([1, 3, 4, 5, 10]);
+    expect(finalStep.state.sortedIndices).toEqual([0, 1, 2, 3, 4]);
+    expect(trace.summary.finalMetrics.comparisons).toBeGreaterThan(0);
+    expect(trace.summary.finalMetrics.writes).toBeGreaterThan(0);
+  });
 });

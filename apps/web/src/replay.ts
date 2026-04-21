@@ -421,6 +421,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "sorting"
   },
   {
+    id: "heap-sort",
+    name: "Heap Sort",
+    badge: "Sorting",
+    accent: "gold",
+    description:
+      "Heapify and suffix-extraction replay shows root swaps, sift-down repairs, and the growing sorted tail directly in the shared sorting stage.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
     id: "binary-search",
     name: "Binary Search",
     badge: "Search",

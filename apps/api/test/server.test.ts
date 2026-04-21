@@ -664,6 +664,27 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "7 lanes"
     });
+
+    const heapSortPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/sorting.baseline/resolve",
+      payload: {
+        algorithmId: "heap-sort"
+      }
+    });
+
+    expect(heapSortPreset.statusCode).toBe(200);
+    expect(heapSortPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "sorting.baseline"
+      },
+      algorithm: {
+        id: "heap-sort",
+        domain: "sorting"
+      },
+      footprint: "7 lanes"
+    });
   });
 
   it("resolves graph and window presets and validates custom inputs", async () => {

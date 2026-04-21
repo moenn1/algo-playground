@@ -11,7 +11,8 @@ export type SortingAlgorithmId =
   | "insertion-sort"
   | "selection-sort"
   | "quick-sort"
-  | "merge-sort";
+  | "merge-sort"
+  | "heap-sort";
 
 export interface SortingExecutionState extends JsonObject {
   array: number[];
@@ -55,6 +56,11 @@ const sortingAlgorithmDefinitions: Record<SortingAlgorithmId, SortingAlgorithmDe
   "merge-sort": {
     id: "merge-sort",
     label: "Merge Sort",
+    implementationVersion: "sorting-engine-0.1.0"
+  },
+  "heap-sort": {
+    id: "heap-sort",
+    label: "Heap Sort",
     implementationVersion: "sorting-engine-0.1.0"
   }
 };
@@ -1363,6 +1369,321 @@ function buildMergeSortTrace(numbers: number[]): TraceEnvelope<SortingExecutionS
   return buildSortingEnvelope(definition, numbers, recorder);
 }
 
+function buildHeapSortTrace(numbers: number[]): TraceEnvelope<SortingExecutionState> {
+  const definition = sortingAlgorithmDefinitions["heap-sort"];
+  const values = numbers.slice();
+  const recorder = createSortingRecorder(definition.id);
+  const metrics: SortingMetricState = {
+    comparisons: 0,
+    writes: 0
+  };
+
+  const sortedSuffix = (heapSize: number) => createInclusiveRange(heapSize, values.length - 1);
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Heap sort begins from the seeded array snapshot so the max-heap build and extracted suffix can be replayed without reconstructing the heap in the browser.",
+    explanation: {
+      summary: "Capture the input array before heapify starts.",
+      details:
+        "The runtime will first build a max-heap in place, then repeatedly swap the root into the sorted suffix.",
+      tags: ["snapshot", "input"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: values.length > 0 ? [0, values.length - 1] : [],
+      swapPair: [],
+      sortedIndices: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "heap-sort-seed-array",
+        path: "state.array",
+        kind: "range",
+        intent: "focus",
+        label: "Loaded seed array",
+        metadata: {
+          start: 0,
+          end: values.length - 1
+        }
+      }
+    ]
+  });
+
+  const siftDown = (rootIndex: number, heapSize: number, phasePrefix: string) => {
+    let root = rootIndex;
+
+    while (true) {
+      const leftChild = root * 2 + 1;
+
+      if (leftChild >= heapSize) {
+        return;
+      }
+
+      const rightChild = leftChild + 1;
+      let candidate = leftChild;
+
+      if (rightChild < heapSize) {
+        metrics.comparisons += 1;
+        const rightBeatsLeft = values[rightChild]! > values[leftChild]!;
+
+        recorder.push({
+          phase: `${phasePrefix} Compare Children`,
+          description: rightBeatsLeft
+            ? `Right child lane ${rightChild} overtakes left child lane ${leftChild} as the stronger heap candidate.`
+            : `Left child lane ${leftChild} stays ahead of right child lane ${rightChild} inside the heap.`,
+          explanation: {
+            summary: "Compare both children before deciding which branch can challenge the heap root.",
+            details: rightBeatsLeft
+              ? "The larger child becomes the only branch that can force the next sift-down swap."
+              : "The left child already dominates, so the right branch cannot force the next swap.",
+            tags: ["comparison", rightBeatsLeft ? "candidate" : "focus"]
+          },
+          runtimeState: {
+            array: values,
+            activeIndices: [root, leftChild, rightChild],
+            swapPair: [],
+            sortedIndices: sortedSuffix(heapSize)
+          },
+          metrics,
+          highlights: [
+            {
+              key: `heap-sort-children-${phasePrefix}-${root}-${heapSize}`,
+              path: "state.activeIndices",
+              kind: "range",
+              intent: rightBeatsLeft ? "candidate" : "focus",
+              label: `Compare children ${leftChild} and ${rightChild}`,
+              metadata: {
+                root,
+                leftChild,
+                rightChild
+              }
+            }
+          ]
+        });
+
+        if (rightBeatsLeft) {
+          candidate = rightChild;
+        }
+      }
+
+      metrics.comparisons += 1;
+      const childBeatsRoot = values[candidate]! > values[root]!;
+
+      recorder.push({
+        phase: `${phasePrefix} Compare Root`,
+        description: childBeatsRoot
+          ? `Child lane ${candidate} exceeds root lane ${root}, so heap sort schedules a sift-down swap.`
+          : `Root lane ${root} already dominates child lane ${candidate}, so this heap branch is stable.`,
+        explanation: {
+          summary: "Compare the strongest child against the current root.",
+          details: childBeatsRoot
+            ? "The heap invariant is broken at this branch, so the larger child must rise toward the root."
+            : "Once the root beats its strongest child, the current subtree is a valid max-heap.",
+          tags: ["comparison", childBeatsRoot ? "mutation" : "focus"]
+        },
+        runtimeState: {
+          array: values,
+          activeIndices: [root, candidate],
+          swapPair: [],
+          sortedIndices: sortedSuffix(heapSize)
+        },
+        metrics,
+        highlights: [
+          {
+            key: `heap-sort-root-${phasePrefix}-${root}-${candidate}-${heapSize}`,
+            path: "state.activeIndices",
+            kind: "range",
+            intent: childBeatsRoot ? "candidate" : "focus",
+            label: `Inspect root ${root} against child ${candidate}`,
+            metadata: {
+              root,
+              candidate
+            }
+          }
+        ]
+      });
+
+      if (!childBeatsRoot) {
+        return;
+      }
+
+      [values[root], values[candidate]] = [values[candidate]!, values[root]!];
+      metrics.writes += 2;
+
+      recorder.push({
+        phase: `${phasePrefix} Swap`,
+        description:
+          "Record the sift-down swap immediately so replay can reopen the heap mutation without re-running earlier comparisons.",
+        explanation: {
+          summary: "Swap the root with the stronger child to restore the max-heap invariant.",
+          details:
+            "Heap sort reuses the main array as heap storage, so every sift-down mutation stays serialization-safe.",
+          tags: ["mutation", "heapify"]
+        },
+        runtimeState: {
+          array: values,
+          activeIndices: [root, candidate],
+          swapPair: [root, candidate],
+          sortedIndices: sortedSuffix(heapSize)
+        },
+        metrics,
+        highlights: [
+          {
+            key: `heap-sort-swap-${phasePrefix}-${root}-${candidate}-${heapSize}`,
+            path: "state.swapPair",
+            kind: "range",
+            intent: "mutation",
+            label: `Swapped lanes ${root} and ${candidate}`,
+            metadata: {
+              start: root,
+              end: candidate
+            }
+          }
+        ]
+      });
+
+      root = candidate;
+    }
+  };
+
+  for (let start = Math.floor(values.length / 2) - 1; start >= 0; start -= 1) {
+    recorder.push({
+      phase: "Heapify Seed",
+      description: `Start heapifying subtree rooted at lane ${start}.`,
+      explanation: {
+        summary: "Pick the next internal node and sift it down into heap order.",
+        details:
+          "Heap build runs from the last parent back to the root so every sift-down sees child subtrees that are already heap-ordered.",
+        tags: ["heapify", "focus"]
+      },
+      runtimeState: {
+        array: values,
+        activeIndices: [start],
+        swapPair: [],
+        sortedIndices: []
+      },
+      metrics,
+      highlights: [
+        {
+          key: `heap-sort-heapify-seed-${start}`,
+          path: "state.activeIndices",
+          kind: "index",
+          intent: "focus",
+          label: `Heapify root ${start}`
+        }
+      ]
+    });
+
+    siftDown(start, values.length, "Heapify");
+  }
+
+  for (let heapSize = values.length; heapSize > 1; heapSize -= 1) {
+    const lastHeapIndex = heapSize - 1;
+
+    recorder.push({
+      phase: "Extract Root",
+      description: `Swap the heap root into lane ${lastHeapIndex} to extend the sorted suffix.`,
+      explanation: {
+        summary: "Move the current maximum value out of the heap and into its final lane.",
+        details:
+          "The max-heap root is globally largest inside the remaining heap, so the swap seals one more suffix lane immediately.",
+        tags: ["mutation", "sorted"]
+      },
+      runtimeState: {
+        array: values,
+        activeIndices: [0, lastHeapIndex],
+        swapPair: [],
+        sortedIndices: sortedSuffix(heapSize)
+      },
+      metrics,
+      highlights: [
+        {
+          key: `heap-sort-extract-${heapSize}`,
+          path: "state.activeIndices",
+          kind: "range",
+          intent: "candidate",
+          label: `Root 0 trades with lane ${lastHeapIndex}`,
+          metadata: {
+            start: 0,
+            end: lastHeapIndex
+          }
+        }
+      ]
+    });
+
+    [values[0], values[lastHeapIndex]] = [values[lastHeapIndex]!, values[0]!];
+    metrics.writes += 2;
+
+    recorder.push({
+      phase: "Swap Into Suffix",
+      description: `Lane ${lastHeapIndex} is now fixed in the sorted suffix after the root swap.`,
+      explanation: {
+        summary: "Commit the extracted maximum into its final suffix lane.",
+        details:
+          "Replay records the suffix extension immediately so the sorted region can be restored without replaying heap operations.",
+        tags: ["mutation", "sorted"]
+      },
+      runtimeState: {
+        array: values,
+        activeIndices: [0, lastHeapIndex],
+        swapPair: [0, lastHeapIndex],
+        sortedIndices: sortedSuffix(heapSize - 1)
+      },
+      metrics,
+      highlights: [
+        {
+          key: `heap-sort-suffix-swap-${heapSize}`,
+          path: "state.swapPair",
+          kind: "range",
+          intent: "mutation",
+          label: `Moved max into lane ${lastHeapIndex}`,
+          metadata: {
+            start: 0,
+            end: lastHeapIndex
+          }
+        }
+      ]
+    });
+
+    siftDown(0, lastHeapIndex, "Sift Down");
+  }
+
+  const allSorted = createInclusiveRange(0, values.length - 1);
+
+  recorder.push({
+    phase: "Done",
+    description:
+      "Heap construction and suffix extraction are complete, so the array is ready for replay inspection and comparison against the other shared sorting traces.",
+    explanation: {
+      summary: "Publish the final sorted snapshot and terminal heap-sort metrics.",
+      details:
+        "The comparison deck can now contrast heapify-driven extraction work against adjacent-swap, selection, partition, and merge-oriented sorting traces.",
+      tags: ["result", "metrics"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: [],
+      swapPair: [],
+      sortedIndices: allSorted
+    },
+    metrics,
+    highlights: [
+      {
+        key: "heap-sort-final-state",
+        path: "state.array",
+        kind: "collection",
+        intent: "result",
+        label: "Final sorted order"
+      }
+    ]
+  });
+
+  return buildSortingEnvelope(definition, numbers, recorder);
+}
+
 export function buildSortingTrace(
   algorithmId: SortingAlgorithmId,
   numbers: number[]
@@ -1378,6 +1699,8 @@ export function buildSortingTrace(
       return buildQuickSortTrace(numbers);
     case "merge-sort":
       return buildMergeSortTrace(numbers);
+    case "heap-sort":
+      return buildHeapSortTrace(numbers);
   }
 }
 

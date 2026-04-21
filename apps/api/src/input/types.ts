@@ -6,6 +6,7 @@ export const supportedAlgorithmIds = [
   "selection-sort",
   "quick-sort",
   "merge-sort",
+  "heap-sort",
   "binary-search",
   "search-in-rotated-sorted-array",
   "container-with-most-water",

@@ -133,6 +133,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("insertion-sort");
   });
 
+  it("surfaces heap-sort study paths through heapify metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "heapify sift down suffix extraction"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("heap-sort");
+  });
+
   it("surfaces min-stack study paths through minimum-ledger metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,
