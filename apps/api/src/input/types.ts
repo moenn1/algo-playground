@@ -42,6 +42,7 @@ export const supportedAlgorithmIds = [
   "shortest-path-binary-matrix",
   "01-matrix",
   "as-far-from-land-as-possible",
+  "map-of-highest-peak",
   "surrounded-regions",
   "walls-and-gates"
 ] as const;
@@ -100,6 +101,10 @@ export interface AsFarFromLandAsPossibleInputPayload extends JsonObject {
   grid: number[][];
 }
 
+export interface MapOfHighestPeakInputPayload extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInputPayload extends JsonObject {
   grid: string[][];
 }
@@ -119,6 +124,7 @@ export type GraphInputPayload =
   | ShortestPathBinaryMatrixInputPayload
   | ZeroOneMatrixInputPayload
   | AsFarFromLandAsPossibleInputPayload
+  | MapOfHighestPeakInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload;
 

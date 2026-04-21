@@ -599,6 +599,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "ocean-only"]
   },
   {
+    key: "graph-reference-highest-peak",
+    algorithmId: "map-of-highest-peak",
+    presetId: "graph.reference-highest-peak",
+    recordedAt: "2026-04-21T17:32:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-highest-peak"]
+  },
+  {
+    key: "graph-all-water-plateau",
+    algorithmId: "map-of-highest-peak",
+    presetId: "graph.all-water-plateau",
+    recordedAt: "2026-04-21T17:33:00.000Z",
+    tags: ["seeded-demo", "graph", "all-water-plateau"]
+  },
+  {
     key: "graph-reference-capture",
     algorithmId: "surrounded-regions",
     presetId: "graph.reference-capture",

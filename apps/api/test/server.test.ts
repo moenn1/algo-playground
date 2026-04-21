@@ -972,6 +972,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const highestPeakPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-highest-peak/resolve",
+      payload: {
+        algorithmId: "map-of-highest-peak"
+      }
+    });
+
+    expect(highestPeakPreset.statusCode).toBe(200);
+    expect(highestPeakPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-highest-peak"
+      },
+      algorithm: {
+        id: "map-of-highest-peak",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const allWaterPeakPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.all-water-plateau/resolve",
+      payload: {
+        algorithmId: "map-of-highest-peak"
+      }
+    });
+
+    expect(allWaterPeakPreset.statusCode).toBe(200);
+    expect(allWaterPeakPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.all-water-plateau"
+      },
+      algorithm: {
+        id: "map-of-highest-peak",
+        domain: "graph"
+      },
+      footprint: "2 x 2 grid"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2521,6 +2563,38 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validateHighestPeakInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "map-of-highest-peak",
+        payload: {
+          grid: [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+          ]
+        }
+      }
+    });
+
+    expect(validateHighestPeakInput.statusCode).toBe(200);
+    expect(validateHighestPeakInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "map-of-highest-peak",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 0, 0],
+          [0, 1, 0],
+          [0, 0, 0]
+        ]
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const validateCountComponentsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2908,6 +2982,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "grid[1][1] must be either 0 or 1."
+    });
+  });
+
+  it("rejects map-of-highest-peak payloads with no water source", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "map-of-highest-peak",
+        payload: {
+          grid: [
+            [0, 0],
+            [0, 0]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Map of Highest Peak input must include at least one water cell."
     });
   });
 

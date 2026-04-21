@@ -731,6 +731,43 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds map-of-highest-peak replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "map-of-highest-peak",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 0, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("map-of-highest-peak");
+    expect(finalStep.state.kind).toBe("map-of-highest-peak");
+    if (finalStep.state.kind !== "map-of-highest-peak") {
+      throw new Error("Expected the map-of-highest-peak graph state.");
+    }
+    expect(finalStep.state.fullyAssigned).toBe(true);
+    expect(finalStep.state.maxHeight).toBe(2);
+    expect(finalStep.state.highestCells).toEqual(["0,0", "0,2", "2,0", "2,2"]);
+    expect(
+      run.trace.steps.some((step) =>
+        getTraceStepPaths(step).some((path) => path.startsWith("state.grid"))
+      )
+    ).toBe(true);
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

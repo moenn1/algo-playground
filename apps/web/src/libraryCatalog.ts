@@ -497,7 +497,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates expose how much shoreline scanning and queue churn happened before the farthest-water answer stabilized or short-circuited.",
     skills: ["multi-source bfs", "shoreline distances", "edge-case ledgers"],
     spotlight: "A strong follow-up to 01 Matrix because it reuses the same distance-fill runtime while switching the terminal contract from full matrix publication to one farthest-water answer.",
-    nextAlgorithmIds: ["01-matrix", "pacific-atlantic-water-flow"]
+    nextAlgorithmIds: ["map-of-highest-peak", "pacific-atlantic-water-flow"]
+  },
+  "map-of-highest-peak": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.84,
+    timeToExplore: "7 min",
+    complexity: "The frontier stays BFS-readable, but every update has to preserve the full height map while proving which land cells still wait for their smallest valid assignment from water.",
+    outcome: "See exactly when water cells seed the wave, which land cells lock their height next, and which plateau cells finish with the highest assigned peak.",
+    metricsLens: "Settled, frontier, inspections, and updates expose how much queue churn and height-filling work happened before the peak map stabilized.",
+    skills: ["multi-source bfs", "height maps", "peak ledgers"],
+    spotlight: "A strong follow-up to As Far from Land as Possible because it reuses the same shoreline-distance runtime while turning the result into a full peak map instead of a single farthest-water answer.",
+    nextAlgorithmIds: ["as-far-from-land-as-possible", "pacific-atlantic-water-flow"]
   },
   "number-of-islands": {
     stage: "core",

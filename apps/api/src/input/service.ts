@@ -18,6 +18,7 @@ import type {
   ShortestPathBinaryMatrixInputPayload,
   ZeroOneMatrixInputPayload,
   AsFarFromLandAsPossibleInputPayload,
+  MapOfHighestPeakInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
   ResolveInputPresetInput,
@@ -240,6 +241,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "As Far from Land as Possible",
     domain: "graph"
   },
+  "map-of-highest-peak": {
+    id: "map-of-highest-peak",
+    label: "Map of Highest Peak",
+    domain: "graph"
+  },
   "surrounded-regions": {
     id: "surrounded-regions",
     label: "Surrounded Regions",
@@ -313,6 +319,7 @@ const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
 const asFarFromLandAsPossibleAlgorithms = [
   supportedAlgorithms["as-far-from-land-as-possible"]
 ] as const;
+const mapOfHighestPeakAlgorithms = [supportedAlgorithms["map-of-highest-peak"]] as const;
 const surroundedRegionsAlgorithms = [supportedAlgorithms["surrounded-regions"]] as const;
 const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
@@ -532,6 +539,13 @@ const defaultAsFarFromLandAsPossibleInput: AsFarFromLandAsPossibleInputPayload =
     [1, 0, 1],
     [0, 0, 0],
     [1, 0, 1]
+  ]
+};
+const defaultMapOfHighestPeakInput: MapOfHighestPeakInputPayload = {
+  grid: [
+    [0, 0, 0],
+    [0, 1, 0],
+    [0, 0, 0]
   ]
 };
 const defaultSurroundedRegionsInput: SurroundedRegionsInputPayload = {
@@ -2324,6 +2338,73 @@ function normalizeAsFarFromLandAsPossibleInput(
   };
 }
 
+function normalizeMapOfHighestPeakInput(payload: unknown): MapOfHighestPeakInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Map of Highest Peak input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Map of Highest Peak input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Map of Highest Peak input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Map of Highest Peak input must use 8 rows or fewer.");
+  }
+
+  let hasWater = false;
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      if (cell === 1) {
+        hasWater = true;
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Map of Highest Peak input rows must all be the same length.");
+  }
+
+  if (!hasWater) {
+    throw new HttpError(400, "Map of Highest Peak input must include at least one water cell.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(payload: unknown): SurroundedRegionsInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2487,6 +2568,8 @@ function normalizeGraphInput(
       return normalizeZeroOneMatrixInput(payload);
     case "as-far-from-land-as-possible":
       return normalizeAsFarFromLandAsPossibleInput(payload);
+    case "map-of-highest-peak":
+      return normalizeMapOfHighestPeakInput(payload);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(payload);
     case "walls-and-gates":
@@ -2513,6 +2596,7 @@ function isGridGraphPayload(
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
   | AsFarFromLandAsPossibleInputPayload
+  | MapOfHighestPeakInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload {
   return "grid" in graph && Array.isArray(graph.grid);
@@ -4183,6 +4267,45 @@ const presetDefinitions: InputPresetDefinition[] = [
           [0, 0, 0],
           [0, 0, 0],
           [0, 0, 0]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-highest-peak",
+      label: "Reference highest peak",
+      description:
+        "Use the canonical height map where one water source fans heights outward and the corner plateau ties for the highest assigned peak.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: mapOfHighestPeakAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultMapOfHighestPeakInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.all-water-plateau",
+      label: "All-water plateau",
+      description:
+        "Fill the grid with water so replay can publish the immediate zero-height plateau without any land-height expansion.",
+      scenario: "water-only",
+      kind: "curated",
+      domain: "graph",
+      algorithms: mapOfHighestPeakAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [1, 1],
+          [1, 1]
         ]
       },
       options: {}

@@ -54,6 +54,7 @@ import {
   isRottingOrangesInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
+  isMapOfHighestPeakInput,
   isWallsAndGatesInput,
   type AccentTone,
   type DynamicProgrammingRun,
@@ -832,6 +833,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} still pending`;
     }
 
+    if (step.state.kind === "map-of-highest-peak" && isMapOfHighestPeakInput(run.input)) {
+      if (step.state.maxHeight !== null && step.state.fullyAssigned === true) {
+        return `Highest peak ${step.state.maxHeight}`;
+      }
+
+      if (step.state.current) {
+        return `Fill from ${step.state.current}`;
+      }
+
+      if (step.state.updatedLand.length > 0) {
+        return `Update ${truncateText(step.state.updatedLand.join(" · "), 36)}`;
+      }
+
+      return `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still pending`;
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       if (step.state.fullyReachable === false && step.state.unreachableRooms.length > 0) {
         return `Blocked rooms ${truncateText(step.state.unreachableRooms.join(" · "), 36)}`;
@@ -960,6 +977,18 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} awaiting shoreline distance`;
     }
 
+    if (step.state.kind === "map-of-highest-peak" && isMapOfHighestPeakInput(run.input)) {
+      if (step.state.current) {
+        return `Height wave from ${step.state.current}`;
+      }
+
+      if (step.state.maxHeight !== null) {
+        return `Highest peak ${step.state.maxHeight}`;
+      }
+
+      return `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} awaiting height`;
+    }
+
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
         return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
@@ -990,6 +1019,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "island-perimeter" &&
       step.state.kind !== "01-matrix" &&
       step.state.kind !== "as-far-from-land-as-possible" &&
+      step.state.kind !== "map-of-highest-peak" &&
       step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
@@ -1402,6 +1432,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               }
 
               return `Farthest water distance ${graphStep.state.answer ?? 0}`;
+            }
+
+            if (graphStep.state.kind === "map-of-highest-peak") {
+              return `Highest peak ${graphStep.state.maxHeight ?? 0}`;
             }
 
             return `${graphStep.state.settled.length} nodes settled`;
@@ -1887,6 +1921,38 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (step.state.kind === "map-of-highest-peak" && isMapOfHighestPeakInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Remaining</span>
+              <strong>{step.state.remainingLand.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Updated</span>
+              <strong>{step.state.updatedLand.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Peak</span>
+              <strong>{step.state.maxHeight ?? 0}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`highest-peak-row-${rowIndex}`}>
+                {rowIndex}:{row.join(" ")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       return (
         <>
@@ -2127,6 +2193,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
           step.state.kind === "course-schedule" ||
             step.state.kind === "01-matrix" ||
             step.state.kind === "as-far-from-land-as-possible" ||
+            step.state.kind === "map-of-highest-peak" ||
             step.state.kind === "number-of-islands" ||
             step.state.kind === "max-area-of-island" ||
             step.state.kind === "island-perimeter" ||

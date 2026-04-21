@@ -27,6 +27,7 @@ import {
   isShortestPathBinaryMatrixInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
+  isMapOfHighestPeakInput,
   isSurroundedRegionsInput,
   isWallsAndGatesInput,
   type SearchRun,
@@ -188,6 +189,7 @@ function formatGraphNodeStatus(
     step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "01-matrix" ||
     step.state.kind === "as-far-from-land-as-possible" ||
+    step.state.kind === "map-of-highest-peak" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
@@ -198,6 +200,7 @@ function formatGraphNodeStatus(
     isShortestPathBinaryMatrixInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
+    isMapOfHighestPeakInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -247,6 +250,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isShortestPathBinaryMatrixInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
+    isMapOfHighestPeakInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isWallsAndGatesInput(run.input)
@@ -1113,6 +1117,71 @@ function formatAsFarFromLandCellStatus(
       return "Water without land";
     default:
       return value === 2147483647 ? "Open water" : `Distance ${value}`;
+  }
+}
+
+function formatMapOfHighestPeakCellValue(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "map-of-highest-peak" }>>
+): string {
+  if (step.state.waterCells.includes(cell)) {
+    return "Water";
+  }
+
+  if (value === 2147483647) {
+    return "Land";
+  }
+
+  return `H ${value}`;
+}
+
+function getMapOfHighestPeakCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "map-of-highest-peak" }>>
+): "current" | "frontier" | "settled" | "updated" | "gate" | "room" | "blocked" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.waterCells.includes(cell)) {
+    return "gate";
+  }
+
+  if (step.state.updatedLand.includes(cell)) {
+    return "updated";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  return value === 2147483647 ? "room" : "settled";
+}
+
+function formatMapOfHighestPeakCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "map-of-highest-peak" }>>
+): string {
+  switch (getMapOfHighestPeakCellTone(cell, value, step)) {
+    case "current":
+      return step.state.waterCells.includes(cell) ? "Active water" : "Height source";
+    case "frontier":
+      return step.state.waterCells.includes(cell) ? "Queued water" : "Queued height";
+    case "updated":
+      return `Height ${value}`;
+    case "settled":
+      return step.state.waterCells.includes(cell) ? "Processed water" : `Settled ${value}`;
+    case "gate":
+      return "Water source";
+    default:
+      return value === 2147483647 ? "Pending land" : `Height ${value}`;
   }
 }
 
@@ -2063,6 +2132,172 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                   : step.state.outcome === "no-water"
                     ? "Immediate -1 because the grid contains land only."
                     : "The shoreline wave is still expanding."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "map-of-highest-peak" && isMapOfHighestPeakInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} height map</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Map of Highest Peak status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active source</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled height</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Water source</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage gate-stage">
+            <div className="gate-banner">
+              <span>
+                {step.state.waterCells.length} water cell{step.state.waterCells.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.fullyAssigned === true
+                  ? `Highest peak reaches ${step.state.maxHeight ?? 0}`
+                  : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still pending`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `Expanding ${step.state.current}`
+                    : "No edge under inspection"}
+              </p>
+            </div>
+            <div
+              className="gate-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getMapOfHighestPeakCellTone(cell, value, step);
+                  const className = ["gate-cell", `gate-cell-${tone}`].filter(Boolean).join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="gate-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="gate-cell-value">
+                        {formatMapOfHighestPeakCellValue(cell, value, step)}
+                      </strong>
+                      <span className="gate-cell-status">
+                        {formatMapOfHighestPeakCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Height focus</span>
+              <strong>{step.state.current ?? "Pending extraction"}</strong>
+              <p>
+                {step.state.current
+                  ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still unresolved`
+                  : `${step.state.frontier.length} cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued height sources</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Processed</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled water and land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No processed cells yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Remaining</strong>
+                  <span className="graph-node-status">{step.state.remainingLand.length}</span>
+                </div>
+                <span className="graph-node-distance">Pending land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingLand.length > 0
+                    ? step.state.remainingLand.join(" · ")
+                    : "All land cells assigned"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Peak</strong>
+                  <span className="graph-node-status">
+                    {step.state.fullyAssigned === true ? "Resolved" : "Filling"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.maxHeight !== null
+                    ? `Max height ${step.state.maxHeight}`
+                    : "No positive height yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.highestCells.length > 0
+                    ? `Highest: ${step.state.highestCells.join(" · ")}`
+                    : "Water sources still define the current maximum at 0."}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Updated land</span>
+            <div className="pill-row">
+              {step.state.updatedLand.length > 0 ? (
+                step.state.updatedLand.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No new heights this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Water ledger</span>
+            <strong>{step.state.waterCells.join(" · ")}</strong>
+            <p>Every water cell seeds the height BFS at 0.</p>
+          </div>
+          <div className="mini-card">
+            <span>Highest cells</span>
+            <strong>{step.state.highestCells.join(" · ") || "Pending"}</strong>
+            <p>
+              {step.state.maxHeight !== null
+                ? `Current highest assigned peak is ${step.state.maxHeight}.`
+                : "Replay is still assigning the first positive land heights."}
             </p>
           </div>
         </div>

@@ -382,6 +382,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("as-far-from-land-as-possible");
   });
 
+  it("surfaces map-of-highest-peak study paths through height-map metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "water seeded peak height plateau"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("map-of-highest-peak");
+  });
+
   it("surfaces shortest-bridge study paths through bridge-wave metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

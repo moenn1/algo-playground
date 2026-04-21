@@ -35,6 +35,7 @@ import {
   defaultShortestPathBinaryMatrixInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
+  defaultMapOfHighestPeakInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   defaultTwoSumInput,
@@ -357,6 +358,18 @@ export function isAsFarFromLandAsPossibleInput(
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
     )
+  );
+}
+
+export function isMapOfHighestPeakInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    ) &&
+    input.grid.some((row) => row.some((cell) => cell === 1))
   );
 }
 
@@ -941,6 +954,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with a grid using 1 for land and 0 for water.",
     defaultInput: serializeGraphInput(defaultAsFarFromLandAsPossibleInput),
+    domain: "graph"
+  },
+  {
+    id: "map-of-highest-peak",
+    name: "Map of Highest Peak",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Water-seeded height replay records deterministic peak assignments, a stable highest-cell ledger, and the immediate zero plateau when every cell is water.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 1 for water and 0 for land.",
+    defaultInput: serializeGraphInput(defaultMapOfHighestPeakInput),
     domain: "graph"
   },
   {

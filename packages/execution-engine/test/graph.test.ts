@@ -20,6 +20,7 @@ import {
   buildShortestPathBinaryMatrixTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
+  buildMapOfHighestPeakTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
@@ -38,6 +39,7 @@ import {
   defaultShortestPathBinaryMatrixInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
+  defaultMapOfHighestPeakInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   formatGraphDistance,
@@ -411,6 +413,12 @@ describe("graph execution engine", () => {
         "as-far-from-land-as-possible"
       )
     ).toEqual(defaultAsFarFromLandAsPossibleInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultMapOfHighestPeakInput),
+        "map-of-highest-peak"
+      )
+    ).toEqual(defaultMapOfHighestPeakInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultSurroundedRegionsInput),
@@ -929,6 +937,53 @@ describe("graph execution engine", () => {
     expect(noWaterFinalStep.state.outcome).toBe("no-water");
     expect(noWaterFinalStep.state.answer).toBe(-1);
     expect(noWaterFinalStep.state.remainingWater).toEqual([]);
+  });
+
+  it("records deterministic peak heights and immediate water plateaus for Map of Highest Peak", () => {
+    const resolvedTrace = buildMapOfHighestPeakTrace(defaultMapOfHighestPeakInput);
+    const allWaterTrace = buildMapOfHighestPeakTrace({
+      grid: [
+        [1, 1],
+        [1, 1]
+      ]
+    });
+    const resolvedFinalStep = resolvedTrace.steps[resolvedTrace.steps.length - 1]!;
+    const allWaterFinalStep = allWaterTrace.steps[allWaterTrace.steps.length - 1]!;
+
+    expect(resolvedFinalStep.phase).toBe("Resolution");
+    expect(resolvedFinalStep.state.kind).toBe("map-of-highest-peak");
+    if (resolvedFinalStep.state.kind !== "map-of-highest-peak") {
+      throw new Error("Expected the map-of-highest-peak state.");
+    }
+    expect(resolvedFinalStep.state.fullyAssigned).toBe(true);
+    expect(resolvedFinalStep.state.maxHeight).toBe(2);
+    expect(resolvedFinalStep.state.highestCells).toEqual(["0,0", "0,2", "2,0", "2,2"]);
+    expect(resolvedFinalStep.state.grid).toEqual([
+      [2, 1, 2],
+      [1, 0, 1],
+      [2, 1, 2]
+    ]);
+
+    expect(allWaterFinalStep.phase).toBe("Resolution");
+    expect(allWaterFinalStep.state.kind).toBe("map-of-highest-peak");
+    if (allWaterFinalStep.state.kind !== "map-of-highest-peak") {
+      throw new Error("Expected the map-of-highest-peak state.");
+    }
+    expect(allWaterFinalStep.state.fullyAssigned).toBe(true);
+    expect(allWaterFinalStep.state.maxHeight).toBe(0);
+    expect(allWaterFinalStep.state.highestCells).toEqual(["0,0", "0,1", "1,0", "1,1"]);
+    expect(allWaterFinalStep.state.remainingLand).toEqual([]);
+  });
+
+  it("rejects map-of-highest-peak inputs with no water source", () => {
+    expect(() =>
+      buildMapOfHighestPeakTrace({
+        grid: [
+          [0, 0],
+          [0, 0]
+        ]
+      })
+    ).toThrow("Map of Highest Peak input must include at least one water cell.");
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {

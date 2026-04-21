@@ -26,6 +26,7 @@ export type GraphAlgorithmId =
   | "shortest-path-binary-matrix"
   | "01-matrix"
   | "as-far-from-land-as-possible"
+  | "map-of-highest-peak"
   | "surrounded-regions"
   | "walls-and-gates";
 
@@ -49,6 +50,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "shortest-path-binary-matrix",
   "01-matrix",
   "as-far-from-land-as-possible",
+  "map-of-highest-peak",
   "surrounded-regions",
   "walls-and-gates"
 ];
@@ -99,6 +101,10 @@ export interface AsFarFromLandAsPossibleInput extends JsonObject {
   grid: number[][];
 }
 
+export interface MapOfHighestPeakInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInput extends JsonObject {
   grid: string[][];
 }
@@ -118,6 +124,7 @@ export type GraphInput =
   | ShortestPathBinaryMatrixInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
+  | MapOfHighestPeakInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
 
@@ -375,6 +382,21 @@ export interface AsFarFromLandAsPossibleExecutionState extends JsonObject {
   unreachableWater: string[];
 }
 
+export interface MapOfHighestPeakExecutionState extends JsonObject {
+  kind: "map-of-highest-peak";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  waterCells: string[];
+  updatedLand: string[];
+  remainingLand: string[];
+  fullyAssigned: boolean | null;
+  maxHeight: number | null;
+  highestCells: string[];
+}
+
 export interface SurroundedRegionsExecutionState extends JsonObject {
   kind: "surrounded-regions";
   grid: string[][];
@@ -423,6 +445,7 @@ export type GraphExecutionState =
   | ShortestPathBinaryMatrixExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
+  | MapOfHighestPeakExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
@@ -701,6 +724,20 @@ interface AsFarFromLandAsPossibleRuntimeState {
   unreachableWater: string[];
 }
 
+interface MapOfHighestPeakRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  waterCells: string[];
+  updatedLand: string[];
+  remainingLand: Set<string>;
+  fullyAssigned: boolean | null;
+  maxHeight: number | null;
+  highestCells: string[];
+}
+
 interface ShortestBridgeRuntimeState {
   grid: number[][];
   settled: string[];
@@ -811,6 +848,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "as-far-from-land-as-possible",
     label: "As Far from Land as Possible",
     implementationVersion: "graph-engine-0.17.0"
+  },
+  "map-of-highest-peak": {
+    id: "map-of-highest-peak",
+    label: "Map of Highest Peak",
+    implementationVersion: "graph-engine-0.18.0"
   },
   "surrounded-regions": {
     id: "surrounded-regions",
@@ -1030,6 +1072,14 @@ export const defaultAsFarFromLandAsPossibleInput: AsFarFromLandAsPossibleInput =
     [1, 0, 1],
     [0, 0, 0],
     [1, 0, 1]
+  ]
+};
+
+export const defaultMapOfHighestPeakInput: MapOfHighestPeakInput = {
+  grid: [
+    [0, 0, 0],
+    [0, 1, 0],
+    [0, 0, 0]
   ]
 };
 
@@ -1351,6 +1401,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       answer: state.answer,
       farthestWater: state.farthestWater.slice(),
       unreachableWater: state.unreachableWater.slice()
+    };
+  }
+
+  if (state.kind === "map-of-highest-peak") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      waterCells: state.waterCells.slice(),
+      updatedLand: state.updatedLand.slice(),
+      remainingLand: state.remainingLand.slice(),
+      fullyAssigned: state.fullyAssigned,
+      maxHeight: state.maxHeight,
+      highestCells: state.highestCells.slice()
     };
   }
 
@@ -1965,6 +2032,62 @@ function normalizeAsFarFromLandAsPossibleInput(
   };
 }
 
+function normalizeMapOfHighestPeakInput(candidate: unknown): MapOfHighestPeakInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Map of Highest Peak input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Map of Highest Peak input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Map of Highest Peak input must use 8 rows or fewer.");
+  }
+
+  let hasWater = false;
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      if (cell === 1) {
+        hasWater = true;
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Map of Highest Peak input rows must all be the same length.");
+  }
+
+  if (!hasWater) {
+    throw new Error("Map of Highest Peak input must include at least one water cell.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Surrounded Regions input must be an object with a grid field.");
@@ -2111,6 +2234,8 @@ export function parseGraphInputText(
       return normalizeZeroOneMatrixInput(parsed);
     case "as-far-from-land-as-possible":
       return normalizeAsFarFromLandAsPossibleInput(parsed);
+    case "map-of-highest-peak":
+      return normalizeMapOfHighestPeakInput(parsed);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
@@ -2154,6 +2279,8 @@ export function normalizeGraphInput(
       return normalizeZeroOneMatrixInput(input);
     case "as-far-from-land-as-possible":
       return normalizeAsFarFromLandAsPossibleInput(input);
+    case "map-of-highest-peak":
+      return normalizeMapOfHighestPeakInput(input);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
@@ -2885,6 +3012,29 @@ function createAsFarFromLandAsPossibleRecorder() {
   });
 }
 
+function createMapOfHighestPeakRecorder() {
+  return createTraceRecorder<MapOfHighestPeakRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "map-of-highest-peak",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "map-of-highest-peak",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        waterCells: runtimeState.waterCells.slice(),
+        updatedLand: runtimeState.updatedLand.slice(),
+        remainingLand: Array.from(runtimeState.remainingLand).sort(compareCellIds),
+        fullyAssigned: runtimeState.fullyAssigned,
+        maxHeight: runtimeState.maxHeight,
+        highestCells: runtimeState.highestCells.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createSurroundedRegionsRecorder() {
   return createTraceRecorder<
     SurroundedRegionsRuntimeState,
@@ -2962,6 +3112,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
+    | ReturnType<typeof createMapOfHighestPeakRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
@@ -8647,6 +8798,297 @@ export function buildAsFarFromLandAsPossibleTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildMapOfHighestPeakTrace(
+  input: MapOfHighestPeakInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["map-of-highest-peak"];
+  const normalizedInput = normalizeMapOfHighestPeakInput(input);
+  const grid: number[][] = normalizedInput.grid.map((row) =>
+    row.map((cell) => (cell === 1 ? 0 : wallsAndGatesInfinity))
+  );
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const waterCells: string[] = [];
+  const waterCellSet = new Set<string>();
+  const remainingLand = new Set<string>();
+  const recorder = createMapOfHighestPeakRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let updatedLand: string[] = [];
+  let fullyAssigned: boolean | null = null;
+  let maxHeight: number | null = null;
+  let highestCells: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const inputValue = normalizedInput.grid[row]![column]!;
+      const cell = makeCellId(row, column);
+
+      if (inputValue === 1) {
+        waterCells.push(cell);
+        waterCellSet.add(cell);
+        frontier.push(cell);
+      } else {
+        remainingLand.add(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+
+  const createRuntimeState = (): MapOfHighestPeakRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    waterCells,
+    updatedLand,
+    remainingLand,
+    fullyAssigned,
+    maxHeight,
+    highestCells
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description: `${frontier.length} water cell${frontier.length === 1 ? "" : "s"} seed the height BFS before any land cell receives a peak height.`,
+    explanation: {
+      summary: "Seed every water source and convert land cells into explicit unresolved height slots.",
+      details:
+        "The opening frame stores the ordered water frontier and every remaining land cell directly so replay never reconstructs the height wave from hidden BFS state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "map-of-highest-peak-initial",
+        path: "state.frontier",
+        kind: "collection",
+        intent: "focus",
+        label: `${frontier.length} water source${frontier.length === 1 ? "" : "s"} queued`
+      }
+    ]
+  });
+
+  if (remainingLand.size === 0) {
+    fullyAssigned = true;
+    maxHeight = 0;
+    highestCells = waterCells.slice();
+
+    recorder.push({
+      phase: "Resolution",
+      description: "Every cell is already water, so the height map resolves immediately as a flat zero plateau.",
+      explanation: {
+        summary: "Publish the terminal height map immediately when no land cell needs a positive height.",
+        details:
+          "The terminal frame still records the full water-source ledger so replay can explain why no BFS expansion or height growth was required.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "map-of-highest-peak-final-immediate",
+          path: "state.maxHeight",
+          kind: "node",
+          intent: "result",
+          label: "Flat water plateau"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    updatedLand = [];
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} becomes the active source for height assignment.`,
+      explanation: {
+        summary: "Expand the next water or resolved land cell from the ordered multi-source frontier.",
+        details:
+          "Replay records the active source before neighbor checks begin so each height wave stays readable without recomputing queue order.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `map-of-highest-peak-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expand ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row, column } = parseCellId(currentCell);
+    const currentHeight = grid[row]![column]!;
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const neighborValue = grid[neighborRow]![neighborColumn]!;
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (neighborValue !== wallsAndGatesInfinity) {
+        const isWater = waterCellSet.has(neighbor);
+
+        recorder.push({
+          phase: "Inspect",
+          description: isWater
+            ? `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that cell is already water at height 0.`
+            : `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that land cell already holds height ${neighborValue}.`,
+          explanation: {
+            summary: isWater
+              ? "Inspect a water source without enqueuing it again."
+              : "Inspect an already assigned land cell without replacing its first BFS height.",
+            details: isWater
+              ? "Water cells remain fixed at height 0, so replay preserves the original multi-source seed without duplicate queue work."
+              : "Previously assigned land cells keep their first recorded height, which preserves the BFS proof that the smallest valid height arrived first.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `map-of-highest-peak-inspect-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label: isWater
+                ? `Water ${formatCellLabel(neighbor)}`
+                : `Height ${neighborValue} at ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const nextHeight = currentHeight + 1;
+      grid[neighborRow]![neighborColumn] = nextHeight;
+      frontier.push(neighbor);
+      updatedLand.push(neighbor);
+      remainingLand.delete(neighbor);
+      if (maxHeight === null || nextHeight > maxHeight) {
+        maxHeight = nextHeight;
+        highestCells = [neighbor];
+      } else if (nextHeight === maxHeight) {
+        highestCells = [...highestCells, neighbor].sort(compareCellIds);
+      }
+      metrics.updates += 1;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Update",
+        description: `Land cell ${formatCellLabel(neighbor)} locks height ${nextHeight} and joins the frontier.`,
+        explanation: {
+          summary: "Publish one newly assigned land height and enqueue it for the next BFS wave.",
+          details:
+            "The updated height grid and frontier are recorded immediately so replay can jump to any peak-assignment step without browser-side recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `map-of-highest-peak-update-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: `state.grid.${neighborRow}.${neighborColumn}`,
+            kind: "node",
+            intent: "frontier",
+            label: `Height ${nextHeight}`
+          }
+        ]
+      });
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed for height-map replay.`,
+      explanation: {
+        summary: "Seal one BFS source after all neighboring height checks are recorded.",
+        details:
+          "This checkpoint captures the updated height grid, remaining-land ledger, and queue state directly so replay can jump between BFS wave boundaries safely.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `map-of-highest-peak-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} processed`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  updatedLand = [];
+  fullyAssigned = remainingLand.size === 0;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description:
+      highestCells.length === 1
+        ? `Cell ${formatCellLabel(highestCells[0]!)} reaches the highest assigned peak of ${maxHeight ?? 0}.`
+        : `Cells ${highestCells.map(formatCellLabel).join(", ")} tie for the highest assigned peak of ${maxHeight ?? 0}.`,
+    explanation: {
+      summary: "Publish the terminal height map once every land cell has received its BFS-assigned height.",
+      details:
+        "The terminal frame stores the full height grid and highest-cell ledger directly so replay never recomputes the final peak assignment offline.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "map-of-highest-peak-final",
+        path: "state.highestCells",
+        kind: "collection",
+        intent: "result",
+        label:
+          highestCells.length === 1
+            ? `Highest ${formatCellLabel(highestCells[0]!)}`
+            : `Highest tie ${highestCells.map(formatCellLabel).join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildSurroundedRegionsTrace(
   input: SurroundedRegionsInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -9348,6 +9790,8 @@ export function buildGraphTrace(
       return buildZeroOneMatrixTrace(graph as ZeroOneMatrixInput);
     case "as-far-from-land-as-possible":
       return buildAsFarFromLandAsPossibleTrace(graph as AsFarFromLandAsPossibleInput);
+    case "map-of-highest-peak":
+      return buildMapOfHighestPeakTrace(graph as MapOfHighestPeakInput);
     case "surrounded-regions":
       return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":

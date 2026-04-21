@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Map of Highest Peak, including deterministic multi-source water seeding, explicit land-height fills, and replay-safe highest-peak ledgers through the shared grid BFS runtime.
+- Wired Map of Highest Peak through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct water-seeded height-map problem alongside shoreline distances, nearest-zero matrices, blocked-grid shortest paths, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 44 algorithms with runs, 88 total runs, and 2 saved comparisons.
 - Added a shared graph replay for As Far from Land as Possible, including deterministic multi-source land seeding, explicit shoreline-distance fills, and replay-safe `-1` edge-case reporting when the grid has no land or no water.
 - Wired As Far from Land as Possible through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct farthest-water shoreline problem alongside nearest-zero matrices, blocked-grid shortest paths, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 43 algorithms with runs, 86 total runs, and 2 saved comparisons.
