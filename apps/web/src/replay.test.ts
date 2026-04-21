@@ -432,6 +432,42 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds island-perimeter replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "island-perimeter",
+      JSON.stringify(
+        {
+          grid: [
+            ["0", "1", "0", "0"],
+            ["1", "1", "1", "0"],
+            ["0", "1", "0", "0"],
+            ["1", "1", "0", "0"]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("island-perimeter");
+    expect(finalStep.state.kind).toBe("island-perimeter");
+    if (finalStep.state.kind !== "island-perimeter") {
+      throw new Error("Expected the island-perimeter graph state.");
+    }
+    expect(finalStep.state.perimeter).toBe(16);
+    expect(finalStep.state.exposedEdges).toHaveLength(16);
+    expect(finalStep.state.remainingLand).toEqual([]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.perimeter"))).toBe(
+      true
+    );
+  });
+
   it("builds pacific-atlantic-water-flow replay runs from the shared graph engine", () => {
     const run = buildRun(
       "pacific-atlantic-water-flow",

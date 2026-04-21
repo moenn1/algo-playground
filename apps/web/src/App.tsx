@@ -828,6 +828,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} awaiting scan`;
     }
 
+    if (step.state.kind === "island-perimeter" && isNumberOfIslandsInput(run.input)) {
+      if (step.state.current && step.state.activeEdge.length > 0) {
+        return `Perimeter ${step.state.perimeter} · ${step.state.currentContribution} edge${step.state.currentContribution === 1 ? "" : "s"} on ${step.state.current}`;
+      }
+
+      if (step.state.current) {
+        return `Account ${step.state.current} · perimeter ${step.state.perimeter}`;
+      }
+
+      if (step.state.scan) {
+        return `Scan ${step.state.scan} · perimeter ${step.state.perimeter}`;
+      }
+
+      return `Perimeter ${step.state.perimeter} total`;
+    }
+
     if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
       if (step.state.rottable === false && step.state.stalledFresh.length > 0) {
         return `Stalled fresh ${truncateText(step.state.stalledFresh.join(" · "), 36)}`;
@@ -865,6 +881,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "rotting-oranges" &&
       step.state.kind !== "number-of-islands" &&
       step.state.kind !== "max-area-of-island" &&
+      step.state.kind !== "island-perimeter" &&
       step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
@@ -1241,6 +1258,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             if (graphStep.state.kind === "max-area-of-island") {
               return `Largest island area ${graphStep.state.maxArea}`;
+            }
+
+            if (graphStep.state.kind === "island-perimeter") {
+              return `Perimeter ${graphStep.state.perimeter}`;
             }
 
             if (graphStep.state.kind === "rotting-oranges") {
@@ -1733,6 +1754,38 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (step.state.kind === "island-perimeter" && isNumberOfIslandsInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Perimeter</span>
+              <strong>{step.state.perimeter}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Pending land</span>
+              <strong>{step.state.remainingLand.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Current edges</span>
+              <strong>{step.state.currentContribution}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Scan</span>
+              <strong>{step.state.current ?? step.state.scan ?? "Complete"}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`perimeter-row-${rowIndex}`}>
+                {rowIndex}:{row.join("")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
       return (
         <>
@@ -1816,6 +1869,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
           step.state.kind === "course-schedule" ||
             step.state.kind === "number-of-islands" ||
             step.state.kind === "max-area-of-island" ||
+            step.state.kind === "island-perimeter" ||
             step.state.kind === "walls-and-gates"
             ? {}
             : step.state.distances

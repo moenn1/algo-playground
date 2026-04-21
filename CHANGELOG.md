@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Island Perimeter, including deterministic row-major land inspection, explicit exposed-edge ledgers, and replay-safe perimeter accumulation without hidden neighbor recounts.
+- Wired Island Perimeter through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct boundary-measurement problem alongside component counting, largest-island area, bridge expansion, weighted broadcast, Union-Find, scheduling, infection, blocked-grid pathfinding, capture, and room-filling replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 39 algorithms with runs, 78 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Max Area of Island, including deterministic row-major scan checkpoints, explicit per-island area ledgers, and replay-safe largest-island reporting without hidden flood-fill recomputation.
 - Wired Max Area of Island through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct largest-connected-component outcome alongside connected-component counting, bridge expansion, weighted broadcast, Union-Find, scheduling, infection, blocked-grid pathfinding, capture, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 38 algorithms with runs, 76 total runs, and 2 saved comparisons.

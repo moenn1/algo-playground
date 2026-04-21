@@ -198,6 +198,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Max Area of Island",
     domain: "graph"
   },
+  "island-perimeter": {
+    id: "island-perimeter",
+    label: "Island Perimeter",
+    domain: "graph"
+  },
   "pacific-atlantic-water-flow": {
     id: "pacific-atlantic-water-flow",
     label: "Pacific Atlantic Water Flow",
@@ -270,6 +275,7 @@ const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as con
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
 const maxAreaOfIslandAlgorithms = [supportedAlgorithms["max-area-of-island"]] as const;
+const islandPerimeterAlgorithms = [supportedAlgorithms["island-perimeter"]] as const;
 const pacificAtlanticAlgorithms = [supportedAlgorithms["pacific-atlantic-water-flow"]] as const;
 const shortestBridgeAlgorithms = [supportedAlgorithms["shortest-bridge"]] as const;
 const shortestPathBinaryMatrixAlgorithms = [
@@ -438,6 +444,14 @@ const defaultMaxAreaOfIslandInput: NumberOfIslandsInputPayload = {
     ["1", "1", "1", "0", "1"],
     ["0", "1", "0", "0", "1"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+const defaultIslandPerimeterInput: NumberOfIslandsInputPayload = {
+  grid: [
+    ["0", "1", "0", "0"],
+    ["1", "1", "1", "0"],
+    ["0", "1", "0", "0"],
+    ["1", "1", "0", "0"]
   ]
 };
 const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInputPayload = {
@@ -2280,6 +2294,7 @@ function normalizeGraphInput(
       return normalizeRottingOrangesInput(payload);
     case "number-of-islands":
     case "max-area-of-island":
+    case "island-perimeter":
       return normalizeNumberOfIslandsInput(payload);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(payload);
@@ -3704,6 +3719,42 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["0", "1", "0"],
           ["1", "0", "1"]
         ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-perimeter",
+      label: "Reference perimeter",
+      description:
+        "Use the canonical cross-shaped island so replay can show row-major land scans, exposed-edge checkpoints, and the terminal coastline ledger.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: islandPerimeterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultIslandPerimeterInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.single-cell-perimeter",
+      label: "Single cell perimeter",
+      description:
+        "Reduce the island to one land cell so replay can show all four perimeter contributions coming from one row-major inspection.",
+      scenario: "single-cell",
+      kind: "curated",
+      domain: "graph",
+      algorithms: islandPerimeterAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [["1"]]
       },
       options: {}
     })

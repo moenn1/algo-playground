@@ -487,6 +487,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "diagonal-single-cells"]
   },
   {
+    key: "graph-reference-perimeter",
+    algorithmId: "island-perimeter",
+    presetId: "graph.reference-perimeter",
+    recordedAt: "2026-04-20T09:16:12.500Z",
+    tags: ["seeded-demo", "graph", "reference-perimeter"]
+  },
+  {
+    key: "graph-single-cell-perimeter",
+    algorithmId: "island-perimeter",
+    presetId: "graph.single-cell-perimeter",
+    recordedAt: "2026-04-20T09:16:13.000Z",
+    tags: ["seeded-demo", "graph", "single-cell-perimeter"]
+  },
+  {
     key: "graph-reference-flow",
     algorithmId: "pacific-atlantic-water-flow",
     presetId: "graph.reference-flow",

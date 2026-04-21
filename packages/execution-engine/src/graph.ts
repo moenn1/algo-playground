@@ -18,6 +18,7 @@ export type GraphAlgorithmId =
   | "rotting-oranges"
   | "number-of-islands"
   | "max-area-of-island"
+  | "island-perimeter"
   | "pacific-atlantic-water-flow"
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
@@ -36,6 +37,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "rotting-oranges",
   "number-of-islands",
   "max-area-of-island",
+  "island-perimeter",
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",
@@ -245,6 +247,21 @@ export interface MaxAreaOfIslandExecutionState extends JsonObject {
   largestIsland: string[];
 }
 
+export interface IslandPerimeterExecutionState extends JsonObject {
+  kind: "island-perimeter";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  landCells: string[];
+  remainingLand: string[];
+  exposedEdges: string[];
+  currentContribution: number;
+  perimeter: number;
+}
+
 export interface PacificAtlanticWaterFlowExecutionState extends JsonObject {
   kind: "pacific-atlantic-water-flow";
   grid: number[][];
@@ -332,6 +349,7 @@ export type GraphExecutionState =
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
   | MaxAreaOfIslandExecutionState
+  | IslandPerimeterExecutionState
   | PacificAtlanticWaterFlowExecutionState
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
@@ -497,6 +515,20 @@ interface MaxAreaOfIslandRuntimeState {
   largestIsland: string[];
 }
 
+interface IslandPerimeterRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  landCells: string[];
+  remainingLand: Set<string>;
+  exposedEdges: string[];
+  currentContribution: number;
+  perimeter: number;
+}
+
 interface PacificAtlanticWaterFlowRuntimeState {
   grid: number[][];
   settled: string[];
@@ -624,6 +656,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "max-area-of-island",
     label: "Max Area of Island",
     implementationVersion: "graph-engine-0.14.0"
+  },
+  "island-perimeter": {
+    id: "island-perimeter",
+    label: "Island Perimeter",
+    implementationVersion: "graph-engine-0.15.0"
   },
   "pacific-atlantic-water-flow": {
     id: "pacific-atlantic-water-flow",
@@ -795,6 +832,15 @@ export const defaultMaxAreaOfIslandInput: NumberOfIslandsInput = {
     ["1", "1", "1", "0", "1"],
     ["0", "1", "0", "0", "1"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+
+export const defaultIslandPerimeterInput: NumberOfIslandsInput = {
+  grid: [
+    ["0", "1", "0", "0"],
+    ["1", "1", "1", "0"],
+    ["0", "1", "0", "0"],
+    ["1", "1", "0", "0"]
   ]
 };
 
@@ -1017,6 +1063,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       maxArea: state.maxArea,
       largestIslandId: state.largestIslandId,
       largestIsland: state.largestIsland.slice()
+    };
+  }
+
+  if (state.kind === "island-perimeter") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      scan: state.scan,
+      landCells: state.landCells.slice(),
+      remainingLand: state.remainingLand.slice(),
+      exposedEdges: state.exposedEdges.slice(),
+      currentContribution: state.currentContribution,
+      perimeter: state.perimeter
     };
   }
 
@@ -1721,6 +1784,7 @@ export function parseGraphInputText(
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(parsed);
     case "max-area-of-island":
+    case "island-perimeter":
       return normalizeNumberOfIslandsInput(parsed);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(parsed);
@@ -1757,6 +1821,7 @@ export function normalizeGraphInput(
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(input);
     case "max-area-of-island":
+    case "island-perimeter":
       return normalizeNumberOfIslandsInput(input);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(input);
@@ -2310,6 +2375,29 @@ function createMaxAreaOfIslandRecorder() {
   });
 }
 
+function createIslandPerimeterRecorder() {
+  return createTraceRecorder<IslandPerimeterRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "island-perimeter",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "island-perimeter",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        scan: runtimeState.scan,
+        landCells: runtimeState.landCells.slice(),
+        remainingLand: Array.from(runtimeState.remainingLand).sort(compareCellIds),
+        exposedEdges: runtimeState.exposedEdges.slice(),
+        currentContribution: runtimeState.currentContribution,
+        perimeter: runtimeState.perimeter
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createPacificAtlanticWaterFlowRecorder() {
   return createTraceRecorder<
     PacificAtlanticWaterFlowRuntimeState,
@@ -2458,6 +2546,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
     | ReturnType<typeof createMaxAreaOfIslandRecorder>
+    | ReturnType<typeof createIslandPerimeterRecorder>
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
@@ -5862,6 +5951,356 @@ export function buildMaxAreaOfIslandTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+type IslandEdgeInspection = {
+  neighbor: string | null;
+  direction: "north" | "east" | "south" | "west";
+};
+
+function getIslandEdgeInspections(
+  row: number,
+  column: number,
+  rowCount: number,
+  columnCount: number
+): IslandEdgeInspection[] {
+  const candidates: Array<IslandEdgeInspection & { nextRow: number; nextColumn: number }> = [
+    {
+      direction: "north",
+      nextRow: row - 1,
+      nextColumn: column,
+      neighbor: null
+    },
+    {
+      direction: "east",
+      nextRow: row,
+      nextColumn: column + 1,
+      neighbor: null
+    },
+    {
+      direction: "south",
+      nextRow: row + 1,
+      nextColumn: column,
+      neighbor: null
+    },
+    {
+      direction: "west",
+      nextRow: row,
+      nextColumn: column - 1,
+      neighbor: null
+    }
+  ];
+
+  return candidates.map(({ direction, nextRow, nextColumn }) => ({
+    direction,
+    neighbor:
+      nextRow >= 0 && nextRow < rowCount && nextColumn >= 0 && nextColumn < columnCount
+        ? makeCellId(nextRow, nextColumn)
+        : null
+  }));
+}
+
+function formatIslandBoundaryLabel(cell: string, direction: IslandEdgeInspection["direction"]) {
+  return `${cell} ${direction} boundary`;
+}
+
+function formatIslandExposureLabel(
+  cell: string,
+  direction: IslandEdgeInspection["direction"],
+  neighbor: string | null
+) {
+  if (neighbor === null) {
+    return `${formatCellLabel(cell)} ${direction} boundary`;
+  }
+
+  return `${formatCellLabel(cell)} to water ${formatCellLabel(neighbor)}`;
+}
+
+export function buildIslandPerimeterTrace(
+  input: NumberOfIslandsInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["island-perimeter"];
+  const normalizedInput = normalizeNumberOfIslandsInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const remainingLand = new Set<string>();
+  const settled: string[] = [];
+  const landCells: string[] = [];
+  const exposedEdges: string[] = [];
+  const recorder = createIslandPerimeterRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let scan: string | null = null;
+  let currentContribution = 0;
+  let perimeter = 0;
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      if (grid[row]![column] === "1") {
+        const cell = makeCellId(row, column);
+        landCells.push(cell);
+        remainingLand.add(cell);
+      }
+    }
+  }
+
+  const createRuntimeState = (): IslandPerimeterRuntimeState => ({
+    grid,
+    settled,
+    frontier: Array.from(remainingLand).sort(compareCellIds),
+    current,
+    activeEdge,
+    scan,
+    landCells,
+    remainingLand,
+    exposedEdges,
+    currentContribution,
+    perimeter
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The grid scan records every land cell before perimeter accounting starts so replay can publish each exposed edge without rebuilding adjacency later.",
+    explanation: {
+      summary: "Seed the land ledger and zero the perimeter counter before the first row-major scan step.",
+      details:
+        "The opening frame stores every land coordinate directly so replay can explain both pending land cells and the final coastline length from recorded snapshots alone.",
+      tags: ["snapshot", "result"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "island-perimeter-initial",
+        path: "state.landCells",
+        kind: "collection",
+        intent: "focus",
+        label: `${landCells.length} land cell${landCells.length === 1 ? "" : "s"} awaiting scan`
+      }
+    ]
+  });
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+      const value = grid[row]![column]!;
+      scan = cell;
+      current = null;
+      activeEdge = [];
+      currentContribution = 0;
+      metrics.frontier = remainingLand.size;
+
+      if (value === "0") {
+        recorder.push({
+          phase: "Scan",
+          description: `Scan ${formatCellLabel(cell)} and skip water because it cannot contribute perimeter directly.`,
+          explanation: {
+            summary: "Advance the row-major scan across water without changing the perimeter ledger.",
+            details:
+              "Water cells still get explicit checkpoints so replay can explain why the running perimeter remains unchanged for that scan position.",
+            tags: ["scan", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `island-perimeter-water-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "candidate",
+              label: `Water ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      current = cell;
+
+      recorder.push({
+        phase: "Inspect Cell",
+        description: `Inspect ${formatCellLabel(cell)} and start counting its exposed edges into the running perimeter.`,
+        explanation: {
+          summary: "Focus one land cell before its four edge inspections begin.",
+          details:
+            "Replay resets the per-cell contribution ledger here so each later edge update can be attributed to a single land cell deterministically.",
+          tags: ["scan", "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `island-perimeter-land-${cell}`,
+            path: "state.current",
+            kind: "node",
+            intent: "active",
+            label: `Inspect ${formatCellLabel(cell)}`
+          }
+        ]
+      });
+
+      for (const inspection of getIslandEdgeInspections(row, column, rowCount, columnCount)) {
+        const neighbor = inspection.neighbor;
+        activeEdge = [cell, neighbor ?? formatIslandBoundaryLabel(cell, inspection.direction)];
+        metrics.inspections += 1;
+
+        if (neighbor === null) {
+          currentContribution += 1;
+          perimeter += 1;
+          exposedEdges.push(formatIslandExposureLabel(cell, inspection.direction, null));
+          metrics.updates += 1;
+
+          recorder.push({
+            phase: "Expose Edge",
+            description: `${formatCellLabel(cell)} adds 1 perimeter edge on its ${inspection.direction} boundary.`,
+            explanation: {
+              summary: "Count one out-of-bounds side as exposed coastline.",
+              details:
+                "The trace records boundary exposures explicitly so replay can explain perimeter growth without reconstructing missing neighbors outside the grid.",
+              tags: ["edge", "result"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `island-perimeter-boundary-${cell}-${inspection.direction}-${metrics.updates}`,
+                path: "state.perimeter",
+                kind: "node",
+                intent: "result",
+                label: `Perimeter ${perimeter}`
+              }
+            ]
+          });
+          continue;
+        }
+
+        const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+        const neighborValue = grid[neighborRow]![neighborColumn]!;
+
+        if (neighborValue === "0") {
+          currentContribution += 1;
+          perimeter += 1;
+          exposedEdges.push(formatIslandExposureLabel(cell, inspection.direction, neighbor));
+          metrics.updates += 1;
+
+          recorder.push({
+            phase: "Expose Edge",
+            description: `${formatCellLabel(cell)} adds 1 perimeter edge against water at ${formatCellLabel(neighbor)}.`,
+            explanation: {
+              summary: "Count one land-to-water side as exposed coastline.",
+              details:
+                "The trace stores each exposed edge in inspection order so replay can reopen the exact coastline ledger instead of recomputing adjacency from the grid.",
+              tags: ["edge", "result"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `island-perimeter-water-edge-${cell}-${neighbor}-${metrics.updates}`,
+                path: "state.perimeter",
+                kind: "node",
+                intent: "result",
+                label: `Perimeter ${perimeter}`
+              }
+            ]
+          });
+          continue;
+        }
+
+        recorder.push({
+          phase: "Shared Edge",
+          description: `${formatCellLabel(cell)} shares its ${inspection.direction} side with land at ${formatCellLabel(neighbor)}, so the perimeter does not grow here.`,
+          explanation: {
+            summary: "Record a land-to-land adjacency without changing the running perimeter.",
+            details:
+              "Shared edges still get explicit checkpoints so replay can explain why some inspections preserve the current perimeter total.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `island-perimeter-shared-${cell}-${neighbor}-${metrics.inspections}`,
+              path: "state.activeEdge",
+              kind: "edge",
+              intent: "visited",
+              label: "Shared land edge"
+            }
+          ]
+        });
+      }
+
+      settled.push(cell);
+      remainingLand.delete(cell);
+      current = cell;
+      activeEdge = [];
+      metrics.settled = settled.length;
+      metrics.frontier = remainingLand.size;
+
+      recorder.push({
+        phase: "Checkpoint",
+        description: `${formatCellLabel(cell)} contributes ${currentContribution} edge${currentContribution === 1 ? "" : "s"} to the running perimeter.`,
+        explanation: {
+          summary: "Seal one land cell after all four edge inspections are recorded.",
+          details:
+            "This checkpoint preserves the per-cell contribution and cumulative perimeter directly so replay can jump to any coastline accounting boundary.",
+          tags: ["checkpoint", "result"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `island-perimeter-settled-${cell}`,
+            path: "state.currentContribution",
+            kind: "node",
+            intent: "result",
+            label: `${formatCellLabel(cell)} adds ${currentContribution}`
+          }
+        ]
+      });
+
+      current = null;
+      currentContribution = 0;
+    }
+  }
+
+  scan = null;
+  current = null;
+  activeEdge = [];
+  currentContribution = 0;
+  metrics.frontier = remainingLand.size;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The full row-major scan completes with an island perimeter of ${perimeter}.`,
+    explanation: {
+      summary: "Publish the terminal coastline length after every land cell finishes its four edge inspections.",
+      details:
+        "The terminal frame preserves the full exposed-edge ledger and settled land list directly so replay can explain the final perimeter without recomputing adjacency.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "island-perimeter-final",
+        path: "state.perimeter",
+        kind: "node",
+        intent: "result",
+        label: `Perimeter ${perimeter}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestBridgeTrace(
   input: ShortestBridgeInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -7585,6 +8024,8 @@ export function buildGraphTrace(
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
     case "max-area-of-island":
       return buildMaxAreaOfIslandTrace(graph as NumberOfIslandsInput);
+    case "island-perimeter":
+      return buildIslandPerimeterTrace(graph as NumberOfIslandsInput);
     case "pacific-atlantic-water-flow":
       return buildPacificAtlanticWaterFlowTrace(graph as PacificAtlanticWaterFlowInput);
     case "shortest-bridge":

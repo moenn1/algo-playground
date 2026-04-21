@@ -9,6 +9,7 @@ import {
   buildNetworkDelayTimeTrace,
   buildRedundantConnectionTrace,
   buildGraphValidTreeTrace,
+  buildIslandPerimeterTrace,
   buildMaxAreaOfIslandTrace,
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
@@ -21,6 +22,7 @@ import {
   defaultCloneGraphInput,
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
+  defaultIslandPerimeterInput,
   defaultMaxAreaOfIslandInput,
   defaultNetworkDelayTimeInput,
   defaultRedundantConnectionInput,
@@ -302,6 +304,7 @@ describe("graph execution engine", () => {
     expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
     expect(serializeGraphInput(defaultNumberOfIslandsInput)).toContain('"1"');
     expect(serializeGraphInput(defaultMaxAreaOfIslandInput)).toContain('"1"');
+    expect(serializeGraphInput(defaultIslandPerimeterInput)).toContain('"1"');
     expect(
       parseGraphInputText(serializeGraphInput(defaultGraphValidTreeInput), "graph-valid-tree")
     ).toEqual(defaultGraphValidTreeInput);
@@ -332,6 +335,9 @@ describe("graph execution engine", () => {
     expect(
       parseGraphInputText(serializeGraphInput(defaultMaxAreaOfIslandInput), "max-area-of-island")
     ).toEqual(defaultMaxAreaOfIslandInput);
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultIslandPerimeterInput), "island-perimeter")
+    ).toEqual(defaultIslandPerimeterInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultPacificAtlanticWaterFlowInput),
@@ -502,6 +508,34 @@ describe("graph execution engine", () => {
     expect(diagonalFinalStep.state.maxArea).toBe(1);
     expect(diagonalFinalStep.state.completedAreas).toEqual([1, 1, 1, 1, 1]);
     expect(diagonalFinalStep.state.largestIslandId).toBe(1);
+  });
+
+  it("records deterministic coastline ledgers for Island Perimeter", () => {
+    const firstTrace = buildIslandPerimeterTrace(defaultIslandPerimeterInput);
+    const secondTrace = buildIslandPerimeterTrace(defaultIslandPerimeterInput);
+    const singleCellTrace = buildIslandPerimeterTrace({
+      grid: [["1"]]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const singleCellFinalStep = singleCellTrace.steps[singleCellTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("island-perimeter");
+    if (referenceFinalStep.state.kind !== "island-perimeter") {
+      throw new Error("Expected the island-perimeter state.");
+    }
+    expect(referenceFinalStep.state.perimeter).toBe(16);
+    expect(referenceFinalStep.state.exposedEdges).toHaveLength(16);
+    expect(referenceFinalStep.state.remainingLand).toEqual([]);
+
+    expect(singleCellFinalStep.phase).toBe("Resolution");
+    expect(singleCellFinalStep.state.kind).toBe("island-perimeter");
+    if (singleCellFinalStep.state.kind !== "island-perimeter") {
+      throw new Error("Expected the island-perimeter state.");
+    }
+    expect(singleCellFinalStep.state.perimeter).toBe(4);
+    expect(singleCellFinalStep.state.exposedEdges).toHaveLength(4);
   });
 
   it("records deterministic safe-region discovery and enclosed captures for Surrounded Regions", () => {

@@ -257,6 +257,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("max-area-of-island");
   });
 
+  it("surfaces island-perimeter study paths through coastline metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "state-tracking",
+        q: "coastline exposed edges perimeter"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("island-perimeter");
+  });
+
   it("surfaces walls-and-gates study paths through multi-source bfs metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

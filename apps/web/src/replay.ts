@@ -26,6 +26,7 @@ import {
   defaultNetworkDelayTimeInput,
   defaultNumberOfIslandsInput,
   defaultMaxAreaOfIslandInput,
+  defaultIslandPerimeterInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRedundantConnectionInput,
   defaultRottingOrangesInput,
@@ -819,6 +820,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: 'JSON with a grid using "0" for water and "1" for land.',
     defaultInput: serializeGraphInput(defaultMaxAreaOfIslandInput),
+    domain: "graph"
+  },
+  {
+    id: "island-perimeter",
+    name: "Island Perimeter",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Row-major coastline replay records exposed-edge checkpoints, per-cell contributions, and the terminal perimeter ledger.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "0" for water and "1" for land.',
+    defaultInput: serializeGraphInput(defaultIslandPerimeterInput),
     domain: "graph"
   },
   {

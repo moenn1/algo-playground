@@ -1056,6 +1056,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const islandPerimeterPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-perimeter/resolve",
+      payload: {
+        algorithmId: "island-perimeter"
+      }
+    });
+
+    expect(islandPerimeterPreset.statusCode).toBe(200);
+    expect(islandPerimeterPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-perimeter"
+      },
+      algorithm: {
+        id: "island-perimeter",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
+    const singleCellPerimeterPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.single-cell-perimeter/resolve",
+      payload: {
+        algorithmId: "island-perimeter"
+      }
+    });
+
+    expect(singleCellPerimeterPreset.statusCode).toBe(200);
+    expect(singleCellPerimeterPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.single-cell-perimeter"
+      },
+      algorithm: {
+        id: "island-perimeter",
+        domain: "graph"
+      },
+      footprint: "1 x 1 grid"
+    });
+
     const pacificAtlanticPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-flow/resolve",
@@ -2075,6 +2117,36 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "3 x 3 grid"
+    });
+
+    const validateIslandPerimeterInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "island-perimeter",
+        payload: {
+          grid: [
+            [1, 1],
+            [1, 0]
+          ]
+        }
+      }
+    });
+
+    expect(validateIslandPerimeterInput.statusCode).toBe(200);
+    expect(validateIslandPerimeterInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "island-perimeter",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["1", "1"],
+          ["1", "0"]
+        ]
+      },
+      footprint: "2 x 2 grid"
     });
 
     const validatePacificAtlanticInput = await server.inject({

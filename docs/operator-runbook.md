@@ -88,6 +88,8 @@ The demo seed currently materializes:
 - Number of Islands on `graph.diagonal-islands`
 - Max Area of Island on `graph.reference-max-area`
 - Max Area of Island on `graph.diagonal-single-cells`
+- Island Perimeter on `graph.reference-perimeter`
+- Island Perimeter on `graph.single-cell-perimeter`
 - Pacific Atlantic Water Flow on `graph.reference-flow`
 - Pacific Atlantic Water Flow on `graph.interior-sink`
 - Shortest Bridge on `graph.reference-bridge`
@@ -101,7 +103,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 38 algorithms with runs, 76 runs total, and 2 saved comparisons.
+That seed currently produces 39 algorithms with runs, 78 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

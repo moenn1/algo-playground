@@ -34,6 +34,7 @@ export const supportedAlgorithmIds = [
   "rotting-oranges",
   "number-of-islands",
   "max-area-of-island",
+  "island-perimeter",
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",

@@ -475,6 +475,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong connected-component follow-up because it reuses the Number of Islands traversal shell while turning the terminal contract into an explicit largest-area outcome.",
     nextAlgorithmIds: ["number-of-islands", "shortest-bridge"]
   },
+  "island-perimeter": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.92,
+    timeToExplore: "6 min",
+    complexity: "The runtime keeps the same row-major land scan as the island-count family, but every land cell now resolves into four edge inspections and a cumulative coastline ledger.",
+    outcome: "See exactly when a boundary or water neighbor adds perimeter, which edges are shared by land, and how each land cell contributes to the terminal coastline length.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much edge-accounting work happened before the perimeter ledger closed.",
+    skills: ["grid scans", "edge accounting", "result ledgers"],
+    spotlight: "A useful island-family follow-up because it reuses the same land-water grid contract while turning the answer into explicit exposed-edge accounting instead of component growth.",
+    nextAlgorithmIds: ["number-of-islands", "max-area-of-island"]
+  },
   "pacific-atlantic-water-flow": {
     stage: "core",
     focus: "pathfinding",

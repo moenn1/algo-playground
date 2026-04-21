@@ -180,6 +180,7 @@ function formatGraphNodeStatus(
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
     step.state.kind === "max-area-of-island" ||
+    step.state.kind === "island-perimeter" ||
     step.state.kind === "pacific-atlantic-water-flow" ||
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
@@ -527,6 +528,8 @@ type IslandTraversalState = Extract<
   { kind: "number-of-islands" | "max-area-of-island" }
 >;
 
+type IslandPerimeterState = Extract<GraphExecutionState, { kind: "island-perimeter" }>;
+
 function getIslandCellTone(
   cell: string,
   value: string,
@@ -586,6 +589,55 @@ function formatIslandCellStatus(
       return "Water";
     default:
       return "Unclaimed land";
+  }
+}
+
+function getIslandPerimeterCellTone(
+  cell: string,
+  value: string,
+  step: TraceStep<IslandPerimeterState>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (value === "0") {
+    return step.state.scan === cell ? "scan" : "water";
+  }
+
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.remainingLand.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.scan === cell) {
+    return "scan";
+  }
+
+  return "land";
+}
+
+function formatIslandPerimeterCellStatus(
+  cell: string,
+  value: string,
+  step: TraceStep<IslandPerimeterState>
+): string {
+  switch (getIslandPerimeterCellTone(cell, value, step)) {
+    case "current":
+      return `Adds ${step.state.currentContribution} edge${step.state.currentContribution === 1 ? "" : "s"}`;
+    case "frontier":
+      return "Pending land";
+    case "scan":
+      return value === "0" ? "Water scan" : "Scan cursor";
+    case "settled":
+      return "Perimeter counted";
+    case "water":
+      return "Water";
+    default:
+      return "Land";
   }
 }
 
@@ -1885,6 +1937,170 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 : step.state.remainingLand.length > 0
                   ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
                   : "Replay records the final island ledger directly from the grid snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "island-perimeter" && isNumberOfIslandsInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} coastline grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Island Perimeter status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active land</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Pending land</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Counted land</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Scan cursor</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>Perimeter {step.state.perimeter}</span>
+              <strong>
+                {step.state.current
+                  ? `Accounting ${step.state.current}`
+                  : step.state.scan
+                    ? `Scanning ${step.state.scan}`
+                    : "Full coastline scan complete"}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.scan ?? "No edge under inspection"}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getIslandPerimeterCellTone(cell, value, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === "1" ? "Land" : "Water"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatIslandPerimeterCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Scan focus</span>
+              <strong>{step.state.current ?? step.state.scan ?? "Complete"}</strong>
+              <p>
+                {step.state.current
+                  ? `${step.state.currentContribution} edge${step.state.currentContribution === 1 ? "" : "s"} counted for the active land cell so far`
+                  : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still pending`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Pending land</strong>
+                  <span className="graph-node-status">{step.state.remainingLand.length}</span>
+                </div>
+                <span className="graph-node-distance">Uncounted land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingLand.length > 0
+                    ? step.state.remainingLand.join(" · ")
+                    : "Every land cell processed"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Counted land</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Processed land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No land processed yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Perimeter</strong>
+                  <span className="graph-node-status">{step.state.perimeter}</span>
+                </div>
+                <span className="graph-node-distance">Exposed coastline length</span>
+                <span className="graph-node-meta">
+                  {step.state.exposedEdges.length > 0
+                    ? step.state.exposedEdges.slice(-3).join(" · ")
+                    : "No exposed edges yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Land ledger</strong>
+                  <span className="graph-node-status">{step.state.landCells.length}</span>
+                </div>
+                <span className="graph-node-distance">Tracked land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.landCells.length > 0
+                    ? step.state.landCells.join(" · ")
+                    : "No land on this map"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Current contribution</span>
+            <strong>{step.state.currentContribution}</strong>
+            <p>
+              {step.state.current
+                ? `${step.state.current} is the active land cell`
+                : "No active land cell on this frame"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Exposed edges</span>
+            <div className="pill-row">
+              {step.state.exposedEdges.length > 0 ? (
+                step.state.exposedEdges.slice(-6).map((edge) => (
+                  <span className="pill" key={edge}>
+                    {edge}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No exposed edges recorded yet</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>Perimeter {step.state.perimeter}</strong>
+            <p>
+              {step.state.remainingLand.length > 0
+                ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for coastline accounting.`
+                : "Replay records the final coastline ledger directly from the grid snapshots."}
             </p>
           </div>
         </div>
