@@ -20,7 +20,8 @@ export const supportedAlgorithmIds = [
   "bfs",
   "dijkstra",
   "course-schedule",
-  "rotting-oranges"
+  "rotting-oranges",
+  "number-of-islands"
 ] as const;
 
 export type SupportedAlgorithmId = (typeof supportedAlgorithmIds)[number];
@@ -48,10 +49,15 @@ export interface RottingOrangesInputPayload extends JsonObject {
   grid: number[][];
 }
 
+export interface NumberOfIslandsInputPayload extends JsonObject {
+  grid: string[][];
+}
+
 export type GraphInputPayload =
   | PathfindingGraphInputPayload
   | CourseScheduleInputPayload
-  | RottingOrangesInputPayload;
+  | RottingOrangesInputPayload
+  | NumberOfIslandsInputPayload;
 
 export interface SearchInputPayload extends JsonObject {
   array: number[];

@@ -172,6 +172,41 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds number-of-islands replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "number-of-islands",
+      JSON.stringify(
+        {
+          grid: [
+            ["1", "1", "0", "0", "0"],
+            ["1", "1", "0", "0", "0"],
+            ["0", "0", "1", "0", "0"],
+            ["0", "0", "0", "1", "1"]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("number-of-islands");
+    expect(finalStep.state.kind).toBe("number-of-islands");
+    if (finalStep.state.kind !== "number-of-islands") {
+      throw new Error("Expected the number-of-islands graph state.");
+    }
+    expect(finalStep.state.islandCount).toBe(3);
+    expect(finalStep.state.remainingLand).toEqual([]);
+    expect(
+      run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.islandCount"))
+    ).toBe(true);
+  });
+
   it("builds binary-search replay runs from the shared search engine", () => {
     const run = buildRun(
       "binary-search",

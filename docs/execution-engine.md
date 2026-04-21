@@ -26,6 +26,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, i
 - `dijkstra`
 - `course-schedule`
 - `rotting-oranges`
+- `number-of-islands`
 
 ## Sorting Runtime Model
 
@@ -229,6 +230,22 @@ Rotting Oranges records:
 - `state.minutesToRotAll`: the terminal infection time when every fresh orange can rot
 - `state.stalledFresh`: the remaining unreachable fresh cells when the frontier stalls
 
+Number of Islands records:
+
+- `state.kind`: `"number-of-islands"`
+- `state.grid`: the land-water grid snapshot for the current traversal frame
+- `state.settled`: land cells whose neighbor checks are fully recorded
+- `state.frontier`: the ordered queue for the active island flood-fill
+- `state.current`: the land cell currently being expanded inside the active island
+- `state.activeEdge`: the active source-to-neighbor inspection
+- `state.scan`: the row-major scan cursor when the runtime is not currently expanding a frontier cell
+- `state.islandCount`: the number of islands discovered so far
+- `state.activeIslandId`: the current island identifier while one component is still being explored
+- `state.activeIsland`: the land cells currently claimed by the active island
+- `state.completedIslands`: the deterministic membership list for every fully explored island
+- `state.cellIslands`: the per-cell island assignment ledger for claimed land
+- `state.remainingLand`: the unresolved land cells that have not yet been claimed by any island
+
 Shared graph metrics keep the runtime readable across all graph-family algorithms:
 
 - `settled`: nodes finalized so far
@@ -236,7 +253,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges inspected so far
 - `updates`: predecessor or distance updates committed so far
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Course Schedule records the zero-indegree queue sorted by numeric course id, and Rotting Oranges records the minute-wave infection queue in fixed neighbor order.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, and Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit.
 
 ## Deterministic Emission Rules
 
@@ -260,9 +277,10 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 - Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
+- Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, Dijkstra replay, Course Schedule replay, and Rotting Oranges replay from this package.
-- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the shared graph-family grid contract for Rotting Oranges.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, Dijkstra replay, Course Schedule replay, Rotting Oranges replay, and Number of Islands replay from this package.
+- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the shared graph-family grid contracts for Rotting Oranges and Number of Islands.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

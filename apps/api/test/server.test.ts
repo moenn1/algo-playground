@@ -653,6 +653,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const numberOfIslandsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-islands/resolve",
+      payload: {
+        algorithmId: "number-of-islands"
+      }
+    });
+
+    expect(numberOfIslandsPreset.statusCode).toBe(200);
+    expect(numberOfIslandsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-islands"
+      },
+      algorithm: {
+        id: "number-of-islands",
+        domain: "graph"
+      },
+      footprint: "4 x 5 grid"
+    });
+
+    const diagonalIslandsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.diagonal-islands/resolve",
+      payload: {
+        algorithmId: "number-of-islands"
+      }
+    });
+
+    expect(diagonalIslandsPreset.statusCode).toBe(200);
+    expect(diagonalIslandsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.diagonal-islands"
+      },
+      algorithm: {
+        id: "number-of-islands",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const searchPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/search.reference-hit/resolve",
@@ -1262,6 +1304,38 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "3 x 3 grid"
     });
+
+    const validateNumberOfIslandsInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "number-of-islands",
+        payload: {
+          grid: [
+            [1, 1, 0],
+            [0, 1, 0],
+            [1, 0, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateNumberOfIslandsInput.statusCode).toBe(200);
+    expect(validateNumberOfIslandsInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "number-of-islands",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["1", "1", "0"],
+          ["0", "1", "0"],
+          ["1", "0", "1"]
+        ]
+      },
+      footprint: "3 x 3 grid"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1308,6 +1382,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Rotting Oranges input rows must all be the same length."
+    });
+  });
+
+  it("rejects number-of-islands payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "number-of-islands",
+        payload: {
+          grid: [
+            ["1", "0", "1"],
+            ["0", "2", "0"]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: 'grid[1][1] must be "0" or "1".'
     });
   });
 

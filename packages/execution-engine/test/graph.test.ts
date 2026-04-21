@@ -4,9 +4,11 @@ import {
   buildBreadthFirstSearchTrace,
   buildCourseScheduleTrace,
   buildDijkstraTrace,
+  buildNumberOfIslandsTrace,
   buildRottingOrangesTrace,
   defaultBreadthFirstSearchInput,
   defaultCourseScheduleInput,
+  defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
   formatGraphDistance,
   parseGraphInputText,
@@ -70,12 +72,16 @@ describe("graph execution engine", () => {
     expect(serializeGraphInput(defaultBreadthFirstSearchInput)).toContain('"start": "A"');
     expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
     expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
+    expect(serializeGraphInput(defaultNumberOfIslandsInput)).toContain('"1"');
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
     );
     expect(
       parseGraphInputText(serializeGraphInput(defaultRottingOrangesInput), "rotting-oranges")
     ).toEqual(defaultRottingOrangesInput);
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultNumberOfIslandsInput), "number-of-islands")
+    ).toEqual(defaultNumberOfIslandsInput);
     expect(formatGraphDistance(null)).toBe("inf");
     expect(formatGraphDistance(3)).toBe("3");
   });
@@ -150,5 +156,43 @@ describe("graph execution engine", () => {
     }
     expect(stalledFinalStep.state.rottable).toBe(false);
     expect(stalledFinalStep.state.stalledFresh).toEqual(["2,0"]);
+  });
+
+  it("records deterministic connected components for Number of Islands", () => {
+    const referenceTrace = buildNumberOfIslandsTrace({
+      grid: [
+        ["1", "1", "0", "0", "0"],
+        ["1", "1", "0", "0", "0"],
+        ["0", "0", "1", "0", "0"],
+        ["0", "0", "0", "1", "1"]
+      ]
+    });
+    const diagonalTrace = buildNumberOfIslandsTrace({
+      grid: [
+        ["1", "0", "1"],
+        ["0", "1", "0"],
+        ["1", "0", "1"]
+      ]
+    });
+    const referenceFinalStep = referenceTrace.steps[referenceTrace.steps.length - 1]!;
+    const diagonalFinalStep = diagonalTrace.steps[diagonalTrace.steps.length - 1]!;
+
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("number-of-islands");
+    if (referenceFinalStep.state.kind !== "number-of-islands") {
+      throw new Error("Expected the number-of-islands state.");
+    }
+    expect(referenceFinalStep.state.islandCount).toBe(3);
+    expect(referenceFinalStep.state.completedIslands).toHaveLength(3);
+    expect(referenceFinalStep.state.remainingLand).toEqual([]);
+
+    expect(diagonalFinalStep.phase).toBe("Resolution");
+    expect(diagonalFinalStep.state.kind).toBe("number-of-islands");
+    if (diagonalFinalStep.state.kind !== "number-of-islands") {
+      throw new Error("Expected the number-of-islands state.");
+    }
+    expect(diagonalFinalStep.state.islandCount).toBe(5);
+    expect(diagonalFinalStep.state.completedIslands).toHaveLength(5);
+    expect(diagonalFinalStep.state.cellIslands["1,1"]).toBe(3);
   });
 });

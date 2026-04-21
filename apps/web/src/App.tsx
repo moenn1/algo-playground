@@ -49,6 +49,7 @@ import {
   getAlgorithmById,
   getTraceStepPaths,
   isCourseScheduleInput,
+  isNumberOfIslandsInput,
   isRottingOrangesInput,
   type AccentTone,
   type DynamicProgrammingRun,
@@ -698,6 +699,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   const step = getRunStep(run, stepIndex);
 
   if (isGraphRun(run)) {
+    if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+      if (step.state.scan) {
+        return `Scan ${step.state.scan} · ${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} found`;
+      }
+
+      if (step.state.activeIslandId !== null && step.state.current) {
+        return `Island ${step.state.activeIslandId} · explore ${step.state.current}`;
+      }
+
+      if (step.state.completedIslands.length > 0 || step.state.islandCount > 0) {
+        return `${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} total`;
+      }
+
+      return `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} awaiting scan`;
+    }
+
     if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
       if (step.state.rottable === false && step.state.stalledFresh.length > 0) {
         return `Stalled fresh ${truncateText(step.state.stalledFresh.join(" · "), 36)}`;
@@ -730,7 +747,11 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${run.input.courseCount} courses queued for scheduling`;
     }
 
-    if (step.state.kind !== "course-schedule" && step.state.kind !== "rotting-oranges") {
+    if (
+      step.state.kind !== "course-schedule" &&
+      step.state.kind !== "rotting-oranges" &&
+      step.state.kind !== "number-of-islands"
+    ) {
       if (step.state.path.length > 0) {
         return truncateText(step.state.path.join(" -> "), 56);
       }
@@ -1051,6 +1072,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
         : (() => {
             const graphStep = getRunStep(run, stepIndex);
 
+            if (graphStep.state.kind === "number-of-islands") {
+              return `${graphStep.state.islandCount} island${graphStep.state.islandCount === 1 ? "" : "s"} discovered`;
+            }
+
             if (graphStep.state.kind === "rotting-oranges") {
               return `${graphStep.state.fresh.length} fresh cell${graphStep.state.fresh.length === 1 ? "" : "s"} remaining`;
             }
@@ -1356,6 +1381,38 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
   if (isGraphRun(run)) {
     const step = getRunStep(run, stepIndex);
 
+    if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Islands</span>
+              <strong>{step.state.islandCount}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Remaining land</span>
+              <strong>{step.state.remainingLand.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Scan</span>
+              <strong>{step.state.scan ?? step.state.current ?? "Complete"}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`island-row-${rowIndex}`}>
+                {rowIndex}:{row.join("")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
       return (
         <>
@@ -1435,7 +1492,11 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
     return (
       <div className="distance-grid">
-        {Object.entries(step.state.kind === "course-schedule" ? {} : step.state.distances).map(
+        {Object.entries(
+          step.state.kind === "course-schedule" || step.state.kind === "number-of-islands"
+            ? {}
+            : step.state.distances
+        ).map(
           ([node, distance]) => (
             <div className="distance-row" key={node}>
               <span>{node}</span>

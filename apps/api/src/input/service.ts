@@ -9,6 +9,7 @@ import type {
   HashInputPayload,
   IntervalInputPayload,
   InputPresetListQuery,
+  NumberOfIslandsInputPayload,
   PathfindingGraphInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
@@ -124,6 +125,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "rotting-oranges",
     label: "Rotting Oranges",
     domain: "graph"
+  },
+  "number-of-islands": {
+    id: "number-of-islands",
+    label: "Number of Islands",
+    domain: "graph"
   }
 };
 
@@ -155,6 +161,7 @@ const pathfindingGraphAlgorithms = [
 ] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
+const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
@@ -242,6 +249,14 @@ const defaultRottingOrangesInput: RottingOrangesInputPayload = {
     [2, 1, 1],
     [1, 1, 0],
     [0, 1, 1]
+  ]
+};
+const defaultNumberOfIslandsInput: NumberOfIslandsInputPayload = {
+  grid: [
+    ["1", "1", "0", "0", "0"],
+    ["1", "1", "0", "0", "0"],
+    ["0", "0", "1", "0", "0"],
+    ["0", "0", "0", "1", "1"]
   ]
 };
 
@@ -1385,6 +1400,70 @@ function normalizeRottingOrangesInput(payload: unknown): RottingOrangesInputPayl
   };
 }
 
+function normalizeNumberOfIslandsInput(payload: unknown): NumberOfIslandsInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Number of Islands input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Number of Islands input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Number of Islands input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Number of Islands input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty land-water array.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (cell === 0 || cell === "0") {
+        return "0";
+      }
+
+      if (cell === 1 || cell === "1") {
+        return "1";
+      }
+
+      throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be "0" or "1".`);
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Number of Islands input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeGraphInput(
   payload: unknown,
   algorithmId: SupportedAlgorithmId
@@ -1394,6 +1473,8 @@ function normalizeGraphInput(
       return normalizeCourseScheduleInput(payload);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(payload);
+    case "number-of-islands":
+      return normalizeNumberOfIslandsInput(payload);
     default:
       return normalizePathfindingGraphInput(payload);
   }
@@ -2387,6 +2468,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           [2, 1, 1],
           [0, 1, 1],
           [1, 0, 1]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-islands",
+      label: "Reference islands",
+      description:
+        "Use the canonical archipelago grid so replay shows row-major scan checkpoints, connected-component expansion, and the final island count.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: numberOfIslandsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultNumberOfIslandsInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.diagonal-islands",
+      label: "Diagonal archipelago",
+      description:
+        "Separate land cells diagonally so replay can show that only four-directional adjacency merges cells into the same island.",
+      scenario: "diagonal",
+      kind: "curated",
+      domain: "graph",
+      algorithms: numberOfIslandsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          ["1", "0", "1"],
+          ["0", "1", "0"],
+          ["1", "0", "1"]
         ]
       },
       options: {}

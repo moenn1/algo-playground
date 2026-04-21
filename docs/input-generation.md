@@ -14,7 +14,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dijkstra`, `course-schedule`, `rotting-oranges`
+- Graph: `bfs`, `dijkstra`, `course-schedule`, `rotting-oranges`, `number-of-islands`
 
 ## Endpoints
 
@@ -120,6 +120,8 @@ Every sorting preset can be resolved for Bubble Sort, Selection Sort, Quick Sort
 - `graph.blocked-cycle`: curated prerequisite graph where a dependency cycle blocks completion
 - `graph.reference-oranges`: curated infection grid that resolves after several minute waves
 - `graph.isolated-fresh`: curated infection grid where one fresh orange remains unreachable
+- `graph.reference-islands`: curated archipelago grid with three deterministic connected components
+- `graph.diagonal-islands`: curated diagonal land pattern that stays disconnected under four-directional adjacency
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
 The first three graph presets plus `graph.random-network` resolve for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
@@ -127,6 +129,8 @@ The first three graph presets plus `graph.random-network` resolve for Breadth-Fi
 The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 
 The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] }` as the normalized contract, where `0` is empty, `1` is fresh, and `2` is rotten.
+
+The island-count presets resolve for Number of Islands and use `{ "grid": string[][] }` as the normalized contract, where `"0"` is water and `"1"` is land. Numeric `0` and `1` values are accepted during validation and normalized to strings.
 
 ### Search presets
 
@@ -213,6 +217,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Pathfinding graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Course Schedule payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Rotting Oranges payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `0`, `1`, or `2`.
+- Number of Islands payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 
 ## Design Notes

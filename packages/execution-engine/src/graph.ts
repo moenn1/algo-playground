@@ -10,13 +10,15 @@ export type GraphAlgorithmId =
   | "bfs"
   | "dijkstra"
   | "course-schedule"
-  | "rotting-oranges";
+  | "rotting-oranges"
+  | "number-of-islands";
 
 export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
   "dijkstra",
   "course-schedule",
-  "rotting-oranges"
+  "rotting-oranges",
+  "number-of-islands"
 ];
 
 export interface PathfindingGraphInput extends JsonObject {
@@ -36,7 +38,15 @@ export interface RottingOrangesInput extends JsonObject {
   grid: number[][];
 }
 
-export type GraphInput = PathfindingGraphInput | CourseScheduleInput | RottingOrangesInput;
+export interface NumberOfIslandsInput extends JsonObject {
+  grid: string[][];
+}
+
+export type GraphInput =
+  | PathfindingGraphInput
+  | CourseScheduleInput
+  | RottingOrangesInput
+  | NumberOfIslandsInput;
 
 export interface PathfindingGraphExecutionState extends JsonObject {
   kind: "bfs" | "dijkstra";
@@ -77,10 +87,27 @@ export interface RottingOrangesExecutionState extends JsonObject {
   stalledFresh: string[];
 }
 
+export interface NumberOfIslandsExecutionState extends JsonObject {
+  kind: "number-of-islands";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  islandCount: number;
+  activeIslandId: number | null;
+  activeIsland: string[];
+  completedIslands: string[][];
+  cellIslands: Record<string, number>;
+  remainingLand: string[];
+}
+
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
   | CourseScheduleExecutionState
-  | RottingOrangesExecutionState;
+  | RottingOrangesExecutionState
+  | NumberOfIslandsExecutionState;
 
 interface GraphMetricState {
   settled: number;
@@ -141,6 +168,21 @@ interface RottingOrangesRuntimeState {
   stalledFresh: string[];
 }
 
+interface NumberOfIslandsRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  islandCount: number;
+  activeIslandId: number | null;
+  activeIsland: string[];
+  completedIslands: string[][];
+  cellIslands: Record<string, number>;
+  remainingLand: Set<string>;
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -161,6 +203,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "rotting-oranges",
     label: "Rotting Oranges",
     implementationVersion: "graph-engine-0.3.0"
+  },
+  "number-of-islands": {
+    id: "number-of-islands",
+    label: "Number of Islands",
+    implementationVersion: "graph-engine-0.4.0"
   }
 };
 
@@ -179,13 +226,13 @@ export const graphMetricDefinitions: TraceMetricDefinition[] = [
   },
   {
     key: "inspections",
-    label: "Edge inspections",
+    label: "Inspections",
     unit: "count",
     direction: "lower-is-better"
   },
   {
     key: "updates",
-    label: "Route updates",
+    label: "Updates",
     unit: "count",
     direction: "lower-is-better"
   }
@@ -241,7 +288,16 @@ export const defaultRottingOrangesInput: RottingOrangesInput = {
   ]
 };
 
-function cloneGrid(grid: number[][]): number[][] {
+export const defaultNumberOfIslandsInput: NumberOfIslandsInput = {
+  grid: [
+    ["1", "1", "0", "0", "0"],
+    ["1", "1", "0", "0", "0"],
+    ["0", "0", "1", "0", "0"],
+    ["0", "0", "0", "1", "1"]
+  ]
+};
+
+function cloneGrid<Value>(grid: Value[][]): Value[][] {
   return grid.map((row) => row.slice());
 }
 
@@ -278,6 +334,26 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       rottable: state.rottable,
       minutesToRotAll: state.minutesToRotAll,
       stalledFresh: state.stalledFresh.slice()
+    };
+  }
+
+  if (state.kind === "number-of-islands") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      scan: state.scan,
+      islandCount: state.islandCount,
+      activeIslandId: state.activeIslandId,
+      activeIsland: state.activeIsland.slice(),
+      completedIslands: state.completedIslands.map((island) => island.slice()),
+      cellIslands: {
+        ...state.cellIslands
+      },
+      remainingLand: state.remainingLand.slice()
     };
   }
 
@@ -497,6 +573,56 @@ function normalizeRottingOrangesInput(candidate: unknown): RottingOrangesInput {
   };
 }
 
+function normalizeNumberOfIslandsInput(candidate: unknown): NumberOfIslandsInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Number of Islands input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Number of Islands input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Number of Islands input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty land-water array.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (cell === 0 || cell === "0") {
+        return "0";
+      }
+
+      if (cell === 1 || cell === "1") {
+        return "1";
+      }
+
+      throw new Error(`grid[${rowIndex}][${columnIndex}] must be "0" or "1".`);
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Number of Islands input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 export function parseGraphInputText(
   inputText: string,
   algorithmId: GraphAlgorithmId = "dijkstra"
@@ -514,6 +640,8 @@ export function parseGraphInputText(
       return normalizeCourseScheduleInput(parsed);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(parsed);
+    case "number-of-islands":
+      return normalizeNumberOfIslandsInput(parsed);
     default:
       return normalizeParsedPathfindingGraph(parsed);
   }
@@ -528,6 +656,8 @@ export function normalizeGraphInput(
       return normalizeCourseScheduleInput(input);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(input);
+    case "number-of-islands":
+      return normalizeNumberOfIslandsInput(input);
     default:
       return normalizeParsedPathfindingGraph(input);
   }
@@ -778,6 +908,36 @@ function createRottingOrangesRecorder() {
   });
 }
 
+function createNumberOfIslandsRecorder() {
+  return createTraceRecorder<
+    NumberOfIslandsRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "number-of-islands",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "number-of-islands",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        scan: runtimeState.scan,
+        islandCount: runtimeState.islandCount,
+        activeIslandId: runtimeState.activeIslandId,
+        activeIsland: runtimeState.activeIsland.slice(),
+        completedIslands: runtimeState.completedIslands.map((island) => island.slice()),
+        cellIslands: {
+          ...runtimeState.cellIslands
+        },
+        remainingLand: Array.from(runtimeState.remainingLand).sort(compareCellIds)
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function buildGraphEnvelope(
   definition: GraphAlgorithmDefinition,
   input: GraphInput,
@@ -786,6 +946,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createDijkstraRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
+    | ReturnType<typeof createNumberOfIslandsRecorder>
 ): TraceEnvelope<GraphExecutionState> {
   return createTraceEnvelope({
     algorithm: {
@@ -1849,6 +2010,383 @@ export function buildRottingOrangesTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildNumberOfIslandsTrace(
+  input: NumberOfIslandsInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["number-of-islands"];
+  const normalizedInput = normalizeNumberOfIslandsInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const remainingLand = new Set<string>();
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const completedIslands: string[][] = [];
+  const cellIslands: Record<string, number> = {};
+  const recorder = createNumberOfIslandsRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let scan: string | null = null;
+  let islandCount = 0;
+  let activeIslandId: number | null = null;
+  let activeIsland: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      if (grid[row]![column] === "1") {
+        remainingLand.add(makeCellId(row, column));
+      }
+    }
+  }
+
+  const createRuntimeState = (): NumberOfIslandsRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    scan,
+    islandCount,
+    activeIslandId,
+    activeIsland,
+    completedIslands,
+    cellIslands,
+    remainingLand
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The grid scan records every unresolved land cell before traversal starts so replay can restore both the scan cursor and component state without rebuilding visited sets.",
+    explanation: {
+      summary: "Seed the remaining-land ledger before the first row-major scan step.",
+      details:
+        "The opening frame stores the full grid and every unresolved land coordinate directly so replay never has to infer which cells are still waiting for island discovery.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "number-of-islands-initial",
+        path: "state.remainingLand",
+        kind: "collection",
+        intent: "focus",
+        label: `${remainingLand.size} land cell${remainingLand.size === 1 ? "" : "s"} awaiting scan`
+      }
+    ]
+  });
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+      const value = grid[row]![column]!;
+      scan = cell;
+      current = null;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      if (value === "0") {
+        recorder.push({
+          phase: "Scan",
+          description: `Scan ${formatCellLabel(cell)} and skip water because it cannot start a new island.`,
+          explanation: {
+            summary: "Advance the row-major scan across water without creating a frontier.",
+            details:
+              "Water still gets its own checkpoint so replay can explain why this cell did not contribute to the island count.",
+            tags: ["scan", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `number-of-islands-water-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "candidate",
+              label: `Water ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (!remainingLand.has(cell)) {
+        recorder.push({
+          phase: "Scan",
+          description: `Scan ${formatCellLabel(cell)} and keep moving because that land already belongs to island ${cellIslands[cell] ?? "?"}.`,
+          explanation: {
+            summary: "Advance the row-major scan past land that was already claimed during an earlier island traversal.",
+            details:
+              "Replay records these passes explicitly so the scan order stays deterministic even after a flood-fill consumes multiple later cells at once.",
+            tags: ["scan", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `number-of-islands-claimed-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "visited",
+              label: `Island ${cellIslands[cell] ?? "?"} already claimed ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      islandCount += 1;
+      activeIslandId = islandCount;
+      activeIsland = [cell];
+      frontier.push(cell);
+      remainingLand.delete(cell);
+      cellIslands[cell] = activeIslandId;
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Seed Island",
+        description: `Land ${formatCellLabel(cell)} starts island ${activeIslandId} and becomes the first frontier cell.`,
+        explanation: {
+          summary: "Start a new island when the row-major scan reaches unresolved land.",
+          details:
+            "The seed cell is claimed immediately so replay can show the island count rising before the rest of the component is explored.",
+          tags: ["scan", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `number-of-islands-seed-${cell}`,
+            path: "state.activeIsland",
+            kind: "collection",
+            intent: "frontier",
+            label: `Island ${activeIslandId} seeded at ${formatCellLabel(cell)}`
+          }
+        ]
+      });
+
+      scan = null;
+
+      while (frontier.length > 0) {
+        const currentCell = frontier.shift();
+
+        if (!currentCell) {
+          break;
+        }
+
+        current = currentCell;
+        activeEdge = [];
+        metrics.frontier = frontier.length;
+
+        recorder.push({
+          phase: "Extract",
+          description: `Island ${activeIslandId} expands from ${formatCellLabel(currentCell)} in deterministic queue order.`,
+          explanation: {
+            summary: "Expand the next claimed land cell from the active island frontier.",
+            details:
+              "The queue order is recorded before neighbor checks begin so replay can follow the connected component one land cell at a time.",
+            tags: ["frontier", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `number-of-islands-current-${currentCell}`,
+              path: "state.current",
+              kind: "node",
+              intent: "active",
+              label: `Explore ${formatCellLabel(currentCell)}`
+            }
+          ]
+        });
+
+        const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+        for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+          const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+          const neighborValue = grid[neighborRow]![neighborColumn]!;
+          activeEdge = [currentCell, neighbor];
+          metrics.inspections += 1;
+
+          if (neighborValue === "0") {
+            recorder.push({
+              phase: "Inspect",
+              description: `Inspect ${formatCellLabel(neighbor)} and stop because water breaks the current island boundary.`,
+              explanation: {
+                summary: "Inspect a neighboring water cell without growing the island frontier.",
+                details:
+                  "Water adjacency is recorded explicitly so replay can explain why the current component does not cross that boundary.",
+                tags: ["edge", "focus"]
+              },
+              runtimeState: createRuntimeState(),
+              metrics,
+              highlights: [
+                {
+                  key: `number-of-islands-water-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+                  path: `state.grid.${neighborRow}.${neighborColumn}`,
+                  kind: "node",
+                  intent: "candidate",
+                  label: `Water ${formatCellLabel(neighbor)}`
+                }
+              ]
+            });
+            continue;
+          }
+
+          if (!remainingLand.has(neighbor)) {
+            recorder.push({
+              phase: "Inspect",
+              description: `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because island ${cellIslands[neighbor] ?? activeIslandId} already claimed it.`,
+              explanation: {
+                summary: "Inspect previously claimed land without re-enqueuing it.",
+                details:
+                  "This keeps component membership deterministic and prevents replay from inferring deduplication from hidden visited state.",
+                tags: ["edge", "visited"]
+              },
+              runtimeState: createRuntimeState(),
+              metrics,
+              highlights: [
+                {
+                  key: `number-of-islands-claimed-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+                  path: `state.cellIslands.${neighbor}`,
+                  kind: "node",
+                  intent: "visited",
+                  label: `Island ${cellIslands[neighbor] ?? activeIslandId}`
+                }
+              ]
+            });
+            continue;
+          }
+
+          frontier.push(neighbor);
+          activeIsland.push(neighbor);
+          remainingLand.delete(neighbor);
+          cellIslands[neighbor] = activeIslandId;
+          metrics.frontier = frontier.length;
+          metrics.updates += 1;
+
+          recorder.push({
+            phase: "Expand",
+            description: `Land ${formatCellLabel(neighbor)} joins island ${activeIslandId} and enters the frontier.`,
+            explanation: {
+              summary: "Claim one neighboring land cell and append it to the active frontier.",
+              details:
+                "The recorded state includes the frontier queue, island membership, and remaining unresolved land so replay never rebuilds connected components from scratch.",
+              tags: ["edge", "frontier"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `number-of-islands-expand-${currentCell}-${neighbor}-${metrics.updates}`,
+                path: `state.cellIslands.${neighbor}`,
+                kind: "node",
+                intent: "frontier",
+                label: `Island ${activeIslandId} claims ${formatCellLabel(neighbor)}`
+              }
+            ]
+          });
+        }
+
+        settled.push(currentCell);
+        current = currentCell;
+        activeEdge = [];
+        metrics.settled = settled.length;
+        metrics.frontier = frontier.length;
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is fully processed inside island ${activeIslandId}.`,
+          explanation: {
+            summary: "Seal one land cell after all of its neighbor inspections are recorded.",
+            details:
+              "This checkpoint preserves the component frontier and processed land ledger directly so replay can jump to any flood-fill boundary.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `number-of-islands-settled-${currentCell}`,
+              path: "state.settled",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} settled`
+            }
+          ]
+        });
+      }
+
+      completedIslands.push(activeIsland.slice());
+      current = null;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Island Complete",
+        description: `Island ${activeIslandId} closes with ${activeIsland.length} land cell${activeIsland.length === 1 ? "" : "s"}.`,
+        explanation: {
+          summary: "Publish the completed connected component before the row-major scan resumes.",
+          details:
+            "Replay stores the full component membership so later scan steps can explain why those cells no longer start new islands.",
+          tags: ["checkpoint", "result"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `number-of-islands-complete-${activeIslandId}`,
+            path: "state.completedIslands",
+            kind: "collection",
+            intent: "result",
+            label: `Island ${activeIslandId} complete`
+          }
+        ]
+      });
+
+      activeIslandId = null;
+      activeIsland = [];
+    }
+  }
+
+  scan = null;
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The full row-major scan completes with ${islandCount} island${islandCount === 1 ? "" : "s"} discovered.`,
+    explanation: {
+      summary: "Publish the terminal island count once every grid cell has been scanned or claimed.",
+      details:
+        "The terminal frame preserves the final component ledger, per-cell island assignments, and remaining-land set directly so replay can explain the final count without rerunning traversal.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "number-of-islands-final",
+        path: "state.islandCount",
+        kind: "node",
+        intent: "result",
+        label: `${islandCount} island${islandCount === 1 ? "" : "s"} total`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildGraphTrace(
   algorithmId: GraphAlgorithmId,
   graph: GraphInput
@@ -1862,6 +2400,8 @@ export function buildGraphTrace(
       return buildCourseScheduleTrace(graph as CourseScheduleInput);
     case "rotting-oranges":
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
+    case "number-of-islands":
+      return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
   }
 }
 

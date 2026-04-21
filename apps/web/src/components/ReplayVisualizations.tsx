@@ -17,6 +17,7 @@ import {
   type HashRun,
   type IntervalRun,
   isCourseScheduleInput,
+  isNumberOfIslandsInput,
   isRottingOrangesInput,
   type SearchRun,
   type SortingRun,
@@ -169,8 +170,10 @@ function formatGraphNodeStatus(
   if (
     step.state.kind === "course-schedule" ||
     step.state.kind === "rotting-oranges" ||
+    step.state.kind === "number-of-islands" ||
     isCourseScheduleInput(run.input) ||
-    isRottingOrangesInput(run.input)
+    isRottingOrangesInput(run.input) ||
+    isNumberOfIslandsInput(run.input)
   ) {
     return "Blocked";
   }
@@ -202,6 +205,10 @@ function formatGraphNodeStatus(
 function formatGraphNodeMeta(node: string, run: GraphRun): string {
   if (isCourseScheduleInput(run.input)) {
     return "Course node";
+  }
+
+  if (isNumberOfIslandsInput(run.input) || isRottingOrangesInput(run.input)) {
+    return "Grid cell";
   }
 
   const labels: string[] = [];
@@ -348,6 +355,68 @@ function formatOrangeCellStatus(
       return "Empty";
     default:
       return "Fresh";
+  }
+}
+
+function getIslandCellTone(
+  cell: string,
+  value: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "number-of-islands" }>>
+):
+  | "current"
+  | "frontier"
+  | "scan"
+  | "active"
+  | "settled"
+  | "land"
+  | "water" {
+  if (value === "0") {
+    return step.state.scan === cell ? "scan" : "water";
+  }
+
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.scan === cell) {
+    return "scan";
+  }
+
+  if (step.state.activeIsland.includes(cell)) {
+    return "active";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  return "land";
+}
+
+function formatIslandCellStatus(
+  cell: string,
+  value: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "number-of-islands" }>>
+): string {
+  switch (getIslandCellTone(cell, value, step)) {
+    case "current":
+      return `Island ${step.state.activeIslandId ?? "?"} focus`;
+    case "frontier":
+      return `Island ${step.state.activeIslandId ?? "?"} frontier`;
+    case "scan":
+      return value === "0" ? "Water scan" : "Scan cursor";
+    case "active":
+      return `Island ${step.state.cellIslands[cell] ?? "?"} claimed`;
+    case "settled":
+      return `Island ${step.state.cellIslands[cell] ?? "?"} complete`;
+    case "water":
+      return "Water";
+    default:
+      return "Unclaimed land";
   }
 }
 
@@ -916,6 +985,173 @@ export function TwoPointersStage({
 
 export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+  if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} archipelago</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Number of Islands status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active land</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Claimed land</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Scan cursor</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>{step.state.islandCount} island{step.state.islandCount === 1 ? "" : "s"} found</span>
+              <strong>
+                {step.state.activeIslandId !== null
+                  ? `Exploring island ${step.state.activeIslandId}`
+                  : step.state.scan
+                    ? `Scanning ${step.state.scan}`
+                    : "Full grid scan complete"}
+              </strong>
+              <p>{step.state.activeEdge.length > 0 ? formatActiveEdge(step.state.activeEdge) : step.state.scan ?? "No neighbor under inspection"}</p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getIslandCellTone(cell, value, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === "1" ? "Land" : "Water"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatIslandCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Scan focus</span>
+              <strong>{step.state.scan ?? step.state.current ?? "Complete"}</strong>
+              <p>
+                {step.state.activeIslandId !== null
+                  ? `Island ${step.state.activeIslandId} currently expanding`
+                  : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still unresolved`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Claimed land</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No settled land yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Remaining land</strong>
+                  <span className="graph-node-status">{step.state.remainingLand.length}</span>
+                </div>
+                <span className="graph-node-distance">Unresolved land cells</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingLand.length > 0
+                    ? step.state.remainingLand.join(" · ")
+                    : "Every land cell claimed"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Completed</strong>
+                  <span className="graph-node-status">{step.state.completedIslands.length}</span>
+                </div>
+                <span className="graph-node-distance">Finished island groups</span>
+                <span className="graph-node-meta">
+                  {step.state.completedIslands.length > 0
+                    ? step.state.completedIslands
+                        .map((island, index) => `#${index + 1} (${island.length})`)
+                        .join(" · ")
+                    : "No completed islands yet"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Active island</span>
+            <div className="pill-row">
+              {step.state.activeIsland.length > 0 ? (
+                step.state.activeIsland.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No active island on this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Island sizes</span>
+            <p>
+              {step.state.completedIslands.length > 0
+                ? step.state.completedIslands
+                    .map((island, index) => `#${index + 1}: ${island.length}`)
+                    .join(", ")
+                : "No completed islands yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Traversal state</span>
+            <strong>
+              {step.state.activeIslandId !== null
+                ? `Island ${step.state.activeIslandId}`
+                : `${step.state.islandCount} total`}
+            </strong>
+            <p>
+              {step.state.remainingLand.length > 0
+                ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
+                : "Replay records the final island ledger directly from the grid snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
     return (
       <>

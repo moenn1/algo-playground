@@ -261,6 +261,20 @@ const demoRunPlans: DemoRunPlan[] = [
     presetId: "graph.isolated-fresh",
     recordedAt: "2026-04-20T09:14:00.000Z",
     tags: ["seeded-demo", "graph", "isolated-fresh"]
+  },
+  {
+    key: "graph-reference-islands",
+    algorithmId: "number-of-islands",
+    presetId: "graph.reference-islands",
+    recordedAt: "2026-04-20T09:15:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-islands"]
+  },
+  {
+    key: "graph-diagonal-islands",
+    algorithmId: "number-of-islands",
+    presetId: "graph.diagonal-islands",
+    recordedAt: "2026-04-20T09:16:00.000Z",
+    tags: ["seeded-demo", "graph", "diagonal-islands"]
   }
 ];
 

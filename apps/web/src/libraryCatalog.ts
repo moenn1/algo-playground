@@ -329,7 +329,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much neighbor scanning and spread work happened before the orchard resolved or stalled.",
     skills: ["grid bfs", "minute waves", "frontier contagion"],
     spotlight: "A strong graph follow-up because it keeps the BFS queue semantics while shifting the replay surface from abstract nodes to a changing grid.",
-    nextAlgorithmIds: ["course-schedule", "dijkstra"]
+    nextAlgorithmIds: ["number-of-islands", "course-schedule"]
+  },
+  "number-of-islands": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.9,
+    timeToExplore: "7 min",
+    complexity: "The replay interleaves a row-major scan with frontier-based expansion, so the viewer has to track both the global scan cursor and the local component queue.",
+    outcome: "See exactly when a land cell starts a new island, how neighboring land joins the current component, and why diagonal cells stay separate.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much scan and flood-fill work happened before the final island count locked in.",
+    skills: ["connected components", "grid traversal", "flood fill"],
+    spotlight: "A strong graph continuation because it reuses the grid replay surface from contagion-style BFS while shifting the goal to deterministic component counting.",
+    nextAlgorithmIds: ["rotting-oranges", "course-schedule"]
   },
   "merge-sort": {
     stage: "core",

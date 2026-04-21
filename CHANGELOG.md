@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Number of Islands, including deterministic row-major scan checkpoints, connected-component frontier expansion, and explicit island-membership ledgers through the execution engine.
+- Wired Number of Islands through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a fourth reusable graph story alongside pathfinding, dependency scheduling, and grid infection replay.
+- Reduced nested card density across the replay shell so comparison summaries, sync lanes, history entries, and workspace notes now lean on strips and ledger rows instead of repeating boxed cards inside already-framed route panels.
 - Added a shared graph replay for Rotting Oranges, including deterministic minute-wave frontier ordering, explicit fresh-cell ledgers, and terminal resolution-or-stall reporting through the execution engine.
 - Wired Rotting Oranges through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a third reusable graph story alongside pathfinding and dependency scheduling.
 - Added a shared graph replay for Course Schedule, including deterministic zero-indegree queue ordering, explicit indegree ledgers, committed topological-order checkpoints, and terminal cycle reporting through the execution engine.

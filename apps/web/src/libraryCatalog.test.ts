@@ -148,6 +148,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("rotting-oranges");
   });
 
+  it("surfaces number-of-islands study paths through connected-component metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "state-tracking",
+        q: "connected components diagonal"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("number-of-islands");
+  });
+
   it("sorts by persisted activity when requested", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms.filter((algorithm) => algorithm.domain === "sorting"),

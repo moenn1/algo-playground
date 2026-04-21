@@ -38,6 +38,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Above-the-fold framing on desktop should fit a common laptop viewport without horizontal page scrolling or a long first-load stack.
 - Repeated bordered cards should not be the default composition pattern when a rail, shelf, list, or docked panel communicates the job more clearly.
 - Browse-heavy surfaces should privilege calm rails, compact toolbars, and dense result ledgers over stacks of individually framed promo cards.
+- Nested sections inside those routes should also resist card sprawl: summaries, sync signals, and saved records should prefer strips, ledgers, and dividers when a larger route panel already provides the frame.
 - Motion should clarify replay state instead of adding ambient ornament: panel entrances can stage dense information, while live playback cues should stay tied to the transport surface and timeline progress.
 - Any animated replay affordance needs a reduced-motion fallback so deterministic stepping remains comfortable during long inspection sessions.
 - Tablet and mobile layouts should keep controls in explicit grids and let dense navigation rows scroll horizontally instead of compressing core replay actions into cramped wraps.
@@ -66,8 +67,8 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
 - The stack stage renders token-by-token validation status for Valid Parentheses, a temperature skyline plus unresolved-day stack for Daily Temperatures, histogram bars with the candidate stack and best rectangle for Largest Rectangle in Histogram, or an operation ledger plus minimum stack rail for Min Stack directly from the shared execution-engine snapshots.
-- The graph stage now runs on the shared execution-engine package for Breadth-First Search, Dijkstra, Course Schedule, and Rotting Oranges, so queue order, weighted frontier order, zero-indegree unlocks, minute-wave infection spread, and terminal stall reporting all come from one deterministic runtime family.
-- Graph replay now pairs the SVG graph map or grid stage with a structural-state rail for node, course, or cell status, distance or indegree inspection, and path-, order-, or infection-focus so the interface can surface graph state without inventing browser-only metadata.
+- The graph stage now runs on the shared execution-engine package for Breadth-First Search, Dijkstra, Course Schedule, Rotting Oranges, and Number of Islands, so queue order, weighted frontier order, zero-indegree unlocks, minute-wave infection spread, row-major scan checkpoints, and terminal stall or island-count reporting all come from one deterministic runtime family.
+- Graph replay now pairs the SVG graph map or grid stage with a structural-state rail for node, course, or cell status, distance or indegree inspection, and path-, order-, infection-, or connectivity-focus so the interface can surface graph state without inventing browser-only metadata.
 - Saved-run history now lives on its own page and loads replay payloads on demand so persistence browsing stays responsive with larger trace payloads.
 
 ## Comparison Surfaces

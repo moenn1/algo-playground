@@ -17,6 +17,7 @@ import {
   defaultDijkstraInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
+  defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
@@ -241,7 +242,13 @@ export function isPathfindingGraphInput(
 export function isRottingOrangesInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: number[][] }> {
-  return "grid" in input;
+  return "grid" in input && input.grid.every((row) => row.every((cell) => typeof cell === "number"));
+}
+
+export function isNumberOfIslandsInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: string[][] }> {
+  return "grid" in input && input.grid.every((row) => row.every((cell) => typeof cell === "string"));
 }
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
@@ -539,6 +546,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with a grid using 0 for empty, 1 for fresh oranges, and 2 for rotten oranges.",
     defaultInput: serializeGraphInput(defaultRottingOrangesInput),
     domain: "graph"
+  },
+  {
+    id: "number-of-islands",
+    name: "Number of Islands",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Connected-component replay records row-major scan checkpoints, island expansion, and deterministic grid membership.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "0" for water and "1" for land.',
+    defaultInput: serializeGraphInput(defaultNumberOfIslandsInput),
+    domain: "graph"
   }
 ];
 
@@ -777,7 +796,7 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   return isCourseScheduleInput(run.input)
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
-    : isRottingOrangesInput(run.input)
+    : isRottingOrangesInput(run.input) || isNumberOfIslandsInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
     : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
 }
