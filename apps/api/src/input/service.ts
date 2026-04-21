@@ -173,6 +173,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Graph Valid Tree",
     domain: "graph"
   },
+  "count-connected-components": {
+    id: "count-connected-components",
+    label: "Count Connected Components",
+    domain: "graph"
+  },
   "redundant-connection": {
     id: "redundant-connection",
     label: "Redundant Connection",
@@ -275,6 +280,9 @@ const pathfindingGraphAlgorithms = [
 const networkDelayAlgorithms = [supportedAlgorithms["network-delay-time"]] as const;
 const cloneGraphAlgorithms = [supportedAlgorithms["clone-graph"]] as const;
 const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
+const countConnectedComponentsAlgorithms = [
+  supportedAlgorithms["count-connected-components"]
+] as const;
 const redundantConnectionAlgorithms = [supportedAlgorithms["redundant-connection"]] as const;
 const courseScheduleAlgorithms = [
   supportedAlgorithms["course-schedule"],
@@ -419,6 +427,14 @@ const defaultGraphValidTreeInput: GraphValidTreeInputPayload = {
     [0, 2],
     [1, 3],
     [1, 4]
+  ]
+};
+const defaultCountConnectedComponentsInput: GraphValidTreeInputPayload = {
+  nodeCount: 6,
+  edges: [
+    [0, 1],
+    [1, 2],
+    [3, 4]
   ]
 };
 const defaultRedundantConnectionInput: GraphValidTreeInputPayload = {
@@ -2294,6 +2310,7 @@ function normalizeGraphInput(
     case "network-delay-time":
       return normalizeNetworkDelayTimeInput(payload);
     case "graph-valid-tree":
+    case "count-connected-components":
     case "redundant-connection":
       return normalizeGraphValidTreeInput(payload);
     case "course-schedule":
@@ -3503,6 +3520,23 @@ const presetDefinitions: InputPresetDefinition[] = [
   },
   {
     summary: {
+      id: "graph.reference-components",
+      label: "Reference components",
+      description:
+        "Use two multi-node groups plus one isolated node so replay shows deterministic Union-Find merges and an explicit terminal component ledger.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: countConnectedComponentsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultCountConnectedComponentsInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
       id: "graph.reference-redundant",
       label: "Reference redundant edge",
       description:
@@ -3554,6 +3588,31 @@ const presetDefinitions: InputPresetDefinition[] = [
       kind: "curated",
       domain: "graph",
       algorithms: treeValidationAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        nodeCount: 5,
+        edges: [
+          [0, 1],
+          [1, 2],
+          [2, 0],
+          [3, 4]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.cycle-components",
+      label: "Cycle inside one component",
+      description:
+        "Leave one component cyclic and a second component separate so replay can publish both the no-op cycle edges and the final connected-component total.",
+      scenario: "cycle",
+      kind: "curated",
+      domain: "graph",
+      algorithms: countConnectedComponentsAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({

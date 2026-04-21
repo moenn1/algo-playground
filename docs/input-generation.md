@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -155,6 +155,8 @@ The clone-construction presets resolve for Clone Graph and use the shared pathfi
 
 The tree-validation presets resolve for Graph Valid Tree and use `{ "nodeCount": number, "edges": [[from, to], ...] }` as the normalized contract. Edge order is preserved exactly so Union-Find inspection, acceptance, and rejection checkpoints stay deterministic in replay.
 
+The connected-components presets resolve for Count Connected Components and use that same `{ "nodeCount": number, "edges": [[from, to], ...] }` contract. Edge order is preserved exactly so replay can explain every merge and same-component no-op before publishing the terminal component total.
+
 The redundant-edge presets resolve for Redundant Connection and use that same `{ "nodeCount": number, "edges": [[from, to], ...] }` contract. Edge order is the result contract: replay returns the first same-component edge encountered in input order.
 
 The scheduling presets resolve for Course Schedule and Course Schedule II and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
@@ -280,6 +282,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Largest Rectangle in Histogram payloads must define between 1 and 24 integer heights in the inclusive range `0` through `150`.
 - Min Stack payloads must define between 1 and 24 operations using `push`, `pop`, `top`, and `getMin`; `push` values must be integers in the inclusive range `-999` through `999`; and non-push operations cannot run on an empty stack.
 - Pathfinding graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
+- Count Connected Components payloads must define an integer `nodeCount` between 2 and 16 plus `[from, to]` edge pairs that stay within range and never self-reference.
 - Course Schedule and Course Schedule II payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Rotting Oranges payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `0`, `1`, or `2`.
 - Number of Islands payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.

@@ -213,6 +213,38 @@ describe("buildRun", () => {
     expect(finalStep.state.rejectedEdges).toEqual([]);
   });
 
+  it("builds count-connected-components replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "count-connected-components",
+      JSON.stringify(
+        {
+          nodeCount: 6,
+          edges: [
+            [0, 1],
+            [1, 2],
+            [3, 4]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("count-connected-components");
+    expect(finalStep.state.kind).toBe("count-connected-components");
+    if (finalStep.state.kind !== "count-connected-components") {
+      throw new Error("Expected the Count Connected Components state.");
+    }
+    expect(finalStep.state.componentCount).toBe(3);
+    expect(finalStep.state.acceptedEdges).toEqual(["#1 0-1", "#2 1-2", "#3 3-4"]);
+    expect(finalStep.state.rejectedEdges).toEqual([]);
+  });
+
   it("builds redundant-connection replay runs from the shared graph engine", () => {
     const run = buildRun(
       "redundant-connection",

@@ -13,6 +13,7 @@ import {
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultCloneGraphInput,
+  defaultCountConnectedComponentsInput,
   defaultCourseScheduleInput,
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
@@ -760,6 +761,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with nodeCount and integer edge pairs as [from, to].",
     defaultInput: serializeGraphInput(defaultGraphValidTreeInput),
+    domain: "graph"
+  },
+  {
+    id: "count-connected-components",
+    name: "Count Connected Components",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "Union-Find replay records deterministic component merges, same-component no-op edges, and the terminal connected-component ledger without browser-side recomputation.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodeCount and integer edge pairs as [from, to].",
+    defaultInput: serializeGraphInput(defaultCountConnectedComponentsInput),
     domain: "graph"
   },
   {

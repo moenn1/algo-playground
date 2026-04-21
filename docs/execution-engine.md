@@ -34,6 +34,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `network-delay-time`
 - `clone-graph`
 - `graph-valid-tree`
+- `count-connected-components`
 - `redundant-connection`
 - `course-schedule`
 - `course-schedule-ii`
@@ -335,6 +336,22 @@ Redundant Connection records:
 - `state.redundantEdge`: the first cycle-closing edge in deterministic input order, or `null` while scanning
 - `state.hasRedundantConnection`: `true`, `false`, or `null` while the runtime is still in progress
 
+Count Connected Components records:
+
+- `state.kind`: `"count-connected-components"`
+- `state.nodeCount` and `state.edges`: the normalized Union-Find counting fixture
+- `state.parents`: the representative-parent ledger per node id
+- `state.ranks`: the union-by-rank ledger per node id
+- `state.components`: the projected connected components derived from the recorded parent ledger
+- `state.settled`: the processed edge labels already sealed into replay
+- `state.frontier`: the remaining input-order edge queue
+- `state.current`: the edge label currently being inspected
+- `state.activeEdge`: the active edge endpoints as node-id strings
+- `state.currentRoots`: the representatives being compared for the active edge
+- `state.acceptedEdges`: the accepted merge edges that reduced the component total
+- `state.rejectedEdges`: the same-component edges recorded as no-op scans
+- `state.componentCount`: the remaining connected-component count at the recorded frame
+
 Clone Graph records:
 
 - `state.kind`: `"clone-graph"`
@@ -539,6 +556,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 - Clone Graph records input-order neighbor inspection, explicit clone allocation, deduplicated clone-link commits, and terminal unreachable-node ledgers so replay never depends on live object references or browser-side copy reconstruction.
 - Graph Valid Tree records input-order edge inspection, deterministic union-by-rank merges with lower-root tie-breaks, explicit cycle rejection, and terminal component ledgers so replay never depends on path-compression side effects or live Union-Find recomputation.
+- Count Connected Components records input-order edge inspection, deterministic union-by-rank merges with lower-root tie-breaks, explicit same-component no-op checkpoints, and terminal component ledgers so replay can explain both the final total and every edge that failed to reduce it without recomputation.
 - Course Schedule and Course Schedule II record initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both feasibility verdicts and returned topological orders without re-running Kahn's algorithm.
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 - Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
@@ -552,6 +570,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Course Schedule II replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Surrounded Regions replay, and Walls and Gates replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Count Connected Components replay, Redundant Connection replay, Course Schedule replay, Course Schedule II replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Surrounded Regions replay, and Walls and Gates replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, dual-ocean reachability, shortest-bridge expansion, blocked-cell shortest-path search, border-capture, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

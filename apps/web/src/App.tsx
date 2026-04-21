@@ -860,6 +860,18 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `Minute ${step.state.minute} · ${step.state.fresh.length} fresh left`;
     }
 
+    if (step.state.kind === "count-connected-components") {
+      if (step.state.current && step.state.currentRoots.length === 2) {
+        return `Components ${step.state.componentCount} · ${step.state.current}`;
+      }
+
+      if (step.state.rejectedEdges.length > 0) {
+        return `Components ${step.state.componentCount} · ${step.state.rejectedEdges.length} no-op edge${step.state.rejectedEdges.length === 1 ? "" : "s"}`;
+      }
+
+      return `${step.state.componentCount} component${step.state.componentCount === 1 ? "" : "s"} total`;
+    }
+
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
         return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
@@ -1278,6 +1290,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               return run.algorithm.id === "course-schedule-ii"
                 ? `${graphStep.state.order.length} courses in order`
                 : `${graphStep.state.order.length} courses scheduled`;
+            }
+
+            if (graphStep.state.kind === "count-connected-components") {
+              return `${graphStep.state.componentCount} component${graphStep.state.componentCount === 1 ? "" : "s"}`;
             }
 
             return `${graphStep.state.settled.length} nodes settled`;
@@ -1870,6 +1886,39 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
               <div className="distance-row" key={course}>
                 <span>Course {course}</span>
                 <strong>in {step.state.indegrees[course] ?? 0}</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    if (step.state.kind === "count-connected-components") {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Nodes</span>
+              <strong>{step.state.nodeCount}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Pending edges</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Components</span>
+              <strong>{step.state.componentCount}</strong>
+            </div>
+            <div className="distance-row">
+              <span>No-op edges</span>
+              <strong>{step.state.rejectedEdges.length}</strong>
+            </div>
+          </div>
+          <div className="distance-grid">
+            {Array.from({ length: step.state.nodeCount }, (_, index) => `${index}`).map((node) => (
+              <div className="distance-row" key={node}>
+                <span>Node {node}</span>
+                <strong>p {step.state.parents[node]} · r {step.state.ranks[node]}</strong>
               </div>
             ))}
           </div>

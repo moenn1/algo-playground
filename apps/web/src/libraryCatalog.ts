@@ -245,7 +245,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much edge work and component churn happened before the tree verdict locked.",
     skills: ["union-find", "component merging", "cycle rejection"],
     spotlight: "A strong graph systems problem because it adds a reusable Union-Find replay model instead of another queue-driven traversal.",
-    nextAlgorithmIds: ["course-schedule", "dijkstra"]
+    nextAlgorithmIds: ["count-connected-components", "course-schedule"]
+  },
+  "count-connected-components": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.38,
+    timeToExplore: "6 min",
+    complexity: "The edge queue stays linear, but replay has to preserve every merge, every same-component no-op, and the live component ledger after each scan.",
+    outcome: "See exactly when a Union-Find merge reduces the total component count, when a cycle edge becomes a recorded no-op, and which groups remain disconnected at the terminal frame.",
+    metricsLens: "Settled, inspections, and updates expose how much edge scanning and merge work happened before the component total stabilized.",
+    skills: ["union-find", "component counting", "same-component no-ops"],
+    spotlight: "A useful bridge between tree validation and redundant-edge detection because it keeps the same ledger model while making the component total itself the product surface.",
+    nextAlgorithmIds: ["redundant-connection", "course-schedule"]
   },
   "redundant-connection": {
     stage: "core",
@@ -257,7 +269,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much forest-building work happened before the cycle verdict became inevitable.",
     skills: ["union-find", "cycle detection", "input-order verdicts"],
     spotlight: "A useful Union-Find follow-up because it reuses the same component ledger while changing the terminal contract from tree validation to first-cycle detection.",
-    nextAlgorithmIds: ["graph-valid-tree", "course-schedule"]
+    nextAlgorithmIds: ["count-connected-components", "course-schedule"]
   },
   "valid-parentheses": {
     stage: "foundation",

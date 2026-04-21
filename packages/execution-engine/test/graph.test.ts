@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBreadthFirstSearchTrace,
   buildCloneGraphTrace,
+  buildCountConnectedComponentsTrace,
   buildCourseScheduleTrace,
   buildCourseScheduleIiTrace,
   buildDepthFirstSearchTrace,
@@ -21,6 +22,7 @@ import {
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
   defaultCloneGraphInput,
+  defaultCountConnectedComponentsInput,
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
   defaultIslandPerimeterInput,
@@ -253,6 +255,39 @@ describe("graph execution engine", () => {
     expect(lateCycleFinalStep.state.componentCount).toBe(1);
   });
 
+  it("records deterministic connected-component counts and same-component no-ops", () => {
+    const referenceTrace = buildCountConnectedComponentsTrace(defaultCountConnectedComponentsInput);
+    const cyclicTrace = buildCountConnectedComponentsTrace({
+      nodeCount: 5,
+      edges: [
+        [0, 1],
+        [1, 2],
+        [2, 0],
+        [3, 4]
+      ]
+    });
+    const referenceFinalStep = referenceTrace.steps[referenceTrace.steps.length - 1]!;
+    const cyclicFinalStep = cyclicTrace.steps[cyclicTrace.steps.length - 1]!;
+
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("count-connected-components");
+    if (referenceFinalStep.state.kind !== "count-connected-components") {
+      throw new Error("Expected the count-connected-components state.");
+    }
+    expect(referenceFinalStep.state.componentCount).toBe(3);
+    expect(referenceFinalStep.state.acceptedEdges).toEqual(["#1 0-1", "#2 1-2", "#3 3-4"]);
+    expect(referenceFinalStep.state.rejectedEdges).toEqual([]);
+
+    expect(cyclicFinalStep.phase).toBe("Resolution");
+    expect(cyclicFinalStep.state.kind).toBe("count-connected-components");
+    if (cyclicFinalStep.state.kind !== "count-connected-components") {
+      throw new Error("Expected the count-connected-components state.");
+    }
+    expect(cyclicFinalStep.state.componentCount).toBe(2);
+    expect(cyclicFinalStep.state.rejectedEdges).toEqual(["#3 2-0"]);
+    expect(cyclicFinalStep.state.acceptedEdges).toEqual(["#1 0-1", "#2 1-2", "#4 3-4"]);
+  });
+
   it("records clone-ledger progress and unreachable nodes for Clone Graph", () => {
     const referenceTrace = buildCloneGraphTrace(defaultCloneGraphInput);
     const disconnectedTrace = buildCloneGraphTrace({
@@ -309,6 +344,12 @@ describe("graph execution engine", () => {
     expect(
       parseGraphInputText(serializeGraphInput(defaultGraphValidTreeInput), "graph-valid-tree")
     ).toEqual(defaultGraphValidTreeInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultCountConnectedComponentsInput),
+        "count-connected-components"
+      )
+    ).toEqual(defaultCountConnectedComponentsInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultRedundantConnectionInput),

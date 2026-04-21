@@ -846,6 +846,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 nodes / 4 edges"
     });
 
+    const componentsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-components/resolve",
+      payload: {
+        algorithmId: "count-connected-components"
+      }
+    });
+
+    expect(componentsPreset.statusCode).toBe(200);
+    expect(componentsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-components"
+      },
+      algorithm: {
+        id: "count-connected-components",
+        domain: "graph"
+      },
+      footprint: "6 nodes / 3 edges"
+    });
+
+    const cycleComponentsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.cycle-components/resolve",
+      payload: {
+        algorithmId: "count-connected-components"
+      }
+    });
+
+    expect(cycleComponentsPreset.statusCode).toBe(200);
+    expect(cycleComponentsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.cycle-components"
+      },
+      algorithm: {
+        id: "count-connected-components",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 4 edges"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2329,6 +2371,40 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "5 x 5 grid"
+    });
+
+    const validateCountComponentsInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "count-connected-components",
+        payload: {
+          nodeCount: 6,
+          edges: [
+            [0, 1],
+            [1, 2],
+            [3, 4]
+          ]
+        }
+      }
+    });
+
+    expect(validateCountComponentsInput.statusCode).toBe(200);
+    expect(validateCountComponentsInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "count-connected-components",
+        domain: "graph"
+      },
+      input: {
+        nodeCount: 6,
+        edges: [
+          [0, 1],
+          [1, 2],
+          [3, 4]
+        ]
+      },
+      footprint: "6 nodes / 3 edges"
     });
 
     const validateSurroundedRegionsInput = await server.inject({

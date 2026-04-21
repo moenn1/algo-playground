@@ -123,6 +123,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("redundant-connection");
   });
 
+  it("surfaces connected-components study paths through union-find metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "component counting union-find"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("count-connected-components");
+  });
+
   it("surfaces network-delay-time study paths through broadcast metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

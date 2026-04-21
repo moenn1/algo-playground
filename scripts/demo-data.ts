@@ -431,6 +431,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "late-redundant"]
   },
   {
+    key: "graph-reference-components",
+    algorithmId: "count-connected-components",
+    presetId: "graph.reference-components",
+    recordedAt: "2026-04-20T09:10:57.000Z",
+    tags: ["seeded-demo", "graph", "reference-components"]
+  },
+  {
+    key: "graph-cycle-components",
+    algorithmId: "count-connected-components",
+    presetId: "graph.cycle-components",
+    recordedAt: "2026-04-20T09:10:58.000Z",
+    tags: ["seeded-demo", "graph", "cycle-components"]
+  },
+  {
     key: "graph-reference-schedule",
     algorithmId: "course-schedule",
     presetId: "graph.reference-schedule",

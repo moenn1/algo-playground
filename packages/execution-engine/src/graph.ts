@@ -13,6 +13,7 @@ export type GraphAlgorithmId =
   | "network-delay-time"
   | "clone-graph"
   | "graph-valid-tree"
+  | "count-connected-components"
   | "redundant-connection"
   | "course-schedule"
   | "course-schedule-ii"
@@ -33,6 +34,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "network-delay-time",
   "clone-graph",
   "graph-valid-tree",
+  "count-connected-components",
   "redundant-connection",
   "course-schedule",
   "course-schedule-ii",
@@ -176,6 +178,23 @@ export interface GraphValidTreeExecutionState extends JsonObject {
   componentCount: number;
   isTree: boolean | null;
   failureReason: string | null;
+}
+
+export interface CountConnectedComponentsExecutionState extends JsonObject {
+  kind: "count-connected-components";
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: Record<string, number>;
+  ranks: Record<string, number>;
+  components: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
 }
 
 export interface RedundantConnectionExecutionState extends JsonObject {
@@ -346,6 +365,7 @@ export type GraphExecutionState =
   | NetworkDelayTimeExecutionState
   | CloneGraphExecutionState
   | GraphValidTreeExecutionState
+  | CountConnectedComponentsExecutionState
   | RedundantConnectionExecutionState
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
@@ -449,6 +469,21 @@ interface GraphValidTreeRuntimeState {
   componentCount: number;
   isTree: boolean | null;
   failureReason: string | null;
+}
+
+interface CountConnectedComponentsRuntimeState {
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: number[];
+  ranks: number[];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
 }
 
 interface RedundantConnectionRuntimeState {
@@ -634,6 +669,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     label: "Graph Valid Tree",
     implementationVersion: "graph-engine-0.6.0"
   },
+  "count-connected-components": {
+    id: "count-connected-components",
+    label: "Count Connected Components",
+    implementationVersion: "graph-engine-0.17.0"
+  },
   "redundant-connection": {
     id: "redundant-connection",
     label: "Redundant Connection",
@@ -816,6 +856,15 @@ export const defaultRedundantConnectionInput: GraphValidTreeInput = {
   ]
 };
 
+export const defaultCountConnectedComponentsInput: GraphValidTreeInput = {
+  nodeCount: 6,
+  edges: [
+    [0, 1],
+    [1, 2],
+    [3, 4]
+  ]
+};
+
 export const defaultRottingOrangesInput: RottingOrangesInput = {
   grid: [
     [2, 1, 1],
@@ -983,6 +1032,29 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       componentCount: state.componentCount,
       isTree: state.isTree,
       failureReason: state.failureReason
+    };
+  }
+
+  if (state.kind === "count-connected-components") {
+    return {
+      kind: state.kind,
+      nodeCount: state.nodeCount,
+      edges: state.edges.map((edge) => edge.slice() as [number, number]),
+      parents: {
+        ...state.parents
+      },
+      ranks: {
+        ...state.ranks
+      },
+      components: state.components.map((component) => component.slice()),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      currentRoots: state.currentRoots.slice(),
+      acceptedEdges: state.acceptedEdges.slice(),
+      rejectedEdges: state.rejectedEdges.slice(),
+      componentCount: state.componentCount
     };
   }
 
@@ -1781,6 +1853,7 @@ export function parseGraphInputText(
     case "clone-graph":
       return normalizeParsedPathfindingGraph(parsed);
     case "graph-valid-tree":
+    case "count-connected-components":
       return normalizeGraphValidTreeInput(parsed);
     case "redundant-connection":
       return normalizeGraphValidTreeInput(parsed);
@@ -1819,6 +1892,7 @@ export function normalizeGraphInput(
     case "clone-graph":
       return normalizeParsedPathfindingGraph(input);
     case "graph-valid-tree":
+    case "count-connected-components":
       return normalizeGraphValidTreeInput(input);
     case "redundant-connection":
       return normalizeGraphValidTreeInput(input);
@@ -2189,6 +2263,35 @@ function createGraphValidTreeRecorder() {
   });
 }
 
+function createCountConnectedComponentsRecorder() {
+  return createTraceRecorder<
+    CountConnectedComponentsRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "count-connected-components",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "count-connected-components",
+        nodeCount: runtimeState.nodeCount,
+        edges: runtimeState.edges.map((edge) => edge.slice() as [number, number]),
+        parents: serializeTreeNodeLedger(runtimeState.parents),
+        ranks: serializeTreeNodeLedger(runtimeState.ranks),
+        components: projectTreeComponents(runtimeState.nodeCount, runtimeState.parents),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        currentRoots: runtimeState.currentRoots.slice(),
+        acceptedEdges: runtimeState.acceptedEdges.slice(),
+        rejectedEdges: runtimeState.rejectedEdges.slice(),
+        componentCount: runtimeState.componentCount
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createRedundantConnectionRecorder() {
   return createTraceRecorder<
     RedundantConnectionRuntimeState,
@@ -2553,6 +2656,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createNetworkDelayTimeRecorder>
     | ReturnType<typeof createCloneGraphRecorder>
     | ReturnType<typeof createGraphValidTreeRecorder>
+    | ReturnType<typeof createCountConnectedComponentsRecorder>
     | ReturnType<typeof createRedundantConnectionRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
@@ -4024,6 +4128,235 @@ export function buildGraphValidTreeTrace(
         kind: "collection",
         intent: "result",
         label: isTree ? "Valid tree" : "Invalid tree"
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
+export function buildCountConnectedComponentsTrace(
+  input: GraphValidTreeInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["count-connected-components"];
+  const normalizedInput = normalizeGraphInput(
+    input,
+    "count-connected-components"
+  ) as GraphValidTreeInput;
+  const edgeLabels = normalizedInput.edges.map((edge, index) => createTreeEdgeLabel(edge, index));
+  const frontier = edgeLabels.slice();
+  const parents = Array.from({ length: normalizedInput.nodeCount }, (_, index) => index);
+  const ranks = Array.from({ length: normalizedInput.nodeCount }, () => 0);
+  const settled: string[] = [];
+  const acceptedEdges: string[] = [];
+  const rejectedEdges: string[] = [];
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let currentRoots: string[] = [];
+  let componentCount = normalizedInput.nodeCount;
+  const recorder = createCountConnectedComponentsRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+
+  const createRuntimeState = (): CountConnectedComponentsRuntimeState => ({
+    nodeCount: normalizedInput.nodeCount,
+    edges: normalizedInput.edges,
+    parents,
+    ranks,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    currentRoots,
+    acceptedEdges,
+    rejectedEdges,
+    componentCount
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Each node starts in its own component and the edge queue stays in input order so replay can explain every merge and same-component no-op deterministically.",
+    explanation: {
+      summary: "Seed the Union-Find ledger with one singleton component per node before counting connected components.",
+      details:
+        "Replay stores the parent and rank ledgers directly, so component merges and cycle no-ops stay serializable without hidden mutable state.",
+      tags: ["snapshot", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "count-components-init",
+        path: "state.components",
+        kind: "collection",
+        intent: "focus",
+        label: `${normalizedInput.nodeCount} singleton components`
+      }
+    ]
+  });
+
+  for (let index = 0; index < normalizedInput.edges.length; index += 1) {
+    const edge = normalizedInput.edges[index]!;
+    const edgeLabel = edgeLabels[index]!;
+    current = edgeLabel;
+    activeEdge = [String(edge[0]), String(edge[1])];
+    frontier.shift();
+    const leftRoot = findTreeRoot(parents, edge[0]);
+    const rightRoot = findTreeRoot(parents, edge[1]);
+    currentRoots = [String(leftRoot), String(rightRoot)];
+    metrics.inspections += 1;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Inspect",
+      description: `Inspect edge ${edge[0]}-${edge[1]} and compare roots ${leftRoot} and ${rightRoot}.`,
+      explanation: {
+        summary: "Read both representatives before deciding whether the edge reduces the component count.",
+        details:
+          "Input-order inspection is part of the replay contract, so the representative comparison is recorded directly instead of inferred later.",
+        tags: ["edge", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `count-components-inspect-${index}`,
+          path: "state.activeEdge",
+          kind: "edge",
+          intent: "active",
+          label: edgeLabel
+        }
+      ]
+    });
+
+    if (leftRoot === rightRoot) {
+      rejectedEdges.push(edgeLabel);
+
+      recorder.push({
+        phase: "Cycle",
+        description: `Edge ${edge[0]}-${edge[1]} stays inside component ${leftRoot}, so the connected-component count does not change.`,
+        explanation: {
+          summary: "A same-component edge is recorded as a no-op because it cannot merge separate groups.",
+          details:
+            "Replay keeps these no-op cycle edges explicit so the final component total never hides which scans failed to reduce the count.",
+          tags: ["edge", "candidate"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `count-components-cycle-${index}`,
+            path: "state.rejectedEdges",
+            kind: "collection",
+            intent: "candidate",
+            label: `No-op ${edge[0]}-${edge[1]}`
+          }
+        ]
+      });
+    } else {
+      let parentRoot = leftRoot;
+      let childRoot = rightRoot;
+
+      if (
+        ranks[leftRoot]! < ranks[rightRoot]! ||
+        (ranks[leftRoot] === ranks[rightRoot] && leftRoot > rightRoot)
+      ) {
+        parentRoot = rightRoot;
+        childRoot = leftRoot;
+      }
+
+      parents[childRoot] = parentRoot;
+      if (ranks[leftRoot] === ranks[rightRoot]) {
+        ranks[parentRoot] = ranks[parentRoot]! + 1;
+      }
+      acceptedEdges.push(edgeLabel);
+      componentCount -= 1;
+      metrics.updates += 1;
+      currentRoots = [String(findTreeRoot(parents, edge[0])), String(findTreeRoot(parents, edge[1]))];
+
+      recorder.push({
+        phase: "Union",
+        description: `Accept edge ${edge[0]}-${edge[1]} and merge component ${childRoot} into representative ${parentRoot}.`,
+        explanation: {
+          summary: "Commit one union because the edge connects two separate components.",
+          details:
+            "The updated parent and rank ledgers are recorded in the same frame as the accepted edge so replay can reopen the exact component-count transition.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `count-components-union-${index}`,
+            path: "state.acceptedEdges",
+            kind: "collection",
+            intent: "frontier",
+            label: `Merge ${edge[0]}-${edge[1]}`
+          }
+        ]
+      });
+    }
+
+    settled.push(edgeLabel);
+    metrics.settled = settled.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `Edge ${edge[0]}-${edge[1]} is fully recorded in the connected-components ledger.`,
+      explanation: {
+        summary: "Seal the merge or no-op decision before moving to the next queued edge.",
+        details:
+          "This checkpoint stores the remaining edge queue, component groups, and Union-Find ledgers together so replay can scrub edge by edge without hidden transitions.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `count-components-settled-${index}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: edgeLabel
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  currentRoots = [];
+  metrics.frontier = frontier.length;
+  metrics.settled = settled.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description:
+      rejectedEdges.length > 0
+        ? `Finished with ${componentCount} connected component${componentCount === 1 ? "" : "s"} after ${rejectedEdges.length} same-component edge${rejectedEdges.length === 1 ? "" : "s"} stayed inside existing groups.`
+        : `Finished with ${componentCount} connected component${componentCount === 1 ? "" : "s"} after every accepted edge reduced the total.`,
+    explanation: {
+      summary: "Publish the final connected-component total together with the accepted merges and any same-component no-op edges.",
+      details:
+        rejectedEdges.length > 0
+          ? "The terminal frame keeps both the component ledger and the no-op cycle-edge ledger explicit so replay can explain why some edges did not change the total."
+          : "The terminal frame keeps the merged component groups explicit so replay never recomputes the final total from earlier unions.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "count-components-final",
+        path: "state.components",
+        kind: "collection",
+        intent: "result",
+        label: `${componentCount} component${componentCount === 1 ? "" : "s"}`
       }
     ]
   });
@@ -8039,6 +8372,8 @@ export function buildGraphTrace(
       return buildCloneGraphTrace(graph as PathfindingGraphInput);
     case "graph-valid-tree":
       return buildGraphValidTreeTrace(graph as GraphValidTreeInput);
+    case "count-connected-components":
+      return buildCountConnectedComponentsTrace(graph as GraphValidTreeInput);
     case "redundant-connection":
       return buildRedundantConnectionTrace(graph as GraphValidTreeInput);
     case "course-schedule":

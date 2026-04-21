@@ -333,6 +333,7 @@ function formatCourseNodeMeta(
 
 type UnionFindGraphStep = TraceStep<
   | Extract<GraphExecutionState, { kind: "graph-valid-tree" }>
+  | Extract<GraphExecutionState, { kind: "count-connected-components" }>
   | Extract<GraphExecutionState, { kind: "redundant-connection" }>
 >;
 
@@ -358,6 +359,13 @@ function getTreeNodeTone(
 
   if (step.state.kind === "redundant-connection" && step.state.hasRedundantConnection === true) {
     return "path";
+  }
+
+  if (step.state.kind === "count-connected-components" && step.state.current === null) {
+    const component = step.state.components.find((group) => group.includes(node));
+    if (component && component.length > 1) {
+      return "path";
+    }
   }
 
   return "idle";
@@ -3192,7 +3200,11 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
   }
 
   if (
-    (step.state.kind === "graph-valid-tree" || step.state.kind === "redundant-connection") &&
+    (
+      step.state.kind === "graph-valid-tree" ||
+      step.state.kind === "count-connected-components" ||
+      step.state.kind === "redundant-connection"
+    ) &&
     isGraphValidTreeInput(run.input)
   ) {
     const nodes = Array.from({ length: run.input.nodeCount }, (_, index) => `${index}`);
@@ -3281,7 +3293,11 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
         <div className="graph-state-rail">
           <article className="mini-card graph-summary-card">
             <span>
-              {step.state.kind === "graph-valid-tree" ? "Validation focus" : "Cycle focus"}
+              {step.state.kind === "graph-valid-tree"
+                ? "Validation focus"
+                : step.state.kind === "count-connected-components"
+                  ? "Component focus"
+                  : "Cycle focus"}
             </span>
             <strong>{step.state.current ?? "Final ledger"}</strong>
             <p>
@@ -3352,6 +3368,10 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                   : step.state.isTree
                     ? "Valid tree"
                     : "Invalid"
+                : step.state.kind === "count-connected-components"
+                  ? step.state.current === null
+                    ? "Resolved"
+                    : "Counting"
                 : step.state.hasRedundantConnection === null
                   ? "Scanning"
                   : step.state.hasRedundantConnection
@@ -3362,6 +3382,8 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.kind === "graph-valid-tree"
                 ? step.state.failureReason ??
                   step.state.components.map((group) => group.join(" · ")).join(" | ")
+                : step.state.kind === "count-connected-components"
+                  ? `${step.state.componentCount} component${step.state.componentCount === 1 ? "" : "s"} · ${step.state.components.map((group) => group.join(" · ")).join(" | ")}`
                 : step.state.redundantEdge ?? step.state.components.map((group) => group.join(" · ")).join(" | ")}
             </p>
           </div>
@@ -3373,6 +3395,16 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 {step.state.redundantEdge
                   ? "First cycle-closing edge in input order"
                   : "No same-component edge detected yet"}
+              </p>
+            </div>
+          ) : step.state.kind === "count-connected-components" ? (
+            <div className="mini-card">
+              <span>Components</span>
+              <strong>{step.state.componentCount}</strong>
+              <p>
+                {step.state.rejectedEdges.length > 0
+                  ? `${step.state.rejectedEdges.length} same-component edge${step.state.rejectedEdges.length === 1 ? "" : "s"} recorded`
+                  : "Every accepted edge reduced the total"}
               </p>
             </div>
           ) : null}

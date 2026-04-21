@@ -29,6 +29,7 @@ export const supportedAlgorithmIds = [
   "network-delay-time",
   "clone-graph",
   "graph-valid-tree",
+  "count-connected-components",
   "redundant-connection",
   "course-schedule",
   "course-schedule-ii",
