@@ -3226,6 +3226,192 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
+  if (step.state.kind === "network-delay-time" && isPathfindingGraphInput(run.input)) {
+    const layout = buildGraphLayout(run.input.nodes);
+    const settledSet = new Set(step.state.settled);
+    const frontierSet = new Set(step.state.frontier);
+    const reachedSet = new Set(step.state.reachedNodes);
+    const unreachableSet = new Set(step.state.unreachableNodes);
+    const activeEdgeKey =
+      step.state.activeEdge.length === 2
+        ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
+        : "";
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} network</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Graph status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Current node</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Reached</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Network delay graph replay">
+              {run.input.edges.map(([from, to, weight]) => {
+                const start = layout[from]!;
+                const end = layout[to]!;
+                const classNames = [
+                  "graph-edge",
+                  activeEdgeKey === `${from}->${to}` ? "graph-edge-active" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g key={`${from}-${to}`}>
+                    <line
+                      className={classNames}
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                    />
+                    <text
+                      className="graph-weight"
+                      x={(start.x + end.x) / 2}
+                      y={(start.y + end.y) / 2 - 8}
+                    >
+                      {weight}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {run.input.nodes.map((node) => {
+                const { x, y } = layout[node]!;
+                const classNames = [
+                  "graph-node",
+                  step.state.current === node ? "graph-node-current" : "",
+                  settledSet.has(node) ? "graph-node-settled" : "",
+                  frontierSet.has(node) ? "graph-node-frontier" : "",
+                  reachedSet.has(node) ? "graph-node-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g className={classNames} key={node}>
+                    <circle cx={x} cy={y} r="26" />
+                    <text className="graph-label" x={x} y={y - 2}>
+                      {node}
+                    </text>
+                    <text className="graph-distance" x={x} y={y + 16}>
+                      {formatDistance(step.state.distances[node] ?? null)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Broadcast focus</span>
+              <strong>{step.state.current ?? step.state.signalSource}</strong>
+              <p>{formatActiveEdge(step.state.activeEdge)}</p>
+            </article>
+            <div className="graph-node-grid">
+              {run.input.nodes.map((node) => {
+                const status = step.state.current === node
+                  ? "Current"
+                  : settledSet.has(node)
+                    ? "Settled"
+                    : frontierSet.has(node)
+                      ? "Frontier"
+                      : unreachableSet.has(node)
+                        ? "Unreachable"
+                        : reachedSet.has(node)
+                          ? "Reached"
+                          : node === step.state.signalSource
+                            ? "Source"
+                            : "Idle";
+                const tone = step.state.current === node
+                  ? "current"
+                  : settledSet.has(node)
+                    ? "settled"
+                    : frontierSet.has(node)
+                      ? "frontier"
+                      : reachedSet.has(node)
+                        ? "path"
+                        : "idle";
+
+                return (
+                  <article className={`graph-node-card graph-node-card-${tone}`} key={`node-${node}`}>
+                    <div className="graph-node-card-header">
+                      <strong>{node}</strong>
+                      <span className="graph-node-status">{status}</span>
+                    </div>
+                    <span className="graph-node-distance">
+                      Arrival {formatDistance(step.state.distances[node] ?? null)}
+                    </span>
+                    <span className="graph-node-meta">
+                      {node === step.state.signalSource
+                        ? "Signal source"
+                        : unreachableSet.has(node)
+                          ? "No route from the source"
+                          : reachedSet.has(node)
+                            ? "Reachable relay"
+                            : "Pending relay"}
+                    </span>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Frontier</span>
+            <div className="pill-row">
+              {step.state.frontier.length > 0 ? (
+                step.state.frontier.map((node) => (
+                  <span className="pill" key={node}>
+                    {node}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">Frontier empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Reached nodes</span>
+            <strong>{step.state.reachedNodes.length}</strong>
+            <p>
+              {step.state.reachedNodes.length > 0
+                ? step.state.reachedNodes.join(", ")
+                : "Only the source is known"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>
+              {step.state.allReached === null
+                ? "Broadcasting"
+                : step.state.allReached
+                  ? `Delay ${step.state.networkDelay ?? 0}`
+                  : "Unreachable nodes"}
+            </strong>
+            <p>
+              {step.state.allReached === null
+                ? "The weighted frontier is still resolving arrival times."
+                : step.state.allReached
+                  ? "Every node received the signal from the chosen source."
+                  : step.state.unreachableNodes.join(", ")}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (isPathfindingGraphInput(run.input)) {
     const layout = buildGraphLayout(run.input.nodes);
     const settledSet = new Set(step.state.settled);

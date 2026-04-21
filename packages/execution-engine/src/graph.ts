@@ -10,6 +10,7 @@ export type GraphAlgorithmId =
   | "bfs"
   | "dfs"
   | "dijkstra"
+  | "network-delay-time"
   | "clone-graph"
   | "graph-valid-tree"
   | "course-schedule"
@@ -25,6 +26,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
   "dfs",
   "dijkstra",
+  "network-delay-time",
   "clone-graph",
   "graph-valid-tree",
   "course-schedule",
@@ -103,6 +105,20 @@ export interface PathfindingGraphExecutionState extends JsonObject {
   current: string | null;
   activeEdge: string[];
   path: string[];
+}
+
+export interface NetworkDelayTimeExecutionState extends JsonObject {
+  kind: "network-delay-time";
+  signalSource: string;
+  distances: Record<string, number | null>;
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  reachedNodes: string[];
+  unreachableNodes: string[];
+  networkDelay: number | null;
+  allReached: boolean | null;
 }
 
 export interface CourseScheduleExecutionState extends JsonObject {
@@ -264,6 +280,7 @@ export interface WallsAndGatesExecutionState extends JsonObject {
 
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
+  | NetworkDelayTimeExecutionState
   | CloneGraphExecutionState
   | GraphValidTreeExecutionState
   | CourseScheduleExecutionState
@@ -311,6 +328,18 @@ interface DepthFirstSearchRuntimeState extends PathfindingGraphRuntimeStateBase 
 
 interface DijkstraRuntimeState extends PathfindingGraphRuntimeStateBase {
   frontier: Set<string>;
+}
+
+interface NetworkDelayTimeRuntimeState {
+  signalSource: string;
+  distances: Record<string, number>;
+  settled: Set<string>;
+  frontier: Set<string>;
+  current: string | null;
+  activeEdge: string[];
+  reachedNodes: Set<string>;
+  networkDelay: number | null;
+  allReached: boolean | null;
 }
 
 interface CourseScheduleRuntimeState {
@@ -473,6 +502,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     label: "Dijkstra",
     implementationVersion: "graph-engine-0.1.0"
   },
+  "network-delay-time": {
+    id: "network-delay-time",
+    label: "Network Delay Time",
+    implementationVersion: "graph-engine-0.12.0"
+  },
   "clone-graph": {
     id: "clone-graph",
     label: "Clone Graph",
@@ -583,6 +617,22 @@ export const defaultDijkstraInput: GraphInput = {
   start: "A",
   target: "F",
   directed: false
+};
+
+export const defaultNetworkDelayTimeInput: GraphInput = {
+  nodes: ["A", "B", "C", "D", "E"],
+  edges: [
+    ["A", "B", 1],
+    ["A", "C", 4],
+    ["B", "C", 2],
+    ["B", "D", 6],
+    ["C", "D", 3],
+    ["D", "E", 1],
+    ["C", "E", 7]
+  ],
+  start: "A",
+  target: null,
+  directed: true
 };
 
 export const defaultCourseScheduleInput: CourseScheduleInput = {
@@ -724,6 +774,24 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       order: state.order.slice(),
       schedulable: state.schedulable,
       cycleNodes: state.cycleNodes.slice()
+    };
+  }
+
+  if (state.kind === "network-delay-time") {
+    return {
+      kind: state.kind,
+      signalSource: state.signalSource,
+      distances: {
+        ...state.distances
+      },
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      reachedNodes: state.reachedNodes.slice(),
+      unreachableNodes: state.unreachableNodes.slice(),
+      networkDelay: state.networkDelay,
+      allReached: state.allReached
     };
   }
 
@@ -974,6 +1042,16 @@ function normalizeParsedPathfindingGraph(candidate: unknown): PathfindingGraphIn
     target,
     directed: Boolean(value.directed)
   };
+}
+
+function normalizeNetworkDelayTimeInput(candidate: unknown): PathfindingGraphInput {
+  const input = normalizeParsedPathfindingGraph(candidate);
+
+  if (input.target !== null) {
+    throw new Error("Network Delay Time input target must be null.");
+  }
+
+  return input;
 }
 
 function normalizeCourseScheduleInput(candidate: unknown): CourseScheduleInput {
@@ -1465,6 +1543,8 @@ export function parseGraphInputText(
   }
 
   switch (algorithmId) {
+    case "network-delay-time":
+      return normalizeNetworkDelayTimeInput(parsed);
     case "clone-graph":
       return normalizeParsedPathfindingGraph(parsed);
     case "graph-valid-tree":
@@ -1495,6 +1575,8 @@ export function normalizeGraphInput(
   algorithmId: GraphAlgorithmId = "dijkstra"
 ): GraphInput {
   switch (algorithmId) {
+    case "network-delay-time":
+      return normalizeNetworkDelayTimeInput(input);
     case "clone-graph":
       return normalizeParsedPathfindingGraph(input);
     case "graph-valid-tree":
@@ -1742,6 +1824,36 @@ function createDijkstraRecorder(graph: PathfindingGraphInput) {
         current: runtimeState.current,
         activeEdge: runtimeState.activeEdge.slice(),
         path: runtimeState.path.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
+function createNetworkDelayTimeRecorder(graph: PathfindingGraphInput) {
+  return createTraceRecorder<
+    NetworkDelayTimeRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "network-delay-time",
+    projectState(runtimeState) {
+      const reachedNodes = Array.from(runtimeState.reachedNodes).sort((left, right) =>
+        left.localeCompare(right)
+      );
+
+      return cloneGraphState({
+        kind: "network-delay-time",
+        signalSource: runtimeState.signalSource,
+        distances: serializeDistances(graph.nodes, runtimeState.distances),
+        settled: Array.from(runtimeState.settled),
+        frontier: orderWeightedFrontier(runtimeState.frontier, runtimeState.distances),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        reachedNodes,
+        unreachableNodes: graph.nodes.filter((node) => !runtimeState.reachedNodes.has(node)),
+        networkDelay: runtimeState.networkDelay,
+        allReached: runtimeState.allReached
       });
     },
     projectMetrics: projectGraphMetrics
@@ -2105,6 +2217,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createBreadthFirstSearchRecorder>
     | ReturnType<typeof createDepthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
+    | ReturnType<typeof createNetworkDelayTimeRecorder>
     | ReturnType<typeof createCloneGraphRecorder>
     | ReturnType<typeof createGraphValidTreeRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
@@ -2878,6 +2991,228 @@ export function buildDijkstraTrace(
         path: "state.path",
         op: "set",
         nextValue: finalPath
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedGraph, recorder);
+}
+
+export function buildNetworkDelayTimeTrace(
+  graph: PathfindingGraphInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["network-delay-time"];
+  const normalizedGraph = normalizeGraphInput(
+    graph,
+    "network-delay-time"
+  ) as PathfindingGraphInput;
+  const adjacency = buildAdjacency(normalizedGraph);
+  const distances = Object.fromEntries(
+    normalizedGraph.nodes.map((node) => [node, Number.POSITIVE_INFINITY])
+  ) as Record<string, number>;
+  const frontier = new Set<string>([normalizedGraph.start]);
+  const settled = new Set<string>();
+  const reachedNodes = new Set<string>([normalizedGraph.start]);
+  const recorder = createNetworkDelayTimeRecorder(normalizedGraph);
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 1,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = normalizedGraph.start;
+  let activeEdge: string[] = [];
+  let networkDelay: number | null = null;
+  let allReached: boolean | null = null;
+
+  distances[normalizedGraph.start] = 0;
+
+  const createRuntimeState = (): NetworkDelayTimeRuntimeState => ({
+    signalSource: normalizedGraph.start,
+    distances,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    reachedNodes,
+    networkDelay,
+    allReached
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The signal source starts at time zero while every other node remains unresolved in the weighted frontier ledger.",
+    explanation: {
+      summary: "Seed the weighted broadcast from one source before any relaxations occur.",
+      details:
+        "The first frame records the broadcast source, tentative distance table, and empty reachability verdict so replay never has to reconstruct the initial weighted state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "network-delay-start-node",
+        path: `state.distances.${normalizedGraph.start}`,
+        kind: "node",
+        intent: "focus",
+        label: `Signal source ${normalizedGraph.start}`
+      }
+    ]
+  });
+
+  while (frontier.size > 0) {
+    current = orderWeightedFrontier(frontier, distances)[0]!;
+    frontier.delete(current);
+    activeEdge = [];
+    syncMetrics(metrics, {
+      settled: Array.from(settled),
+      frontier: orderWeightedFrontier(frontier, distances)
+    });
+
+    recorder.push({
+      phase: "Extract",
+      description: `Node ${current} has the earliest known arrival time and becomes the next broadcast relay.`,
+      explanation: {
+        summary: "Extract the reachable node with the smallest tentative arrival time.",
+        details:
+          "Arrival-time ordering stays deterministic by sorting on distance first and node label second, so replay and backend consumers share the same frontier progression.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `network-delay-current-${current}`,
+          path: `state.distances.${current}`,
+          kind: "node",
+          intent: "active",
+          label: `Relay from ${current}`
+        }
+      ]
+    });
+
+    for (const edge of adjacency.get(current) ?? []) {
+      if (settled.has(edge.to)) {
+        continue;
+      }
+
+      metrics.inspections += 1;
+      activeEdge = [current, edge.to];
+      const candidateDistance = distances[current]! + edge.weight;
+      const previousDistance = distances[edge.to] ?? Number.POSITIVE_INFINITY;
+      const hasImproved = candidateDistance < previousDistance;
+
+      if (hasImproved) {
+        distances[edge.to] = candidateDistance;
+        frontier.add(edge.to);
+        reachedNodes.add(edge.to);
+        metrics.updates += 1;
+      }
+
+      syncMetrics(metrics, {
+        settled: Array.from(settled),
+        frontier: orderWeightedFrontier(frontier, distances)
+      });
+
+      recorder.push({
+        phase: hasImproved ? "Relax" : "Inspect",
+        description: hasImproved
+          ? `Signal arrival for ${edge.to} improves to ${candidateDistance}, so the frontier promotes that relay candidate.`
+          : `The candidate arrival ${candidateDistance} does not beat the current best signal time for ${edge.to}.`,
+        explanation: {
+          summary: hasImproved
+            ? "Record the faster arrival time and refresh the weighted broadcast frontier."
+            : "Inspect the weighted edge without changing the best-known arrival time.",
+          details: hasImproved
+            ? `${edge.to} is now reachable from ${normalizedGraph.start} in ${candidateDistance} time units through ${current}.`
+            : `The best recorded arrival time for ${edge.to} remains ${formatGraphDistance(
+                Number.isFinite(previousDistance) ? previousDistance : null
+              )}.`,
+          tags: ["edge", hasImproved ? "candidate" : "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `network-delay-edge-${current}-${edge.to}-${metrics.inspections}`,
+            path: "state.activeEdge",
+            kind: "edge",
+            intent: hasImproved ? "candidate" : "focus",
+            label: `${current} -> ${edge.to} (${edge.weight})`
+          }
+        ]
+      });
+    }
+
+    settled.add(current);
+    activeEdge = [];
+    syncMetrics(metrics, {
+      settled: Array.from(settled),
+      frontier: orderWeightedFrontier(frontier, distances)
+    });
+
+    recorder.push({
+      phase: "Checkpoint",
+      description:
+        `Node ${current} is settled with its final arrival time, so replay can resume from this broadcast ledger without replaying earlier relaxations.`,
+      explanation: {
+        summary: "Seal the extracted relay once its earliest arrival time is final.",
+        details:
+          "This checkpoint preserves the settled relay set, the weighted frontier, and the reached-node ledger in one deterministic frame.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `network-delay-settled-${current}`,
+          path: "state.settled",
+          kind: "node",
+          intent: "visited",
+          label: `Settled ${current}`
+        }
+      ]
+    });
+  }
+
+  allReached = reachedNodes.size === normalizedGraph.nodes.length;
+  networkDelay = allReached
+    ? Math.max(...normalizedGraph.nodes.map((node) => distances[node]!))
+    : null;
+  syncMetrics(metrics, {
+    settled: Array.from(settled),
+    frontier: orderWeightedFrontier(frontier, distances)
+  });
+
+  recorder.push({
+    phase: allReached ? "Resolution" : "Unreachable",
+    description: allReached
+      ? `Every node receives the signal; the final network delay is ${networkDelay}.`
+      : `The signal cannot reach every node from ${normalizedGraph.start}, so unreachable nodes remain in the terminal ledger.`,
+    explanation: {
+      summary: allReached
+        ? "Publish the terminal weighted broadcast once the slowest reachable node is known."
+        : "Publish the exhausted broadcast frontier and unreachable-node ledger together.",
+      details: allReached
+        ? "The final frame records the maximum settled arrival time directly so replay consumers do not need to recompute it from the distance table."
+        : "The final frame keeps both the finite arrival ledger and the unreachable node list serialization-safe for replay, persistence, and diff inspection.",
+      tags: ["result", allReached ? "path" : "collection"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "network-delay-final",
+        path: allReached ? "state.networkDelay" : "state.unreachableNodes",
+        kind: allReached ? "node" : "collection",
+        intent: "result",
+        label: allReached
+          ? `Network delay ${networkDelay ?? 0}`
+          : `Unreachable nodes ${normalizedGraph.nodes
+              .filter((node) => !reachedNodes.has(node))
+              .join(", ")}`
       }
     ]
   });
@@ -6319,6 +6654,8 @@ export function buildGraphTrace(
       return buildDepthFirstSearchTrace(graph as PathfindingGraphInput);
     case "dijkstra":
       return buildDijkstraTrace(graph as PathfindingGraphInput);
+    case "network-delay-time":
+      return buildNetworkDelayTimeTrace(graph as PathfindingGraphInput);
     case "clone-graph":
       return buildCloneGraphTrace(graph as PathfindingGraphInput);
     case "graph-valid-tree":

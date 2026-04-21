@@ -23,6 +23,7 @@ import {
   defaultTopKFrequentElementsInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
+  defaultNetworkDelayTimeInput,
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
@@ -720,6 +721,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with nodes, edges, start, and target",
     defaultInput: serializeGraphInput(defaultDijkstraInput),
+    domain: "graph"
+  },
+  {
+    id: "network-delay-time",
+    name: "Network Delay Time",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Weighted broadcast replay records earliest arrival times, unreachable nodes, and the final network-delay ledger without browser-side recomputation.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodes, edges, start, and target set to null.",
+    defaultInput: serializeGraphInput(defaultNetworkDelayTimeInput),
     domain: "graph"
   },
   {

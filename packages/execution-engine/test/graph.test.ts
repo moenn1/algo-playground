@@ -6,6 +6,7 @@ import {
   buildCourseScheduleTrace,
   buildDepthFirstSearchTrace,
   buildDijkstraTrace,
+  buildNetworkDelayTimeTrace,
   buildGraphValidTreeTrace,
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
@@ -18,6 +19,7 @@ import {
   defaultCloneGraphInput,
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
+  defaultNetworkDelayTimeInput,
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
@@ -135,6 +137,45 @@ describe("graph execution engine", () => {
     ]);
   });
 
+  it("records deterministic weighted broadcast outcomes for Network Delay Time", () => {
+    const firstTrace = buildNetworkDelayTimeTrace(defaultNetworkDelayTimeInput);
+    const secondTrace = buildNetworkDelayTimeTrace(defaultNetworkDelayTimeInput);
+    const unreachableTrace = buildNetworkDelayTimeTrace({
+      nodes: ["A", "B", "C", "D", "E"],
+      edges: [
+        ["A", "B", 1],
+        ["B", "C", 2],
+        ["C", "D", 2]
+      ],
+      start: "A",
+      target: null,
+      directed: true
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const unreachableFinalStep = unreachableTrace.steps[unreachableTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("network-delay-time");
+    if (referenceFinalStep.state.kind !== "network-delay-time") {
+      throw new Error("Expected the network-delay-time state.");
+    }
+    expect(referenceFinalStep.state.allReached).toBe(true);
+    expect(referenceFinalStep.state.networkDelay).toBe(7);
+    expect(referenceFinalStep.state.unreachableNodes).toEqual([]);
+    expect(referenceFinalStep.state.reachedNodes).toEqual(["A", "B", "C", "D", "E"]);
+
+    expect(unreachableFinalStep.phase).toBe("Unreachable");
+    expect(unreachableFinalStep.state.kind).toBe("network-delay-time");
+    if (unreachableFinalStep.state.kind !== "network-delay-time") {
+      throw new Error("Expected the network-delay-time state.");
+    }
+    expect(unreachableFinalStep.state.allReached).toBe(false);
+    expect(unreachableFinalStep.state.networkDelay).toBeNull();
+    expect(unreachableFinalStep.state.unreachableNodes).toEqual(["E"]);
+    expect(unreachableFinalStep.state.reachedNodes).toEqual(["A", "B", "C", "D"]);
+  });
+
   it("records deterministic union-find merges and cycle rejection for graph valid tree", () => {
     const validTrace = buildGraphValidTreeTrace(defaultGraphValidTreeInput);
     const invalidTrace = buildGraphValidTreeTrace({
@@ -229,6 +270,12 @@ describe("graph execution engine", () => {
     expect(parseGraphInputText(serializeGraphInput(defaultCloneGraphInput), "clone-graph")).toEqual(
       defaultCloneGraphInput
     );
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultNetworkDelayTimeInput),
+        "network-delay-time"
+      )
+    ).toEqual(defaultNetworkDelayTimeInput);
     expect(
       parseGraphInputText(serializeGraphInput(defaultRottingOrangesInput), "rotting-oranges")
     ).toEqual(defaultRottingOrangesInput);

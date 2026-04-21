@@ -25,7 +25,10 @@ describe("libraryCatalog", () => {
       savedRunCounts
     );
 
-    expect(matches.map((algorithm) => algorithm.id)).toEqual(["dijkstra"]);
+    expect(matches.map((algorithm) => algorithm.id)).toEqual([
+      "dijkstra",
+      "network-delay-time"
+    ]);
   });
 
   it("matches text queries against discovery metadata", () => {
@@ -105,6 +108,19 @@ describe("libraryCatalog", () => {
     );
 
     expect(matches.map((algorithm) => algorithm.id)).toContain("largest-rectangle-in-histogram");
+  });
+
+  it("surfaces network-delay-time study paths through broadcast metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "weighted broadcast unreachable nodes"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("network-delay-time");
   });
 
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {

@@ -762,6 +762,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 nodes / 9 edges"
     });
 
+    const referenceBroadcastPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-broadcast/resolve",
+      payload: {
+        algorithmId: "network-delay-time"
+      }
+    });
+
+    expect(referenceBroadcastPreset.statusCode).toBe(200);
+    expect(referenceBroadcastPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-broadcast"
+      },
+      algorithm: {
+        id: "network-delay-time",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 7 edges"
+    });
+
+    const unreachableBroadcastPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.unreachable-broadcast/resolve",
+      payload: {
+        algorithmId: "network-delay-time"
+      }
+    });
+
+    expect(unreachableBroadcastPreset.statusCode).toBe(200);
+    expect(unreachableBroadcastPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.unreachable-broadcast"
+      },
+      algorithm: {
+        id: "network-delay-time",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 3 edges"
+    });
+
     const clonePreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-clone/resolve",
@@ -1773,6 +1815,54 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 nodes / 5 edges"
     });
 
+    const validateNetworkDelayTimeInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "network-delay-time",
+        payload: {
+          nodes: ["A", "B", "C", "D", "E"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 4],
+            ["B", "C", 2],
+            ["B", "D", 6],
+            ["C", "D", 3],
+            ["D", "E", 1],
+            ["C", "E", 7]
+          ],
+          start: "A",
+          target: null,
+          directed: true
+        }
+      }
+    });
+
+    expect(validateNetworkDelayTimeInput.statusCode).toBe(200);
+    expect(validateNetworkDelayTimeInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "network-delay-time",
+        domain: "graph"
+      },
+      input: {
+        nodes: ["A", "B", "C", "D", "E"],
+        edges: [
+          ["A", "B", 1],
+          ["A", "C", 4],
+          ["B", "C", 2],
+          ["B", "D", 6],
+          ["C", "D", 3],
+          ["D", "E", 1],
+          ["C", "E", 7]
+        ],
+        start: "A",
+        target: null,
+        directed: true
+      },
+      footprint: "5 nodes / 7 edges"
+    });
+
     const validateCourseScheduleInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2219,6 +2309,33 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "grid[1][1] must be either 0 or 1."
+    });
+  });
+
+  it("rejects network-delay-time payloads with non-null targets", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "network-delay-time",
+        payload: {
+          nodes: ["A", "B", "C"],
+          edges: [
+            ["A", "B", 1],
+            ["B", "C", 2]
+          ],
+          start: "A",
+          target: "C",
+          directed: true
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Network Delay Time input target must be null."
     });
   });
 

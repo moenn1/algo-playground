@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `clone-graph`, `graph-valid-tree`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -115,6 +115,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 ### Graph presets
 
 - `graph.reference-route`: fixed weighted graph aligned with the replay shell
+- `graph.reference-broadcast`: curated weighted directed network where every node receives the signal
+- `graph.unreachable-broadcast`: curated weighted directed network where one node remains unreachable
 - `graph.disconnected-target`: curated no-route scenario
 - `graph.weighted-detour`: curated pathfinding case with a cheaper multi-hop route
 - `graph.reference-clone`: curated connected graph where clone allocation and clone-link commits both stay visible
@@ -140,6 +142,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
 The route presets plus `graph.random-network` resolve for Breadth-First Search, Depth-First Search, or Dijkstra through the same `algorithmId` field. BFS and DFS ignore edge weights but preserve the shared graph input contract so pathfinding fixtures can be replayed across all three algorithms.
+
+The broadcast presets resolve for Network Delay Time and use the shared pathfinding-style contract `{ "nodes": string[], "edges": [[from, to, weight], ...], "start": string, "target": null, "directed": boolean }`. Validation requires `target` to stay `null` so the runtime can publish full-network reachability, unreachable-node ledgers, and the terminal delay instead of one recovered route.
 
 The clone-construction presets resolve for Clone Graph and use the shared pathfinding-style contract `{ "nodes": string[], "edges": [[from, to, weight], ...], "start": string, "target": null, "directed": boolean }`. Replay treats `start` as the clone entry node and publishes any unreachable nodes outside that entry component explicitly.
 

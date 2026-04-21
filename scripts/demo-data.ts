@@ -375,6 +375,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "weighted-detour"]
   },
   {
+    key: "graph-reference-broadcast",
+    algorithmId: "network-delay-time",
+    presetId: "graph.reference-broadcast",
+    recordedAt: "2026-04-20T09:10:05.000Z",
+    tags: ["seeded-demo", "graph", "reference-broadcast"]
+  },
+  {
+    key: "graph-unreachable-broadcast",
+    algorithmId: "network-delay-time",
+    presetId: "graph.unreachable-broadcast",
+    recordedAt: "2026-04-20T09:10:07.500Z",
+    tags: ["seeded-demo", "graph", "unreachable-broadcast"]
+  },
+  {
     key: "graph-reference-clone",
     algorithmId: "clone-graph",
     presetId: "graph.reference-clone",

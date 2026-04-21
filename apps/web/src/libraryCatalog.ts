@@ -558,6 +558,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     skills: ["weighted frontiers", "distance updates", "shortest-path recovery"],
     spotlight: "The richest graph replay in the library, with enough state to justify a slower frame-by-frame pass.",
     nextAlgorithmIds: ["longest-common-subsequence", "quick-sort"]
+  },
+  "network-delay-time": {
+    stage: "advanced",
+    focus: "pathfinding",
+    order: 17.5,
+    timeToExplore: "7 min",
+    complexity: "The weighted frontier still matters, but the terminal goal shifts from one route to a full broadcast coverage ledger.",
+    outcome: "Read earliest arrival times, unreachable nodes, and the final network delay without deriving them from the raw graph again.",
+    metricsLens: "Settled, inspections, and updates show how much weighted frontier churn was required to cover the network.",
+    skills: ["weighted broadcast", "arrival ledgers", "unreachable-node reporting"],
+    spotlight: "A useful follow-up to Dijkstra because it reuses weighted relaxations while changing the runtime contract from path recovery to full-network coverage.",
+    nextAlgorithmIds: ["course-schedule", "longest-common-subsequence"]
   }
 };
 

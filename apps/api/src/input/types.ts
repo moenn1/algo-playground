@@ -26,6 +26,7 @@ export const supportedAlgorithmIds = [
   "bfs",
   "dfs",
   "dijkstra",
+  "network-delay-time",
   "clone-graph",
   "graph-valid-tree",
   "course-schedule",

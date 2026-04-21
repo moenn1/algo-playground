@@ -31,12 +31,15 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `bfs`
 - `dfs`
 - `dijkstra`
+- `network-delay-time`
 - `clone-graph`
 - `graph-valid-tree`
 - `course-schedule`
 - `rotting-oranges`
 - `number-of-islands`
 - `pacific-atlantic-water-flow`
+- `shortest-bridge`
+- `shortest-path-binary-matrix`
 - `surrounded-regions`
 - `walls-and-gates`
 
@@ -278,6 +281,20 @@ Pathfinding state for Breadth-First Search, Depth-First Search, and Dijkstra rec
 - `state.activeEdge`: the edge under inspection or relaxation
 - `state.path`: the current recovered path overlay
 
+Network Delay Time records:
+
+- `state.kind`: `"network-delay-time"`
+- `state.signalSource`: the selected broadcast origin
+- `state.distances`: the earliest known arrival time per node
+- `state.settled`: nodes whose arrival time is final for the current frame
+- `state.frontier`: the weighted relay frontier sorted by arrival time and node-label tie-breaks
+- `state.current`: the node currently relaying signal updates
+- `state.activeEdge`: the directed edge currently under inspection or relaxation
+- `state.reachedNodes`: nodes with at least one finite arrival time from the source
+- `state.unreachableNodes`: nodes that still have no route from the source
+- `state.networkDelay`: the terminal maximum arrival time when every node is reached
+- `state.allReached`: `true`, `false`, or `null` while the broadcast is still in progress
+
 Graph Valid Tree records:
 
 - `state.kind`: `"graph-valid-tree"`
@@ -439,7 +456,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges or neighbor relationships inspected so far
 - `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Network Delay Time records the weighted relay frontier with that same deterministic ordering while publishing reached-versus-unreachable ledgers, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 

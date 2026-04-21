@@ -70,6 +70,46 @@ describe("buildRun", () => {
     expect(getTraceStepPaths(finalStep)).toContain("state.path");
   });
 
+  it("builds network-delay-time replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "network-delay-time",
+      JSON.stringify(
+        {
+          nodes: ["A", "B", "C", "D", "E"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 4],
+            ["B", "C", 2],
+            ["B", "D", 6],
+            ["C", "D", 3],
+            ["D", "E", 1],
+            ["C", "E", 7]
+          ],
+          start: "A",
+          target: null,
+          directed: true
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("network-delay-time");
+    expect(finalStep.state.kind).toBe("network-delay-time");
+    if (finalStep.state.kind !== "network-delay-time") {
+      throw new Error("Expected the Network Delay Time graph state.");
+    }
+    expect(finalStep.state.allReached).toBe(true);
+    expect(finalStep.state.networkDelay).toBe(7);
+    expect(finalStep.state.unreachableNodes).toEqual([]);
+    expect(getTraceStepPaths(finalStep)).toContain("state.networkDelay");
+  });
+
   it("builds breadth-first replay runs from the shared graph engine", () => {
     const run = buildRun(
       "bfs",

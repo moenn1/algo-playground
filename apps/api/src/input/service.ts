@@ -158,6 +158,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Dijkstra",
     domain: "graph"
   },
+  "network-delay-time": {
+    id: "network-delay-time",
+    label: "Network Delay Time",
+    domain: "graph"
+  },
   "clone-graph": {
     id: "clone-graph",
     label: "Clone Graph",
@@ -247,6 +252,7 @@ const pathfindingGraphAlgorithms = [
   supportedAlgorithms.dfs,
   supportedAlgorithms.dijkstra
 ] as const;
+const networkDelayAlgorithms = [supportedAlgorithms["network-delay-time"]] as const;
 const cloneGraphAlgorithms = [supportedAlgorithms["clone-graph"]] as const;
 const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
@@ -364,6 +370,21 @@ const defaultCloneGraphInput: PathfindingGraphInputPayload = {
   start: "A",
   target: null,
   directed: false
+};
+const defaultNetworkDelayTimeInput: PathfindingGraphInputPayload = {
+  nodes: ["A", "B", "C", "D", "E"],
+  edges: [
+    ["A", "B", 1],
+    ["A", "C", 4],
+    ["B", "C", 2],
+    ["B", "D", 6],
+    ["C", "D", 3],
+    ["D", "E", 1],
+    ["C", "E", 7]
+  ],
+  start: "A",
+  target: null,
+  directed: true
 };
 const defaultGraphValidTreeInput: GraphValidTreeInputPayload = {
   nodeCount: 5,
@@ -1578,6 +1599,16 @@ function normalizePathfindingGraphInput(payload: unknown): PathfindingGraphInput
   };
 }
 
+function normalizeNetworkDelayTimeInput(payload: unknown): PathfindingGraphInputPayload {
+  const input = normalizePathfindingGraphInput(payload);
+
+  if (input.target !== null) {
+    throw new HttpError(400, "Network Delay Time input target must be null.");
+  }
+
+  return input;
+}
+
 function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2208,6 +2239,8 @@ function normalizeGraphInput(
   algorithmId: SupportedAlgorithmId
 ): GraphInputPayload {
   switch (algorithmId) {
+    case "network-delay-time":
+      return normalizeNetworkDelayTimeInput(payload);
     case "graph-valid-tree":
       return normalizeGraphValidTreeInput(payload);
     case "course-schedule":
@@ -3242,6 +3275,50 @@ const presetDefinitions: InputPresetDefinition[] = [
     },
     resolve: () => ({
       input: defaultGraphInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-broadcast",
+      label: "Reference broadcast graph",
+      description:
+        "Weighted directed network fixture aligned with the shared broadcast runtime and terminal network-delay ledger.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: networkDelayAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultNetworkDelayTimeInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.unreachable-broadcast",
+      label: "Unreachable broadcast",
+      description:
+        "Leave one node outside the directed signal fan-out so replay can publish both the arrival ledger and the unreachable-node result.",
+      scenario: "unreachable",
+      kind: "curated",
+      domain: "graph",
+      algorithms: networkDelayAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        nodes: ["A", "B", "C", "D", "E"],
+        edges: [
+          ["A", "B", 1],
+          ["B", "C", 2],
+          ["C", "D", 2]
+        ],
+        start: "A",
+        target: null,
+        directed: true
+      },
       options: {}
     })
   },
