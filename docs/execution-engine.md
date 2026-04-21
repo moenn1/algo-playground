@@ -25,6 +25,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, i
 - `bfs`
 - `dijkstra`
 - `course-schedule`
+- `rotting-oranges`
 
 ## Sorting Runtime Model
 
@@ -213,6 +214,21 @@ Course Schedule records:
 - `state.schedulable`: `true`, `false`, or `null` while the runtime is still in progress
 - `state.cycleNodes`: the remaining blocked courses when the queue empties early
 
+Rotting Oranges records:
+
+- `state.kind`: `"rotting-oranges"`
+- `state.grid`: the grid snapshot for the current infection frame
+- `state.settled`: cells whose outgoing spread checks are fully recorded
+- `state.frontier`: the ordered rotten-orange queue for the current or next minute wave
+- `state.current`: the rotten cell currently acting as the spread source
+- `state.activeEdge`: the active source-to-neighbor inspection
+- `state.minute`: the current completed infection minute
+- `state.fresh`: the remaining fresh cells in deterministic row-major order
+- `state.newlyRotted`: cells converted during the current minute wave
+- `state.rottable`: `true`, `false`, or `null` while the runtime is still in progress
+- `state.minutesToRotAll`: the terminal infection time when every fresh orange can rot
+- `state.stalledFresh`: the remaining unreachable fresh cells when the frontier stalls
+
 Shared graph metrics keep the runtime readable across all graph-family algorithms:
 
 - `settled`: nodes finalized so far
@@ -220,7 +236,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges inspected so far
 - `updates`: predecessor or distance updates committed so far
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, and Course Schedule records the zero-indegree queue sorted by numeric course id.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Course Schedule records the zero-indegree queue sorted by numeric course id, and Rotting Oranges records the minute-wave infection queue in fixed neighbor order.
 
 ## Deterministic Emission Rules
 
@@ -243,9 +259,10 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 - Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
+- Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, Dijkstra replay, and Course Schedule replay from this package.
-- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, Dijkstra replay, Course Schedule replay, and Rotting Oranges replay from this package.
+- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the shared graph-family grid contract for Rotting Oranges.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

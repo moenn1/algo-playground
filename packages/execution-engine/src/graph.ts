@@ -6,9 +6,18 @@ import {
   type TraceMetricDefinition
 } from "@tracedeck/trace-core";
 
-export type GraphAlgorithmId = "bfs" | "dijkstra" | "course-schedule";
+export type GraphAlgorithmId =
+  | "bfs"
+  | "dijkstra"
+  | "course-schedule"
+  | "rotting-oranges";
 
-export const graphAlgorithmIds: GraphAlgorithmId[] = ["bfs", "dijkstra", "course-schedule"];
+export const graphAlgorithmIds: GraphAlgorithmId[] = [
+  "bfs",
+  "dijkstra",
+  "course-schedule",
+  "rotting-oranges"
+];
 
 export interface PathfindingGraphInput extends JsonObject {
   nodes: string[];
@@ -23,7 +32,11 @@ export interface CourseScheduleInput extends JsonObject {
   prerequisites: Array<[number, number]>;
 }
 
-export type GraphInput = PathfindingGraphInput | CourseScheduleInput;
+export interface RottingOrangesInput extends JsonObject {
+  grid: number[][];
+}
+
+export type GraphInput = PathfindingGraphInput | CourseScheduleInput | RottingOrangesInput;
 
 export interface PathfindingGraphExecutionState extends JsonObject {
   kind: "bfs" | "dijkstra";
@@ -49,9 +62,25 @@ export interface CourseScheduleExecutionState extends JsonObject {
   cycleNodes: string[];
 }
 
+export interface RottingOrangesExecutionState extends JsonObject {
+  kind: "rotting-oranges";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  minute: number;
+  fresh: string[];
+  newlyRotted: string[];
+  rottable: boolean | null;
+  minutesToRotAll: number | null;
+  stalledFresh: string[];
+}
+
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
-  | CourseScheduleExecutionState;
+  | CourseScheduleExecutionState
+  | RottingOrangesExecutionState;
 
 interface GraphMetricState {
   settled: number;
@@ -98,6 +127,20 @@ interface CourseScheduleRuntimeState {
   cycleNodes: string[];
 }
 
+interface RottingOrangesRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  minute: number;
+  fresh: Set<string>;
+  newlyRotted: string[];
+  rottable: boolean | null;
+  minutesToRotAll: number | null;
+  stalledFresh: string[];
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -113,6 +156,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "course-schedule",
     label: "Course Schedule",
     implementationVersion: "graph-engine-0.2.0"
+  },
+  "rotting-oranges": {
+    id: "rotting-oranges",
+    label: "Rotting Oranges",
+    implementationVersion: "graph-engine-0.3.0"
   }
 };
 
@@ -185,6 +233,18 @@ export const defaultCourseScheduleInput: CourseScheduleInput = {
   ]
 };
 
+export const defaultRottingOrangesInput: RottingOrangesInput = {
+  grid: [
+    [2, 1, 1],
+    [1, 1, 0],
+    [0, 1, 1]
+  ]
+};
+
+function cloneGrid(grid: number[][]): number[][] {
+  return grid.map((row) => row.slice());
+}
+
 function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
   if (state.kind === "course-schedule") {
     return {
@@ -201,6 +261,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       order: state.order.slice(),
       schedulable: state.schedulable,
       cycleNodes: state.cycleNodes.slice()
+    };
+  }
+
+  if (state.kind === "rotting-oranges") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      minute: state.minute,
+      fresh: state.fresh.slice(),
+      newlyRotted: state.newlyRotted.slice(),
+      rottable: state.rottable,
+      minutesToRotAll: state.minutesToRotAll,
+      stalledFresh: state.stalledFresh.slice()
     };
   }
 
@@ -374,6 +451,52 @@ function normalizeCourseScheduleInput(candidate: unknown): CourseScheduleInput {
   };
 }
 
+function normalizeRottingOrangesInput(candidate: unknown): RottingOrangesInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Rotting Oranges input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Rotting Oranges input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Rotting Oranges input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty integer array.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0 || cell > 2) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be 0, 1, or 2.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Rotting Oranges input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 export function parseGraphInputText(
   inputText: string,
   algorithmId: GraphAlgorithmId = "dijkstra"
@@ -386,18 +509,28 @@ export function parseGraphInputText(
     throw new Error("Graph input must be valid JSON.");
   }
 
-  return algorithmId === "course-schedule"
-    ? normalizeCourseScheduleInput(parsed)
-    : normalizeParsedPathfindingGraph(parsed);
+  switch (algorithmId) {
+    case "course-schedule":
+      return normalizeCourseScheduleInput(parsed);
+    case "rotting-oranges":
+      return normalizeRottingOrangesInput(parsed);
+    default:
+      return normalizeParsedPathfindingGraph(parsed);
+  }
 }
 
 export function normalizeGraphInput(
   input: unknown,
   algorithmId: GraphAlgorithmId = "dijkstra"
 ): GraphInput {
-  return algorithmId === "course-schedule"
-    ? normalizeCourseScheduleInput(input)
-    : normalizeParsedPathfindingGraph(input);
+  switch (algorithmId) {
+    case "course-schedule":
+      return normalizeCourseScheduleInput(input);
+    case "rotting-oranges":
+      return normalizeRottingOrangesInput(input);
+    default:
+      return normalizeParsedPathfindingGraph(input);
+  }
 }
 
 export function serializeGraphInput(graph: GraphInput): string {
@@ -406,6 +539,16 @@ export function serializeGraphInput(graph: GraphInput): string {
       {
         courseCount: graph.courseCount,
         prerequisites: graph.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
+  if ("grid" in graph) {
+    return JSON.stringify(
+      {
+        grid: graph.grid
       },
       null,
       2
@@ -557,6 +700,84 @@ function createCourseScheduleRecorder(input: CourseScheduleInput) {
   });
 }
 
+function compareCellIds(left: string, right: string): number {
+  const [leftRowText = "0", leftColumnText = "0"] = left.split(",");
+  const [rightRowText = "0", rightColumnText = "0"] = right.split(",");
+  const leftRow = Number(leftRowText);
+  const leftColumn = Number(leftColumnText);
+  const rightRow = Number(rightRowText);
+  const rightColumn = Number(rightColumnText);
+
+  return leftRow - rightRow || leftColumn - rightColumn;
+}
+
+function makeCellId(row: number, column: number): string {
+  return `${row},${column}`;
+}
+
+function formatCellLabel(cell: string): string {
+  const { row, column } = parseCellId(cell);
+  return `(${row}, ${column})`;
+}
+
+function parseCellId(cell: string): { row: number; column: number } {
+  const [rowText = "0", columnText = "0"] = cell.split(",");
+  const row = Number(rowText);
+  const column = Number(columnText);
+  return { row, column };
+}
+
+function getNeighborCellIds(
+  row: number,
+  column: number,
+  rowCount: number,
+  columnCount: number
+): string[] {
+  const candidates: Array<[number, number]> = [
+    [row - 1, column],
+    [row, column + 1],
+    [row + 1, column],
+    [row, column - 1]
+  ];
+
+  return candidates
+    .filter(
+      ([neighborRow, neighborColumn]) =>
+        neighborRow >= 0 &&
+        neighborRow < rowCount &&
+        neighborColumn >= 0 &&
+        neighborColumn < columnCount
+    )
+    .map(([neighborRow, neighborColumn]) => makeCellId(neighborRow, neighborColumn));
+}
+
+function createRottingOrangesRecorder() {
+  return createTraceRecorder<
+    RottingOrangesRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "rotting-oranges",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "rotting-oranges",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        minute: runtimeState.minute,
+        fresh: Array.from(runtimeState.fresh).sort(compareCellIds),
+        newlyRotted: runtimeState.newlyRotted.slice(),
+        rottable: runtimeState.rottable,
+        minutesToRotAll: runtimeState.minutesToRotAll,
+        stalledFresh: runtimeState.stalledFresh.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function buildGraphEnvelope(
   definition: GraphAlgorithmDefinition,
   input: GraphInput,
@@ -564,6 +785,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createBreadthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
+    | ReturnType<typeof createRottingOrangesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
   return createTraceEnvelope({
     algorithm: {
@@ -1304,6 +1526,329 @@ export function buildCourseScheduleTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildRottingOrangesTrace(
+  input: RottingOrangesInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["rotting-oranges"];
+  const normalizedInput = normalizeRottingOrangesInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const frontier: string[] = [];
+  const fresh = new Set<string>();
+  const settled: string[] = [];
+  const recorder = createRottingOrangesRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let minute = 0;
+  let newlyRotted: string[] = [];
+  let rottable: boolean | null = null;
+  let minutesToRotAll: number | null = null;
+  let stalledFresh: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const value = grid[row]![column]!;
+      const id = makeCellId(row, column);
+
+      if (value === 2) {
+        frontier.push(id);
+      } else if (value === 1) {
+        fresh.add(id);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+
+  const createRuntimeState = (): RottingOrangesRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    minute,
+    fresh,
+    newlyRotted,
+    rottable,
+    minutesToRotAll,
+    stalledFresh
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The infection scan records every fresh and rotten orange before the first minute begins so replay can restore the grid without rebuilding queue state.",
+    explanation: {
+      summary: "Seed the rotten-orange frontier and fresh-orange ledger before the first spread step.",
+      details:
+        "The initial frame stores the full grid, the ordered frontier, and the remaining fresh cells directly so replay never reconstructs the starting orchard from live queue state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "rotting-oranges-initial",
+        path: frontier.length > 0 ? "state.frontier" : "state.fresh",
+        kind: "collection",
+        intent: "focus",
+        label:
+          frontier.length > 0
+            ? `${frontier.length} rotten source${frontier.length === 1 ? "" : "s"} ready`
+            : `${fresh.size} fresh orange${fresh.size === 1 ? "" : "s"} awaiting exposure`
+      }
+    ]
+  });
+
+  if (fresh.size === 0) {
+    rottable = true;
+    minutesToRotAll = 0;
+
+    recorder.push({
+      phase: "Resolution",
+      description: "No fresh oranges remain, so the grid resolves immediately at minute 0.",
+      explanation: {
+        summary: "Publish the terminal grid immediately when every orange is already rotten or empty.",
+        details:
+          "The terminal frame still records the grid and counters so replay can explain why no minute-to-minute spread was required.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "rotting-oranges-final-immediate",
+          path: "state.minutesToRotAll",
+          kind: "node",
+          intent: "result",
+          label: "All oranges already resolved at minute 0"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0 && fresh.size > 0) {
+    const waveSize = frontier.length;
+    newlyRotted = [];
+
+    for (let waveIndex = 0; waveIndex < waveSize; waveIndex += 1) {
+      const currentOrange = frontier.shift();
+
+      if (!currentOrange) {
+        break;
+      }
+
+      current = currentOrange;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Extract",
+        description: `Rotten orange ${formatCellLabel(currentOrange)} becomes the active spread source for minute ${minute}.`,
+        explanation: {
+          summary: "Expand one rotten orange from the frontier in deterministic row-major queue order.",
+          details:
+            "The trace records which rotten orange is active before neighbor checks begin so replay can follow the infection wave one source at a time.",
+          tags: ["frontier", "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `rotting-oranges-current-${currentOrange}-${minute}`,
+            path: "state.current",
+            kind: "node",
+            intent: "active",
+            label: `Spread from ${formatCellLabel(currentOrange)}`
+          }
+        ]
+      });
+
+      const { row, column } = parseCellId(currentOrange);
+
+      for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+        const neighborCoordinates = parseCellId(neighbor);
+        const neighborValue = grid[neighborCoordinates.row]![neighborCoordinates.column]!;
+        activeEdge = [currentOrange, neighbor];
+        metrics.inspections += 1;
+
+        if (neighborValue !== 1) {
+          metrics.frontier = frontier.length;
+
+          recorder.push({
+            phase: "Inspect",
+            description:
+              neighborValue === 0
+                ? `Cell ${formatCellLabel(neighbor)} is empty, so the infection wave passes without a new orange to rot.`
+                : `Cell ${formatCellLabel(neighbor)} is already rotten, so this inspection preserves the existing infection state.`,
+            explanation: {
+              summary:
+                neighborValue === 0
+                  ? "Inspect an empty neighboring cell without changing the infection frontier."
+                  : "Inspect an already rotten neighboring cell without re-enqueuing it.",
+              details:
+                neighborValue === 0
+                  ? "Empty cells stay explicit in the trace so replay can explain why the infection did not cross that position."
+                  : "Previously rotten cells remain stable, so the queue order and infected grid do not change on this step.",
+              tags: ["edge", "focus"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `rotting-oranges-inspect-${currentOrange}-${neighbor}-${metrics.inspections}`,
+                path: `state.grid.${neighborCoordinates.row}.${neighborCoordinates.column}`,
+                kind: "node",
+                intent: "candidate",
+                label:
+                  neighborValue === 0
+                    ? `Empty cell ${formatCellLabel(neighbor)}`
+                    : `Already rotten ${formatCellLabel(neighbor)}`
+              }
+            ]
+          });
+
+          continue;
+        }
+
+        grid[neighborCoordinates.row]![neighborCoordinates.column] = 2;
+        fresh.delete(neighbor);
+        frontier.push(neighbor);
+        newlyRotted.push(neighbor);
+        metrics.updates += 1;
+        metrics.frontier = frontier.length;
+
+        recorder.push({
+          phase: "Spread",
+          description: `Fresh orange ${formatCellLabel(neighbor)} turns rotten and joins the frontier for minute ${minute + 1}.`,
+          explanation: {
+            summary: "Convert one fresh neighboring orange and append it to the next infection wave.",
+            details:
+              "The updated grid and queue are recorded immediately so replay never needs to recompute which fresh cells became rotten this minute.",
+            tags: ["edge", "frontier"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `rotting-oranges-spread-${currentOrange}-${neighbor}-${metrics.updates}`,
+              path: `state.grid.${neighborCoordinates.row}.${neighborCoordinates.column}`,
+              kind: "node",
+              intent: "frontier",
+              label: `Rot ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+      }
+
+      settled.push(currentOrange);
+      activeEdge = [];
+      metrics.settled = settled.length;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Checkpoint",
+        description: `Rotten orange ${formatCellLabel(currentOrange)} is fully processed for minute ${minute}.`,
+        explanation: {
+          summary: "Seal the processed spread source once all of its neighboring checks are recorded.",
+          details:
+            "This checkpoint captures the current grid, the remaining frontier, and any newly rotten cells without replaying earlier inspections.",
+          tags: ["checkpoint", "visited"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `rotting-oranges-settled-${currentOrange}-${minute}`,
+            path: "state.settled",
+            kind: "collection",
+            intent: "visited",
+            label: `${formatCellLabel(currentOrange)} processed`
+          }
+        ]
+      });
+    }
+
+    if (newlyRotted.length === 0) {
+      break;
+    }
+
+    minute += 1;
+    current = null;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Minute",
+      description: `Minute ${minute} begins with ${newlyRotted.length} newly rotten orange${newlyRotted.length === 1 ? "" : "s"} queued for spread.`,
+      explanation: {
+        summary: "Advance the replay clock after one full infection wave completes.",
+        details:
+          "The next wave starts only after every rotten orange from the prior minute is processed, which keeps the minute counter deterministic.",
+        tags: ["frontier", "checkpoint"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `rotting-oranges-minute-${minute}`,
+          path: "state.minute",
+          kind: "node",
+          intent: "focus",
+          label: `Minute ${minute}`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  stalledFresh = Array.from(fresh).sort(compareCellIds);
+  rottable = stalledFresh.length === 0;
+  minutesToRotAll = rottable ? minute : null;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: rottable ? "Resolution" : "Stalled",
+    description: rottable
+      ? `All fresh oranges rot by minute ${minute}.`
+      : `Fresh oranges ${stalledFresh.map(formatCellLabel).join(", ")} remain unreachable after minute ${minute}.`,
+    explanation: {
+      summary: rottable
+        ? "Publish the terminal minute once every fresh orange has turned rotten."
+        : "Publish the unreachable fresh oranges once the frontier can no longer spread.",
+      details: rottable
+        ? "The terminal frame stores the last fully recorded grid and minute counter directly so replay never recomputes the infection duration."
+        : "The remaining fresh cells stay explicit in the terminal frame so replay can explain the impossible outcome without rerunning the BFS wave.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "rotting-oranges-final",
+        path: rottable ? "state.minutesToRotAll" : "state.stalledFresh",
+        kind: rottable ? "node" : "collection",
+        intent: "result",
+        label: rottable
+          ? `All oranges rot in ${minute} minute${minute === 1 ? "" : "s"}`
+          : `Stalled fresh ${stalledFresh.map(formatCellLabel).join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildGraphTrace(
   algorithmId: GraphAlgorithmId,
   graph: GraphInput
@@ -1315,6 +1860,8 @@ export function buildGraphTrace(
       return buildDijkstraTrace(graph as PathfindingGraphInput);
     case "course-schedule":
       return buildCourseScheduleTrace(graph as CourseScheduleInput);
+    case "rotting-oranges":
+      return buildRottingOrangesTrace(graph as RottingOrangesInput);
   }
 }
 

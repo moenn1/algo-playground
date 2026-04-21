@@ -49,6 +49,7 @@ import {
   getAlgorithmById,
   getTraceStepPaths,
   isCourseScheduleInput,
+  isRottingOrangesInput,
   type AccentTone,
   type DynamicProgrammingRun,
   type GraphRun,
@@ -165,10 +166,10 @@ const domainReference: Record<
     checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, histogram pop, minimum read, or clean terminal ledger instead of inferring stack outcomes after the fact."
   },
   graph: {
-    lens: "Show frontier churn, active dependency inspection, settled nodes, and published outcomes whether the graph is recovering a path or proving a schedule.",
-    flow: "Graph playback now spans BFS, Dijkstra, and Course Schedule through deterministic queue ordering plus serialization-safe union state.",
+    lens: "Show frontier churn, active inspections, settled progress, and published outcomes whether the graph is recovering a path, proving a schedule, or spreading across a grid.",
+    flow: "Graph playback now spans BFS, Dijkstra, Course Schedule, and Rotting Oranges through deterministic queue ordering plus serialization-safe union state.",
     metrics: "Graph runs surface settled progress, queue pressure, inspections, and updates directly from the trace envelope instead of browser-only state.",
-    checkpoints: "Checkpoint windows anchor around frontier shifts, unlock events, and terminal cycle reporting so graph playback stays navigable even with larger traces."
+    checkpoints: "Checkpoint windows anchor around frontier shifts, unlock events, infection-wave jumps, and terminal cycle or stall reporting so graph playback stays navigable even with denser traces."
   }
 };
 
@@ -697,6 +698,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   const step = getRunStep(run, stepIndex);
 
   if (isGraphRun(run)) {
+    if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
+      if (step.state.rottable === false && step.state.stalledFresh.length > 0) {
+        return `Stalled fresh ${truncateText(step.state.stalledFresh.join(" · "), 36)}`;
+      }
+
+      if (step.state.minutesToRotAll !== null) {
+        return `All rotten in ${step.state.minutesToRotAll} minute${step.state.minutesToRotAll === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.current) {
+        return `Minute ${step.state.minute} · spread from ${step.state.current}`;
+      }
+
+      return `Minute ${step.state.minute} · ${step.state.fresh.length} fresh left`;
+    }
+
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
         return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
@@ -713,7 +730,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${run.input.courseCount} courses queued for scheduling`;
     }
 
-    if (step.state.kind !== "course-schedule") {
+    if (step.state.kind !== "course-schedule" && step.state.kind !== "rotting-oranges") {
       if (step.state.path.length > 0) {
         return truncateText(step.state.path.join(" -> "), 56);
       }
@@ -822,7 +839,7 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
     case "stack":
       return "Stack comparisons, pushes, and pops";
     case "graph":
-      return "Settled progress and recovered route";
+      return "Settled progress, frontier work, and terminal graph outcomes";
     default:
       return "Deterministic replay metrics";
   }
@@ -1033,6 +1050,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
             })()
         : (() => {
             const graphStep = getRunStep(run, stepIndex);
+
+            if (graphStep.state.kind === "rotting-oranges") {
+              return `${graphStep.state.fresh.length} fresh cell${graphStep.state.fresh.length === 1 ? "" : "s"} remaining`;
+            }
 
             if (graphStep.state.kind === "course-schedule") {
               return `${graphStep.state.order.length} courses scheduled`;
@@ -1334,6 +1355,44 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
 function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
   if (isGraphRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Minute</span>
+              <strong>{step.state.minute}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Fresh</span>
+              <strong>{step.state.fresh.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.rottable === null
+                  ? "Spreading"
+                  : step.state.rottable
+                    ? `${step.state.minutesToRotAll} min`
+                    : "Stalled"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`orange-row-${rowIndex}`}>
+                {rowIndex}:{row.join(" ")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
 
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       return (

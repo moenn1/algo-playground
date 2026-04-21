@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Rotting Oranges, including deterministic minute-wave frontier ordering, explicit fresh-cell ledgers, and terminal resolution-or-stall reporting through the execution engine.
+- Wired Rotting Oranges through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a third reusable graph story alongside pathfinding and dependency scheduling.
 - Added a shared graph replay for Course Schedule, including deterministic zero-indegree queue ordering, explicit indegree ledgers, committed topological-order checkpoints, and terminal cycle reporting through the execution engine.
 - Wired Course Schedule through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a second reusable graph story beyond pathfinding.
 - Added a tag-driven GitHub release workflow that revalidates the workspace from the tagged commit on `main`, packages versioned build artifacts plus checksums, and creates or refreshes GitHub Releases with generated notes.

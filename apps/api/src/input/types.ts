@@ -19,7 +19,8 @@ export const supportedAlgorithmIds = [
   "min-stack",
   "bfs",
   "dijkstra",
-  "course-schedule"
+  "course-schedule",
+  "rotting-oranges"
 ] as const;
 
 export type SupportedAlgorithmId = (typeof supportedAlgorithmIds)[number];
@@ -43,9 +44,14 @@ export interface CourseScheduleInputPayload extends JsonObject {
   prerequisites: Array<[number, number]>;
 }
 
+export interface RottingOrangesInputPayload extends JsonObject {
+  grid: number[][];
+}
+
 export type GraphInputPayload =
   | PathfindingGraphInputPayload
-  | CourseScheduleInputPayload;
+  | CourseScheduleInputPayload
+  | RottingOrangesInputPayload;
 
 export interface SearchInputPayload extends JsonObject {
   array: number[];

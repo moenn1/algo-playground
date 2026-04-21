@@ -17,6 +17,7 @@ import {
   type HashRun,
   type IntervalRun,
   isCourseScheduleInput,
+  isRottingOrangesInput,
   type SearchRun,
   type SortingRun,
   type StackRun,
@@ -137,7 +138,7 @@ function getPathfindingGraphNodeTone(
   node: string,
   step: TraceStep<GraphExecutionState>
 ): "current" | "path" | "settled" | "frontier" | "idle" {
-  if (step.state.kind === "course-schedule") {
+  if (step.state.kind !== "bfs" && step.state.kind !== "dijkstra") {
     return "idle";
   }
 
@@ -165,7 +166,12 @@ function formatGraphNodeStatus(
   step: TraceStep<GraphExecutionState>,
   run: GraphRun
 ): string {
-  if (step.state.kind === "course-schedule" || isCourseScheduleInput(run.input)) {
+  if (
+    step.state.kind === "course-schedule" ||
+    step.state.kind === "rotting-oranges" ||
+    isCourseScheduleInput(run.input) ||
+    isRottingOrangesInput(run.input)
+  ) {
     return "Blocked";
   }
 
@@ -281,6 +287,68 @@ function formatCourseNodeMeta(
   }
 
   return `Indegree ${step.state.indegrees[course] ?? 0}`;
+}
+
+function getOrangeCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "rotting-oranges" }>>
+):
+  | "current"
+  | "frontier"
+  | "settled"
+  | "newly"
+  | "fresh"
+  | "stalled"
+  | "empty" {
+  if (value === 0) {
+    return "empty";
+  }
+
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.newlyRotted.includes(cell)) {
+    return "newly";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.stalledFresh.includes(cell)) {
+    return "stalled";
+  }
+
+  return "fresh";
+}
+
+function formatOrangeCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "rotting-oranges" }>>
+): string {
+  switch (getOrangeCellTone(cell, value, step)) {
+    case "current":
+      return "Active source";
+    case "frontier":
+      return `Minute ${step.state.minute + 1} frontier`;
+    case "newly":
+      return "Newly rotten";
+    case "settled":
+      return "Processed";
+    case "stalled":
+      return "Unreachable fresh";
+    case "empty":
+      return "Empty";
+    default:
+      return "Fresh";
+  }
 }
 
 function formatInterval(interval: number[]): string {
@@ -848,6 +916,182 @@ export function TwoPointersStage({
 
 export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+  if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} orchard</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Rotting Oranges status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active source</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Processed rotten</span>
+          <span className="graph-legend-pill graph-legend-pill-path">
+            {step.state.rottable === false ? "Stalled fresh" : "Newly rotten"}
+          </span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage orange-stage">
+            <div className="orange-banner">
+              <span>Minute {step.state.minute}</span>
+              <strong>
+                {step.state.rottable === false
+                  ? "Fresh oranges remain unreachable"
+                  : step.state.minutesToRotAll !== null
+                    ? `All oranges rot in ${step.state.minutesToRotAll} minute${step.state.minutesToRotAll === 1 ? "" : "s"}`
+                    : `${step.state.fresh.length} fresh orange${step.state.fresh.length === 1 ? "" : "s"} remain`}
+              </strong>
+              <p>{formatActiveEdge(step.state.activeEdge)}</p>
+            </div>
+            <div
+              className="orange-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getOrangeCellTone(cell, value, step);
+                  const className = ["orange-cell", `orange-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="orange-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="orange-cell-value">
+                        {value === 0 ? "Empty" : value === 1 ? "Fresh" : "Rotten"}
+                      </strong>
+                      <span className="orange-cell-status">
+                        {formatOrangeCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Spread focus</span>
+              <strong>{step.state.current ?? "Awaiting next source"}</strong>
+              <p>
+                {step.state.current
+                  ? `Minute ${step.state.minute} source ${step.state.current}`
+                  : `${step.state.frontier.length} cells remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued rotten cells</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Processed</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled rotten cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No processed cells yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Fresh</strong>
+                  <span className="graph-node-status">{step.state.fresh.length}</span>
+                </div>
+                <span className="graph-node-distance">Fresh cells remaining</span>
+                <span className="graph-node-meta">
+                  {step.state.fresh.length > 0 ? step.state.fresh.join(" · ") : "All rotten"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.rottable === null
+                      ? "Spreading"
+                      : step.state.rottable
+                        ? "Resolved"
+                        : "Stalled"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.minutesToRotAll !== null
+                    ? `${step.state.minutesToRotAll} minute${step.state.minutesToRotAll === 1 ? "" : "s"}`
+                    : "No terminal minute yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.stalledFresh.length > 0
+                    ? `Blocked: ${step.state.stalledFresh.join(" · ")}`
+                    : "No blocked fresh cells"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Newly rotten</span>
+            <div className="pill-row">
+              {step.state.newlyRotted.length > 0 ? (
+                step.state.newlyRotted.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No new cells this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Fresh remaining</span>
+            <strong>{step.state.fresh.length}</strong>
+            <p>
+              {step.state.fresh.length > 0
+                ? step.state.fresh.join(", ")
+                : "No fresh oranges remain"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Minute outcome</span>
+            <strong>
+              {step.state.rottable === false
+                ? "Stalled"
+                : step.state.minutesToRotAll !== null
+                  ? `${step.state.minutesToRotAll} minutes`
+                  : `Minute ${step.state.minute}`}
+            </strong>
+            <p>
+              {step.state.stalledFresh.length > 0
+                ? `Blocked fresh cells: ${step.state.stalledFresh.join(", ")}`
+                : "Replay records each infection wave directly from the grid snapshot."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
     const courses = Array.from({ length: run.input.courseCount }, (_, index) => `${index}`);
     const layout = buildGraphLayout(courses);
@@ -1162,7 +1406,7 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
-  throw new Error("Course Schedule runs require course-schedule state.");
+  throw new Error("Graph runs require a matching graph-family state.");
 }
 
 export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {

@@ -247,6 +247,20 @@ const demoRunPlans: DemoRunPlan[] = [
     presetId: "graph.blocked-cycle",
     recordedAt: "2026-04-20T09:12:00.000Z",
     tags: ["seeded-demo", "graph", "blocked-cycle"]
+  },
+  {
+    key: "graph-reference-oranges",
+    algorithmId: "rotting-oranges",
+    presetId: "graph.reference-oranges",
+    recordedAt: "2026-04-20T09:13:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-oranges"]
+  },
+  {
+    key: "graph-isolated-fresh",
+    algorithmId: "rotting-oranges",
+    presetId: "graph.isolated-fresh",
+    recordedAt: "2026-04-20T09:14:00.000Z",
+    tags: ["seeded-demo", "graph", "isolated-fresh"]
   }
 ];
 

@@ -11,6 +11,7 @@ import type {
   InputPresetListQuery,
   PathfindingGraphInputPayload,
   InputPresetSummary,
+  RottingOrangesInputPayload,
   ResolveInputPresetInput,
   ResolvedInputPreset,
   SearchInputPayload,
@@ -118,6 +119,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "course-schedule",
     label: "Course Schedule",
     domain: "graph"
+  },
+  "rotting-oranges": {
+    id: "rotting-oranges",
+    label: "Rotting Oranges",
+    domain: "graph"
   }
 };
 
@@ -148,6 +154,7 @@ const pathfindingGraphAlgorithms = [
   supportedAlgorithms.dijkstra
 ] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
+const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
@@ -228,6 +235,13 @@ const defaultCourseScheduleInput: CourseScheduleInputPayload = {
     [3, 1],
     [3, 2],
     [4, 3]
+  ]
+};
+const defaultRottingOrangesInput: RottingOrangesInputPayload = {
+  grid: [
+    [2, 1, 1],
+    [1, 1, 0],
+    [0, 1, 1]
   ]
 };
 
@@ -1311,13 +1325,78 @@ function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayl
   };
 }
 
+function normalizeRottingOrangesInput(payload: unknown): RottingOrangesInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Rotting Oranges input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Rotting Oranges input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Rotting Oranges input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Rotting Oranges input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty integer array.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0 || cell > 2) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be 0, 1, or 2.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Rotting Oranges input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeGraphInput(
   payload: unknown,
   algorithmId: SupportedAlgorithmId
 ): GraphInputPayload {
-  return algorithmId === "course-schedule"
-    ? normalizeCourseScheduleInput(payload)
-    : normalizePathfindingGraphInput(payload);
+  switch (algorithmId) {
+    case "course-schedule":
+      return normalizeCourseScheduleInput(payload);
+    case "rotting-oranges":
+      return normalizeRottingOrangesInput(payload);
+    default:
+      return normalizePathfindingGraphInput(payload);
+  }
 }
 
 function serializeGraphInput(input: GraphInputPayload) {
@@ -1326,6 +1405,16 @@ function serializeGraphInput(input: GraphInputPayload) {
       {
         courseCount: input.courseCount,
         prerequisites: input.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
+  if ("grid" in input) {
+    return JSON.stringify(
+      {
+        grid: input.grid
       },
       null,
       2
@@ -1454,6 +1543,8 @@ function normalizeAlgorithmInput(
     footprint:
       "courseCount" in graph
         ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
+        : "grid" in graph
+          ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
         : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
   };
 }
@@ -2256,6 +2347,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           [3, 2],
           [1, 3],
           [4, 2]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-oranges",
+      label: "Reference orchard",
+      description:
+        "Use the canonical infection grid so replay shows minute-based spread, queued rotten cells, and the final fully rotten orchard.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: rottingOrangesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultRottingOrangesInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.isolated-fresh",
+      label: "Isolated fresh orange",
+      description:
+        "Trap one fresh orange behind empty cells so the BFS wave stalls and the terminal frame can publish the unreachable cell explicitly.",
+      scenario: "stalled-fresh",
+      kind: "curated",
+      domain: "graph",
+      algorithms: rottingOrangesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [2, 1, 1],
+          [0, 1, 1],
+          [1, 0, 1]
         ]
       },
       options: {}

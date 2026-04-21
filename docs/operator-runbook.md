@@ -54,10 +54,12 @@ The demo seed currently materializes:
 - Dijkstra on `graph.weighted-detour`
 - Course Schedule on `graph.reference-schedule`
 - Course Schedule on `graph.blocked-cycle`
+- Rotting Oranges on `graph.reference-oranges`
+- Rotting Oranges on `graph.isolated-fresh`
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 16 algorithms with runs, 32 runs total, and 2 saved comparisons.
+That seed currently produces 17 algorithms with runs, 34 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

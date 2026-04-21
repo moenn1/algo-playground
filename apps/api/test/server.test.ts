@@ -611,6 +611,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 courses / 5 prerequisites"
     });
 
+    const rottingOrangesPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-oranges/resolve",
+      payload: {
+        algorithmId: "rotting-oranges"
+      }
+    });
+
+    expect(rottingOrangesPreset.statusCode).toBe(200);
+    expect(rottingOrangesPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-oranges"
+      },
+      algorithm: {
+        id: "rotting-oranges",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const isolatedFreshPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.isolated-fresh/resolve",
+      payload: {
+        algorithmId: "rotting-oranges"
+      }
+    });
+
+    expect(isolatedFreshPreset.statusCode).toBe(200);
+    expect(isolatedFreshPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.isolated-fresh"
+      },
+      algorithm: {
+        id: "rotting-oranges",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const searchPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/search.reference-hit/resolve",
@@ -1188,6 +1230,38 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "4 courses / 3 prerequisites"
     });
+
+    const validateRottingOrangesInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "rotting-oranges",
+        payload: {
+          grid: [
+            [2, 1, 1],
+            [1, 1, 0],
+            [0, 1, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateRottingOrangesInput.statusCode).toBe(200);
+    expect(validateRottingOrangesInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "rotting-oranges",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [2, 1, 1],
+          [1, 1, 0],
+          [0, 1, 1]
+        ]
+      },
+      footprint: "3 x 3 grid"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1211,6 +1285,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Every graph edge endpoint must exist in nodes."
+    });
+  });
+
+  it("rejects rotting-oranges payloads with ragged grid rows", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "rotting-oranges",
+        payload: {
+          grid: [
+            [2, 1, 1],
+            [1, 0]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Rotting Oranges input rows must all be the same length."
     });
   });
 

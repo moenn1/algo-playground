@@ -17,6 +17,7 @@ import {
   defaultDijkstraInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
+  defaultRottingOrangesInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
   defaultMergeIntervalsInput,
@@ -235,6 +236,12 @@ export function isPathfindingGraphInput(
   input: GraphInput
 ): input is Extract<GraphInput, { nodes: string[] }> {
   return "nodes" in input;
+}
+
+export function isRottingOrangesInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return "grid" in input;
 }
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
@@ -520,6 +527,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with courseCount and prerequisite pairs as [course, prerequisite].",
     defaultInput: serializeGraphInput(defaultCourseScheduleInput),
     domain: "graph"
+  },
+  {
+    id: "rotting-oranges",
+    name: "Rotting Oranges",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Minute-based BFS replay records infection waves, fresh-cell stalls, and deterministic grid updates.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for empty, 1 for fresh oranges, and 2 for rotten oranges.",
+    defaultInput: serializeGraphInput(defaultRottingOrangesInput),
+    domain: "graph"
   }
 ];
 
@@ -758,6 +777,8 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   return isCourseScheduleInput(run.input)
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
+    : isRottingOrangesInput(run.input)
+      ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
     : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
 }
 

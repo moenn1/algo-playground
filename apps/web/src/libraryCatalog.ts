@@ -319,6 +319,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A clean bridge from pathfinding into graph dependencies because the same graph metrics now explain a very different runtime story.",
     nextAlgorithmIds: ["longest-common-subsequence", "dijkstra"]
   },
+  "rotting-oranges": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.75,
+    timeToExplore: "7 min",
+    complexity: "The frontier still behaves like BFS, but each minute-level wave also changes the full grid and can stall with unreachable fresh cells.",
+    outcome: "See exactly when the infection wave advances, which fresh oranges rot next, and when empty cells isolate a stalled remainder.",
+    metricsLens: "Settled, inspections, and updates expose how much neighbor scanning and spread work happened before the orchard resolved or stalled.",
+    skills: ["grid bfs", "minute waves", "frontier contagion"],
+    spotlight: "A strong graph follow-up because it keeps the BFS queue semantics while shifting the replay surface from abstract nodes to a changing grid.",
+    nextAlgorithmIds: ["course-schedule", "dijkstra"]
+  },
   "merge-sort": {
     stage: "core",
     focus: "partitioning",

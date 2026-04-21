@@ -136,6 +136,42 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds rotting-oranges replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "rotting-oranges",
+      JSON.stringify(
+        {
+          grid: [
+            [2, 1, 1],
+            [1, 1, 0],
+            [0, 1, 1]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("rotting-oranges");
+    expect(finalStep.state.kind).toBe("rotting-oranges");
+    if (finalStep.state.kind !== "rotting-oranges") {
+      throw new Error("Expected the rotting-oranges graph state.");
+    }
+    expect(finalStep.state.rottable).toBe(true);
+    expect(finalStep.state.minutesToRotAll).toBe(4);
+    expect(
+      run.trace.steps.some((step) =>
+        getTraceStepPaths(step).some((path) => path.startsWith("state.grid"))
+      )
+    ).toBe(true);
+  });
+
   it("builds binary-search replay runs from the shared search engine", () => {
     const run = buildRun(
       "binary-search",

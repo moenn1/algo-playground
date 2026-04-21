@@ -4,8 +4,10 @@ import {
   buildBreadthFirstSearchTrace,
   buildCourseScheduleTrace,
   buildDijkstraTrace,
+  buildRottingOrangesTrace,
   defaultBreadthFirstSearchInput,
   defaultCourseScheduleInput,
+  defaultRottingOrangesInput,
   formatGraphDistance,
   parseGraphInputText,
   serializeGraphInput
@@ -67,9 +69,13 @@ describe("graph execution engine", () => {
   it("formats graph helpers for replay-safe input and distance rendering", () => {
     expect(serializeGraphInput(defaultBreadthFirstSearchInput)).toContain('"start": "A"');
     expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
+    expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
     );
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultRottingOrangesInput), "rotting-oranges")
+    ).toEqual(defaultRottingOrangesInput);
     expect(formatGraphDistance(null)).toBe("inf");
     expect(formatGraphDistance(3)).toBe("3");
   });
@@ -108,5 +114,41 @@ describe("graph execution engine", () => {
     }
     expect(cyclicFinalStep.state.schedulable).toBe(false);
     expect(cyclicFinalStep.state.cycleNodes).toEqual(["0", "1"]);
+  });
+
+  it("records deterministic infection waves and stalled fresh cells for Rotting Oranges", () => {
+    const resolvedTrace = buildRottingOrangesTrace({
+      grid: [
+        [2, 1, 1],
+        [1, 1, 0],
+        [0, 1, 1]
+      ]
+    });
+    const stalledTrace = buildRottingOrangesTrace({
+      grid: [
+        [2, 1, 1],
+        [0, 1, 1],
+        [1, 0, 1]
+      ]
+    });
+    const resolvedFinalStep = resolvedTrace.steps[resolvedTrace.steps.length - 1]!;
+    const stalledFinalStep = stalledTrace.steps[stalledTrace.steps.length - 1]!;
+
+    expect(resolvedFinalStep.phase).toBe("Resolution");
+    expect(resolvedFinalStep.state.kind).toBe("rotting-oranges");
+    if (resolvedFinalStep.state.kind !== "rotting-oranges") {
+      throw new Error("Expected the rotting-oranges state.");
+    }
+    expect(resolvedFinalStep.state.rottable).toBe(true);
+    expect(resolvedFinalStep.state.minutesToRotAll).toBe(4);
+    expect(resolvedFinalStep.state.fresh).toEqual([]);
+
+    expect(stalledFinalStep.phase).toBe("Stalled");
+    expect(stalledFinalStep.state.kind).toBe("rotting-oranges");
+    if (stalledFinalStep.state.kind !== "rotting-oranges") {
+      throw new Error("Expected the rotting-oranges state.");
+    }
+    expect(stalledFinalStep.state.rottable).toBe(false);
+    expect(stalledFinalStep.state.stalledFresh).toEqual(["2,0"]);
   });
 });

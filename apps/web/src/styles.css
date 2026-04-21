@@ -2062,9 +2062,11 @@ input:focus-visible {
 .search-cell-index,
 .window-cell-index,
 .stack-char-index,
+.orange-cell-index,
 .search-cell-value,
 .window-cell-value,
 .stack-char-value,
+.orange-cell-value,
 .sort-bar-value,
 .sort-bar-index,
 .graph-label,
@@ -2081,6 +2083,7 @@ input:focus-visible {
 .search-cell-index,
 .window-cell-index,
 .stack-char-index,
+.orange-cell-index,
 .sort-bar-index {
   color: var(--muted);
   font-size: 0.75rem;
@@ -2088,6 +2091,10 @@ input:focus-visible {
 
 .search-cell-value {
   font-size: 1.14rem;
+}
+
+.orange-cell-value {
+  font-size: 1.02rem;
 }
 
 .window-cell-value {
@@ -2105,13 +2112,79 @@ input:focus-visible {
 .lane-chip-status,
 .graph-node-status,
 .graph-node-distance,
-.graph-node-meta {
+.graph-node-meta,
+.orange-cell-status {
   color: var(--muted);
   font-size: 0.82rem;
 }
 
 .graph-stage {
   overflow: hidden;
+}
+
+.orange-stage {
+  display: grid;
+  gap: 16px;
+}
+
+.orange-banner {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+
+.orange-stage-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.orange-cell {
+  display: grid;
+  gap: 6px;
+  align-content: space-between;
+  min-height: 92px;
+  padding: 12px;
+  border: 2px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.orange-cell-current {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.orange-cell-frontier {
+  border-color: var(--ember);
+  background: var(--ember-soft);
+}
+
+.orange-cell-settled {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.orange-cell-newly {
+  border-color: rgba(85, 122, 52, 0.34);
+  background: rgba(143, 181, 112, 0.16);
+}
+
+.orange-cell-fresh {
+  border-color: rgba(49, 87, 200, 0.36);
+  background: rgba(49, 87, 200, 0.08);
+}
+
+.orange-cell-stalled {
+  border-color: rgba(124, 88, 27, 0.38);
+  background: rgba(220, 189, 132, 0.22);
+}
+
+.orange-cell-empty {
+  opacity: 0.62;
+  background: rgba(36, 49, 77, 0.05);
 }
 
 .stack-stack-rail {
