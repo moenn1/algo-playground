@@ -209,7 +209,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose the cost of expanding the reachable frontier.",
     skills: ["queue discipline", "frontier scanning", "route recovery"],
     spotlight: "A strong bridge from simple scans into graph-focused replay because the queue remains intuitive.",
-    nextAlgorithmIds: ["dijkstra", "binary-search"]
+    nextAlgorithmIds: ["dfs", "binary-search"]
+  },
+  dfs: {
+    stage: "core",
+    focus: "pathfinding",
+    order: 4.5,
+    timeToExplore: "6 min",
+    complexity: "The frontier stays compact, but stack order means one deep branch can dominate the trace before sibling routes reopen.",
+    outcome: "See exactly when replay commits the first discovery route, stacks the next branch, and recovers a deeper target path without hidden recursion.",
+    metricsLens: "Settled, inspections, and updates expose how much stack-driven branch work happened before the target route locked.",
+    skills: ["stack traversal", "first-route commitment", "deep branch recovery"],
+    spotlight: "A strong pathfinding follow-up because it reuses the same graph surface as BFS while changing the frontier discipline completely.",
+    nextAlgorithmIds: ["dijkstra", "course-schedule"]
   },
   "valid-parentheses": {
     stage: "foundation",

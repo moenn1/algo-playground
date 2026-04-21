@@ -24,6 +24,7 @@ export const supportedAlgorithmIds = [
   "largest-rectangle-in-histogram",
   "min-stack",
   "bfs",
+  "dfs",
   "dijkstra",
   "course-schedule",
   "rotting-oranges",

@@ -68,6 +68,8 @@ The demo seed currently materializes:
 - Min Stack on `stack.recovering-minimum`
 - Breadth-First Search on `graph.reference-route`
 - Breadth-First Search on `graph.disconnected-target`
+- Depth-First Search on `graph.reference-route`
+- Depth-First Search on `graph.disconnected-target`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - Course Schedule on `graph.reference-schedule`
@@ -81,7 +83,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 28 algorithms with runs, 56 runs total, and 2 saved comparisons.
+That seed currently produces 29 algorithms with runs, 58 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

@@ -8,6 +8,7 @@ import {
 
 export type GraphAlgorithmId =
   | "bfs"
+  | "dfs"
   | "dijkstra"
   | "course-schedule"
   | "rotting-oranges"
@@ -16,6 +17,7 @@ export type GraphAlgorithmId =
 
 export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
+  "dfs",
   "dijkstra",
   "course-schedule",
   "rotting-oranges",
@@ -56,7 +58,7 @@ export type GraphInput =
   | WallsAndGatesInput;
 
 export interface PathfindingGraphExecutionState extends JsonObject {
-  kind: "bfs" | "dijkstra";
+  kind: "bfs" | "dfs" | "dijkstra";
   distances: Record<string, number | null>;
   settled: string[];
   frontier: string[];
@@ -163,6 +165,10 @@ interface BreadthFirstSearchRuntimeState extends PathfindingGraphRuntimeStateBas
   frontier: string[];
 }
 
+interface DepthFirstSearchRuntimeState extends PathfindingGraphRuntimeStateBase {
+  frontier: string[];
+}
+
 interface DijkstraRuntimeState extends PathfindingGraphRuntimeStateBase {
   frontier: Set<string>;
 }
@@ -226,6 +232,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
+    implementationVersion: "graph-engine-0.1.0"
+  },
+  dfs: {
+    id: "dfs",
+    label: "Depth-First Search",
     implementationVersion: "graph-engine-0.1.0"
   },
   dijkstra: {
@@ -906,6 +917,28 @@ function createBreadthFirstSearchRecorder(graph: PathfindingGraphInput) {
   });
 }
 
+function projectDepthFirstFrontier(frontier: string[]): string[] {
+  return frontier.slice().reverse();
+}
+
+function createDepthFirstSearchRecorder(graph: PathfindingGraphInput) {
+  return createTraceRecorder<DepthFirstSearchRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "dfs",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "dfs",
+        distances: serializeDistances(graph.nodes, runtimeState.distances),
+        settled: Array.from(runtimeState.settled),
+        frontier: projectDepthFirstFrontier(runtimeState.frontier),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        path: runtimeState.path.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function orderWeightedFrontier(
   frontier: ReadonlySet<string>,
   distances: Record<string, number>
@@ -1100,6 +1133,7 @@ function buildGraphEnvelope(
   input: GraphInput,
   recorder:
     | ReturnType<typeof createBreadthFirstSearchRecorder>
+    | ReturnType<typeof createDepthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
@@ -1378,6 +1412,261 @@ export function buildBreadthFirstSearchTrace(
     highlights: [
       {
         key: "bfs-final-path",
+        path: "state.path",
+        kind: "path",
+        intent: "result",
+        label: outcome.label
+      }
+    ],
+    additionalChanges: [
+      {
+        path: "state.path",
+        op: "set",
+        nextValue: finalPath
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedGraph, recorder);
+}
+
+export function buildDepthFirstSearchTrace(
+  graph: PathfindingGraphInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions.dfs;
+  const normalizedGraph = normalizeGraphInput(graph, "dfs") as PathfindingGraphInput;
+  const adjacency = buildAdjacency(normalizedGraph);
+  const distances = Object.fromEntries(
+    normalizedGraph.nodes.map((node) => [node, Number.POSITIVE_INFINITY])
+  ) as Record<string, number>;
+  const previousByNode: Record<string, string> = {};
+  const frontier: string[] = [normalizedGraph.start];
+  const discovered = new Set<string>([normalizedGraph.start]);
+  const settled = new Set<string>();
+  const recorder = createDepthFirstSearchRecorder(normalizedGraph);
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 1,
+    inspections: 0,
+    updates: 0
+  };
+
+  distances[normalizedGraph.start] = 0;
+
+  const createRuntimeState = (
+    current: string | null,
+    activeEdge: string[],
+    path: string[]
+  ): DepthFirstSearchRuntimeState => ({
+    distances,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    path
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The traversal begins with the source node stacked as the first depth-first checkpoint and every other node unresolved.",
+    explanation: {
+      summary: "Seed the traversal stack with the source node before any edges are inspected.",
+      details:
+        "The recorded frontier is serialized in top-first stack order so replay and persistence consumers agree on the next expansion point.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(normalizedGraph.start, [], []),
+    metrics,
+    highlights: [
+      {
+        key: "dfs-start-node",
+        path: `state.distances.${normalizedGraph.start}`,
+        kind: "node",
+        intent: "focus",
+        label: `Source node ${normalizedGraph.start}`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const current = frontier.pop()!;
+    syncMetrics(metrics, {
+      settled: Array.from(settled),
+      frontier: projectDepthFirstFrontier(frontier)
+    });
+
+    recorder.push({
+      phase: "Extract",
+      description: `Node ${current} is popped from the stack and becomes the active depth-first expansion point.`,
+      explanation: {
+        summary: "Expand the most recently stacked node to preserve deterministic depth-first order.",
+        details:
+          "The stack is projected directly into replay-safe frontier snapshots, so scrubbing never depends on re-running hidden push and pop operations.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(
+        current,
+        [],
+        reconstructPath(previousByNode, normalizedGraph.start, current)
+      ),
+      metrics,
+      highlights: [
+        {
+          key: `dfs-current-${current}`,
+          path: `state.distances.${current}`,
+          kind: "node",
+          intent: "active",
+          label: `Expand node ${current}`
+        }
+      ]
+    });
+
+    if (normalizedGraph.target !== null && current === normalizedGraph.target) {
+      settled.add(current);
+      syncMetrics(metrics, {
+        settled: Array.from(settled),
+        frontier: projectDepthFirstFrontier(frontier)
+      });
+
+      recorder.push({
+        phase: "Checkpoint",
+        description:
+          `Node ${current} satisfied the target, so the stack freezes here and replay can jump directly to the recovered route state.`,
+        explanation: {
+          summary: "Seal the target node into the settled set before publishing the final route.",
+          details:
+            "Stopping on the first popped target preserves the exact predecessor chain captured by the deterministic stack discipline.",
+          tags: ["checkpoint", "visited"]
+        },
+        runtimeState: createRuntimeState(
+          current,
+          [],
+          reconstructPath(previousByNode, normalizedGraph.start, current)
+        ),
+        metrics,
+        highlights: [
+          {
+            key: `dfs-settled-${current}`,
+            path: "state.settled",
+            kind: "node",
+            intent: "visited",
+            label: `Settled ${current}`
+          }
+        ]
+      });
+
+      break;
+    }
+
+    const outgoingEdges = adjacency.get(current) ?? [];
+
+    for (let index = outgoingEdges.length - 1; index >= 0; index -= 1) {
+      const edge = outgoingEdges[index]!;
+      metrics.inspections += 1;
+      const hasDiscovered = discovered.has(edge.to);
+
+      if (!hasDiscovered) {
+        discovered.add(edge.to);
+        distances[edge.to] = distances[current]! + 1;
+        previousByNode[edge.to] = current;
+        frontier.push(edge.to);
+        metrics.updates += 1;
+      }
+
+      syncMetrics(metrics, {
+        settled: Array.from(settled),
+        frontier: projectDepthFirstFrontier(frontier)
+      });
+
+      recorder.push({
+        phase: hasDiscovered ? "Inspect" : "Discover",
+        description: hasDiscovered
+          ? `Node ${edge.to} was already discovered at depth ${formatGraphDistance(
+              Number.isFinite(distances[edge.to]!) ? distances[edge.to]! : null
+            )}, so the existing stack order stays intact.`
+          : `Node ${edge.to} is discovered at depth ${distances[edge.to]} and pushed onto the depth-first stack.`,
+        explanation: {
+          summary: hasDiscovered
+            ? "Inspect the edge without changing the recorded predecessor chain or stack order."
+            : "Record the first route to an undiscovered neighbor and push it onto the stack.",
+          details: hasDiscovered
+            ? `Because ${edge.to} already has a recorded discovery route, revisiting this edge cannot change the deterministic DFS trace.`
+            : `Depth-first traversal commits ${current} as the predecessor for ${edge.to} the first time that neighbor is stacked.`,
+          tags: ["edge", hasDiscovered ? "focus" : "frontier"]
+        },
+        runtimeState: createRuntimeState(
+          current,
+          [current, edge.to],
+          reconstructPath(
+            previousByNode,
+            normalizedGraph.start,
+            hasDiscovered ? current : edge.to
+          )
+        ),
+        metrics,
+        highlights: [
+          {
+            key: `dfs-edge-${current}-${edge.to}-${metrics.inspections}`,
+            path: "state.activeEdge",
+            kind: "edge",
+            intent: hasDiscovered ? "focus" : "frontier",
+            label: `${current} -> ${edge.to}`
+          }
+        ]
+      });
+    }
+
+    settled.add(current);
+    syncMetrics(metrics, {
+      settled: Array.from(settled),
+      frontier: projectDepthFirstFrontier(frontier)
+    });
+
+    recorder.push({
+      phase: "Checkpoint",
+      description:
+        `Node ${current} has finished expanding, so replay can restore the settled set and remaining stack without recomputing earlier pushes.`,
+      explanation: {
+        summary: "Seal the expanded node into the settled set after its outgoing edges are inspected.",
+        details:
+          "This checkpoint captures the predecessor ledger and top-first stack order together, which keeps depth-first replay deterministic across the same graph input.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(
+        current,
+        [],
+        reconstructPath(previousByNode, normalizedGraph.start, current)
+      ),
+      metrics,
+      highlights: [
+        {
+          key: `dfs-settled-${current}`,
+          path: "state.settled",
+          kind: "node",
+          intent: "visited",
+          label: `Settled ${current}`
+        }
+      ]
+    });
+  }
+
+  const finalPath = reconstructPath(previousByNode, normalizedGraph.start, normalizedGraph.target);
+  const outcome = describeTraversalOutcome(normalizedGraph, finalPath);
+  syncMetrics(metrics, {
+    settled: Array.from(settled),
+    frontier: projectDepthFirstFrontier(frontier)
+  });
+
+  recorder.push({
+    phase: outcome.phase,
+    description: outcome.description,
+    explanation: outcome.explanation,
+    runtimeState: createRuntimeState(normalizedGraph.target, [], finalPath),
+    metrics,
+    highlights: [
+      {
+        key: "dfs-final-path",
         path: "state.path",
         kind: "path",
         intent: "result",
@@ -2853,6 +3142,8 @@ export function buildGraphTrace(
   switch (algorithmId) {
     case "bfs":
       return buildBreadthFirstSearchTrace(graph as PathfindingGraphInput);
+    case "dfs":
+      return buildDepthFirstSearchTrace(graph as PathfindingGraphInput);
     case "dijkstra":
       return buildDijkstraTrace(graph as PathfindingGraphInput);
     case "course-schedule":

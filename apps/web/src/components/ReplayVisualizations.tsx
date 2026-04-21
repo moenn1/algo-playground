@@ -141,7 +141,7 @@ function getPathfindingGraphNodeTone(
   node: string,
   step: TraceStep<GraphExecutionState>
 ): "current" | "path" | "settled" | "frontier" | "idle" {
-  if (step.state.kind !== "bfs" && step.state.kind !== "dijkstra") {
+  if (step.state.kind !== "bfs" && step.state.kind !== "dfs" && step.state.kind !== "dijkstra") {
     return "idle";
   }
 
@@ -192,7 +192,15 @@ function formatGraphNodeStatus(
     case "settled":
       return "Settled";
     case "frontier":
-      return run.algorithm.id === "bfs" ? "Queued" : "Frontier";
+      if (run.algorithm.id === "bfs") {
+        return "Queued";
+      }
+
+      if (run.algorithm.id === "dfs") {
+        return "Stacked";
+      }
+
+      return "Frontier";
     default:
       if (run.input.start === node) {
         return "Source";
@@ -1808,7 +1816,7 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
         </div>
         <div className="graph-visual-grid">
           <div className="graph-stage">
-            <svg viewBox="0 0 360 300" role="img" aria-label="Weighted graph replay">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Pathfinding graph replay">
               {run.input.edges.map(([from, to, weight]) => {
                 const start = layout[from]!;
                 const end = layout[to]!;

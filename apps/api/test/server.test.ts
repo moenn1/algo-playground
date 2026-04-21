@@ -741,6 +741,27 @@ describe("TraceDeck API foundation", () => {
     expect(graphPreset.json().input.start).toBe("A");
     expect(graphPreset.json().input.target).toBe("E");
 
+    const dfsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-route/resolve",
+      payload: {
+        algorithmId: "dfs"
+      }
+    });
+
+    expect(dfsPreset.statusCode).toBe(200);
+    expect(dfsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-route"
+      },
+      algorithm: {
+        id: "dfs",
+        domain: "graph"
+      },
+      footprint: "6 nodes / 9 edges"
+    });
+
     const courseSchedulePreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-schedule/resolve",

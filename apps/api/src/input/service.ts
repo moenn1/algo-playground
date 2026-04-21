@@ -143,6 +143,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Breadth-First Search",
     domain: "graph"
   },
+  dfs: {
+    id: "dfs",
+    label: "Depth-First Search",
+    domain: "graph"
+  },
   dijkstra: {
     id: "dijkstra",
     label: "Dijkstra",
@@ -204,6 +209,7 @@ const largestRectangleAlgorithms = [
 const minStackAlgorithms = [supportedAlgorithms["min-stack"]] as const;
 const pathfindingGraphAlgorithms = [
   supportedAlgorithms.bfs,
+  supportedAlgorithms.dfs,
   supportedAlgorithms.dijkstra
 ] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
@@ -1515,6 +1521,8 @@ function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayl
     throw new HttpError(400, "Course Schedule input courseCount must be 16 or fewer.");
   }
 
+  const courseCount = value.courseCount;
+
   if (!Array.isArray(value.prerequisites)) {
     throw new HttpError(
       400,
@@ -1542,13 +1550,13 @@ function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayl
 
     if (
       course < 0 ||
-      course >= value.courseCount ||
+      course >= courseCount ||
       prerequisite < 0 ||
-      prerequisite >= value.courseCount
+      prerequisite >= courseCount
     ) {
       throw new HttpError(
         400,
-        `prerequisites[${index}] must reference course ids between 0 and ${value.courseCount - 1}.`
+        `prerequisites[${index}] must reference course ids between 0 and ${courseCount - 1}.`
       );
     }
 
@@ -1563,7 +1571,7 @@ function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayl
   });
 
   return {
-    courseCount: value.courseCount,
+    courseCount,
     prerequisites
   };
 }
@@ -1777,6 +1785,16 @@ function normalizeGraphInput(
   }
 }
 
+function isCourseScheduleGraphPayload(graph: GraphInputPayload): graph is CourseScheduleInputPayload {
+  return "courseCount" in graph && Array.isArray(graph.prerequisites);
+}
+
+function isGridGraphPayload(
+  graph: GraphInputPayload
+): graph is RottingOrangesInputPayload | NumberOfIslandsInputPayload | WallsAndGatesInputPayload {
+  return "grid" in graph && Array.isArray(graph.grid);
+}
+
 function serializeGraphInput(input: GraphInputPayload) {
   if ("courseCount" in input) {
     return JSON.stringify(
@@ -1929,7 +1947,7 @@ function normalizeAlgorithmInput(
             ? `${stack.temperatures.length} days`
             : typeof stack.heights !== "undefined"
               ? `${stack.heights.length} bars`
-              : `${stack.operations.length} ops`
+              : `${Array.isArray(stack.operations) ? stack.operations.length : 0} ops`
     };
   }
 
@@ -1939,11 +1957,11 @@ function normalizeAlgorithmInput(
     input: graph,
     normalizedInputText: serializeGraphInput(graph),
     footprint:
-      "courseCount" in graph
+      isCourseScheduleGraphPayload(graph)
         ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
-        : "grid" in graph
+        : isGridGraphPayload(graph)
           ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
-        : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
+          : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
   };
 }
 
@@ -2743,9 +2761,9 @@ const presetDefinitions: InputPresetDefinition[] = [
   {
     summary: {
       id: "graph.reference-route",
-      label: "Reference shortest-path graph",
+      label: "Reference route graph",
       description:
-        "Weighted graph fixture aligned with the shared graph execution runtime and local replay shell.",
+        "Weighted graph fixture aligned with the shared pathfinding runtime and local replay shell.",
       scenario: "baseline",
       kind: "curated",
       domain: "graph",

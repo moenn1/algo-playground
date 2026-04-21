@@ -102,6 +102,43 @@ describe("buildRun", () => {
     expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
   });
 
+  it("builds depth-first replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "dfs",
+      JSON.stringify(
+        {
+          nodes: ["A", "B", "C", "D", "E"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 1],
+            ["B", "D", 1],
+            ["D", "E", 1],
+            ["C", "E", 1]
+          ],
+          start: "A",
+          target: "E",
+          directed: false
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("dfs");
+    expect(finalStep.state.kind).toBe("dfs");
+    if (finalStep.state.kind !== "dfs") {
+      throw new Error("Expected the DFS graph state.");
+    }
+    expect(finalStep.state.path).toEqual(["A", "B", "D", "E"]);
+    expect(finalStep.state.frontier).toEqual(["C"]);
+    expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
+  });
+
   it("builds course-schedule replay runs from the shared graph engine", () => {
     const run = buildRun(
       "course-schedule",

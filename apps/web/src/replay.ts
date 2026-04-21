@@ -638,6 +638,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "dfs",
+    name: "Depth-First Search",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "Stack-based traversal with deterministic depth-first checkpoints and first-route recovery.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodes, edges, start, and target. Edge weights are ignored.",
+    defaultInput: serializeGraphInput(defaultBreadthFirstSearchInput),
+    domain: "graph"
+  },
+  {
     id: "dijkstra",
     name: "Dijkstra",
     badge: "Graph",

@@ -347,6 +347,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "disconnected-target"]
   },
   {
+    key: "graph-reference-dfs",
+    algorithmId: "dfs",
+    presetId: "graph.reference-route",
+    recordedAt: "2026-04-20T09:08:30.000Z",
+    tags: ["seeded-demo", "graph", "reference-route"]
+  },
+  {
+    key: "graph-disconnected-dfs",
+    algorithmId: "dfs",
+    presetId: "graph.disconnected-target",
+    recordedAt: "2026-04-20T09:08:52.000Z",
+    tags: ["seeded-demo", "graph", "disconnected-target"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

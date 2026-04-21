@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBreadthFirstSearchTrace,
   buildCourseScheduleTrace,
+  buildDepthFirstSearchTrace,
   buildDijkstraTrace,
   buildNumberOfIslandsTrace,
   buildRottingOrangesTrace,
@@ -44,9 +45,61 @@ describe("graph execution engine", () => {
     expect(dijkstraFinalStep.state.distances.D).toBe(2);
   });
 
+  it("keeps BFS and DFS replay semantics distinct on the same graph", () => {
+    const graph = {
+      nodes: ["A", "B", "C", "D", "E"],
+      edges: [
+        ["A", "B", 1],
+        ["A", "C", 1],
+        ["B", "D", 1],
+        ["D", "E", 1],
+        ["C", "E", 1]
+      ] as Array<[string, string, number]>,
+      start: "A",
+      target: "E",
+      directed: false
+    };
+
+    const bfsTrace = buildBreadthFirstSearchTrace(graph);
+    const dfsTrace = buildDepthFirstSearchTrace(graph);
+    const bfsFinalStep = bfsTrace.steps[bfsTrace.steps.length - 1]!;
+    const dfsFinalStep = dfsTrace.steps[dfsTrace.steps.length - 1]!;
+
+    expect(bfsFinalStep.state.path).toEqual(["A", "C", "E"]);
+    expect(dfsFinalStep.state.path).toEqual(["A", "B", "D", "E"]);
+    expect(bfsFinalStep.state.distances.E).toBe(2);
+    expect(dfsFinalStep.state.distances.E).toBe(3);
+  });
+
   it("emits deterministic step keys and graph metrics for repeated BFS runs", () => {
     const firstTrace = buildBreadthFirstSearchTrace(defaultBreadthFirstSearchInput);
     const secondTrace = buildBreadthFirstSearchTrace(defaultBreadthFirstSearchInput);
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(firstTrace.summary.comparisonMetricKeys).toEqual([
+      "settled",
+      "inspections",
+      "updates"
+    ]);
+    expect(firstTrace.steps[0]!.changes.map((change) => change.path)).toEqual([
+      "state.activeEdge",
+      "state.current",
+      "state.distances.A",
+      "state.distances.B",
+      "state.distances.C",
+      "state.distances.D",
+      "state.distances.E",
+      "state.distances.F",
+      "state.frontier",
+      "state.kind",
+      "state.path",
+      "state.settled"
+    ]);
+  });
+
+  it("emits deterministic step keys and graph metrics for repeated DFS runs", () => {
+    const firstTrace = buildDepthFirstSearchTrace(defaultBreadthFirstSearchInput);
+    const secondTrace = buildDepthFirstSearchTrace(defaultBreadthFirstSearchInput);
 
     expect(firstTrace).toEqual(secondTrace);
     expect(firstTrace.summary.comparisonMetricKeys).toEqual([

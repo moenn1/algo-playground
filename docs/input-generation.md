@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dijkstra`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `walls-and-gates`
 
 ## Endpoints
 
@@ -127,7 +127,7 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.isolated-rooms`: curated room map where a wall barrier leaves part of the infinity ledger unreachable
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
-The first three graph presets plus `graph.random-network` resolve for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
+The first three graph presets plus `graph.random-network` resolve for Breadth-First Search, Depth-First Search, or Dijkstra through the same `algorithmId` field. BFS and DFS ignore edge weights but preserve the shared graph input contract so pathfinding fixtures can be replayed across all three algorithms.
 
 The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 
