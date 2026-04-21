@@ -24,6 +24,7 @@ export type GraphAlgorithmId =
   | "pacific-atlantic-water-flow"
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
+  | "nearest-exit-from-entrance-in-maze"
   | "01-matrix"
   | "as-far-from-land-as-possible"
   | "map-of-highest-peak"
@@ -48,6 +49,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",
+  "nearest-exit-from-entrance-in-maze",
   "01-matrix",
   "as-far-from-land-as-possible",
   "map-of-highest-peak",
@@ -93,6 +95,11 @@ export interface ShortestPathBinaryMatrixInput extends JsonObject {
   grid: number[][];
 }
 
+export interface NearestExitFromEntranceInMazeInput extends JsonObject {
+  grid: string[][];
+  entrance: [number, number];
+}
+
 export interface ZeroOneMatrixInput extends JsonObject {
   grid: number[][];
 }
@@ -122,6 +129,7 @@ export type GraphInput =
   | PacificAtlanticWaterFlowInput
   | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
+  | NearestExitFromEntranceInMazeInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
   | MapOfHighestPeakInput
@@ -350,6 +358,24 @@ export interface ShortestPathBinaryMatrixExecutionState extends JsonObject {
   reachable: boolean | null;
 }
 
+export interface NearestExitFromEntranceInMazeExecutionState extends JsonObject {
+  kind: "nearest-exit-from-entrance-in-maze";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  entrance: string;
+  exits: string[];
+  path: string[];
+  visitedOpen: string[];
+  blockedCells: string[];
+  stepsToExit: number | null;
+  reachable: boolean | null;
+  exit: string | null;
+}
+
 export interface ZeroOneMatrixExecutionState extends JsonObject {
   kind: "01-matrix";
   grid: number[][];
@@ -443,6 +469,7 @@ export type GraphExecutionState =
   | PacificAtlanticWaterFlowExecutionState
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
+  | NearestExitFromEntranceInMazeExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
   | MapOfHighestPeakExecutionState
@@ -753,6 +780,23 @@ interface ShortestBridgeRuntimeState {
   bridgeLength: number | null;
 }
 
+interface NearestExitFromEntranceInMazeRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  entrance: string;
+  exits: string[];
+  path: string[];
+  visitedOpen: string[];
+  blockedCells: string[];
+  stepsToExit: number | null;
+  reachable: boolean | null;
+  exit: string | null;
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -838,6 +882,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "shortest-path-binary-matrix",
     label: "Shortest Path in Binary Matrix",
     implementationVersion: "graph-engine-0.10.0"
+  },
+  "nearest-exit-from-entrance-in-maze": {
+    id: "nearest-exit-from-entrance-in-maze",
+    label: "Nearest Exit from Entrance in Maze",
+    implementationVersion: "graph-engine-0.19.0"
   },
   "01-matrix": {
     id: "01-matrix",
@@ -1057,6 +1106,17 @@ export const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInput
     [1, 1, 0, 0, 0],
     [1, 1, 1, 1, 0]
   ]
+};
+
+export const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceInMazeInput = {
+  grid: [
+    ["+", "+", "+", "+", "+"],
+    ["+", ".", ".", ".", "+"],
+    ["+", "+", "+", ".", "+"],
+    ["+", "+", "+", ".", "."],
+    ["+", "+", "+", "+", "+"]
+  ],
+  entrance: [1, 1]
 };
 
 export const defaultZeroOneMatrixInput: ZeroOneMatrixInput = {
@@ -1365,6 +1425,26 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       blockedCells: state.blockedCells.slice(),
       pathLength: state.pathLength,
       reachable: state.reachable
+    };
+  }
+
+  if (state.kind === "nearest-exit-from-entrance-in-maze") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      entrance: state.entrance,
+      exits: state.exits.slice(),
+      path: state.path.slice(),
+      visitedOpen: state.visitedOpen.slice(),
+      blockedCells: state.blockedCells.slice(),
+      stepsToExit: state.stepsToExit,
+      reachable: state.reachable,
+      exit: state.exit
     };
   }
 
@@ -1938,6 +2018,83 @@ function normalizeShortestPathBinaryMatrixInput(
   };
 }
 
+function normalizeNearestExitFromEntranceInMazeInput(
+  candidate: unknown
+): NearestExitFromEntranceInMazeInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error(
+      "Nearest Exit from Entrance in Maze input must be an object with grid and entrance fields."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+    entrance?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Nearest Exit from Entrance in Maze input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Nearest Exit from Entrance in Maze input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty maze row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "string" || (cell !== "." && cell !== "+")) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be "." or "+".`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error(
+      "Nearest Exit from Entrance in Maze input rows must all be the same length."
+    );
+  }
+
+  if (
+    !Array.isArray(value.entrance) ||
+    value.entrance.length !== 2 ||
+    typeof value.entrance[0] !== "number" ||
+    !Number.isInteger(value.entrance[0]) ||
+    typeof value.entrance[1] !== "number" ||
+    !Number.isInteger(value.entrance[1])
+  ) {
+    throw new Error(
+      "Nearest Exit from Entrance in Maze input must include an entrance coordinate pair."
+    );
+  }
+
+  const entrance = [value.entrance[0], value.entrance[1]] as [number, number];
+
+  if (entrance[0] < 0 || entrance[0] >= grid.length || entrance[1] < 0 || entrance[1] >= columnCount) {
+    throw new Error("Nearest Exit from Entrance in Maze entrance must stay within the grid.");
+  }
+
+  if (grid[entrance[0]]![entrance[1]] !== ".") {
+    throw new Error("Nearest Exit from Entrance in Maze entrance must start on an open cell.");
+  }
+
+  return {
+    grid,
+    entrance
+  };
+}
+
 function normalizeZeroOneMatrixInput(candidate: unknown): ZeroOneMatrixInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("01 Matrix input must be an object with a grid field.");
@@ -2230,6 +2387,8 @@ export function parseGraphInputText(
       return normalizeShortestBridgeInput(parsed);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(parsed);
+    case "nearest-exit-from-entrance-in-maze":
+      return normalizeNearestExitFromEntranceInMazeInput(parsed);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(parsed);
     case "as-far-from-land-as-possible":
@@ -2275,6 +2434,8 @@ export function normalizeGraphInput(
       return normalizeShortestBridgeInput(input);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(input);
+    case "nearest-exit-from-entrance-in-maze":
+      return normalizeNearestExitFromEntranceInMazeInput(input);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(input);
     case "as-far-from-land-as-possible":
@@ -2307,6 +2468,17 @@ export function serializeGraphInput(graph: GraphInput): string {
       {
         courseCount: graph.courseCount,
         prerequisites: graph.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
+  if ("entrance" in graph) {
+    return JSON.stringify(
+      {
+        grid: graph.grid,
+        entrance: graph.entrance
       },
       null,
       2
@@ -2960,6 +3132,36 @@ function createShortestPathBinaryMatrixRecorder() {
   });
 }
 
+function createNearestExitFromEntranceInMazeRecorder() {
+  return createTraceRecorder<
+    NearestExitFromEntranceInMazeRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "nearest-exit-from-entrance-in-maze",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "nearest-exit-from-entrance-in-maze",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        entrance: runtimeState.entrance,
+        exits: runtimeState.exits.slice(),
+        path: runtimeState.path.slice(),
+        visitedOpen: runtimeState.visitedOpen.slice(),
+        blockedCells: runtimeState.blockedCells.slice(),
+        stepsToExit: runtimeState.stepsToExit,
+        reachable: runtimeState.reachable,
+        exit: runtimeState.exit
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createZeroOneMatrixRecorder() {
   return createTraceRecorder<ZeroOneMatrixRuntimeState, GraphExecutionState, GraphMetricState>({
     algorithmId: "01-matrix",
@@ -3110,6 +3312,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
+    | ReturnType<typeof createNearestExitFromEntranceInMazeRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
     | ReturnType<typeof createMapOfHighestPeakRecorder>
@@ -8144,6 +8347,484 @@ export function buildShortestPathBinaryMatrixTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildNearestExitFromEntranceInMazeTrace(
+  input: NearestExitFromEntranceInMazeInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["nearest-exit-from-entrance-in-maze"];
+  const normalizedInput = normalizeNearestExitFromEntranceInMazeInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const entranceCell = makeCellId(normalizedInput.entrance[0], normalizedInput.entrance[1]);
+  const exits = grid
+    .flatMap((row, rowIndex) =>
+      row.flatMap((cell, columnIndex) => {
+        const isBoundary =
+          rowIndex === 0 ||
+          columnIndex === 0 ||
+          rowIndex === rowCount - 1 ||
+          columnIndex === columnCount - 1;
+        const cellId = makeCellId(rowIndex, columnIndex);
+
+        return cell === "." && isBoundary && cellId !== entranceCell ? [cellId] : [];
+      })
+    )
+    .sort(compareCellIds);
+  const exitSet = new Set(exits);
+  const blockedCells = grid
+    .flatMap((row, rowIndex) =>
+      row.flatMap((cell, columnIndex) =>
+        cell === "+" ? [makeCellId(rowIndex, columnIndex)] : []
+      )
+    )
+    .sort(compareCellIds);
+  const settled: string[] = [];
+  const frontier: string[] = [entranceCell];
+  const visitedOpen = [entranceCell];
+  const visitedOpenSet = new Set(visitedOpen);
+  const path: string[] = [];
+  const predecessors = new Map<string, string>();
+  const recorder = createNearestExitFromEntranceInMazeRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let reachable: boolean | null = null;
+  let stepsToExit: number | null = null;
+  let exit: string | null = null;
+
+  const createRuntimeState = (): NearestExitFromEntranceInMazeRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    phaseMode,
+    entrance: entranceCell,
+    exits,
+    path,
+    visitedOpen,
+    blockedCells,
+    stepsToExit,
+    reachable,
+    exit
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      exits.length > 0
+        ? `${formatCellLabel(entranceCell)} seeds the maze BFS with ${exits.length} boundary exit candidate${exits.length === 1 ? "" : "s"}.`
+        : `${formatCellLabel(entranceCell)} is open, but every boundary opening is either blocked or the entrance itself, so no valid exit candidate exists.`,
+    explanation: {
+      summary: "Seed the entrance and publish every valid boundary exit candidate before the BFS search begins.",
+      details:
+        "The opening frame stores the blocked-cell ledger, entrance cell, and ordered exit candidates directly so replay never has to infer which boundary openings count as valid exits.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "nearest-exit-from-entrance-in-maze-initial",
+        path: exits.length > 0 ? "state.exits" : "state.entrance",
+        kind: exits.length > 0 ? "collection" : "node",
+        intent: "focus",
+        label:
+          exits.length > 0
+            ? `${exits.length} exit candidate${exits.length === 1 ? "" : "s"}`
+            : `Entrance ${formatCellLabel(entranceCell)}`
+      }
+    ]
+  });
+
+  if (exits.length === 0) {
+    phaseMode = "resolved";
+    reachable = false;
+    stepsToExit = -1;
+
+    recorder.push({
+      phase: "Edge Case",
+      description:
+        "No boundary exit remains after excluding the entrance, so the maze replay returns -1 without expanding the BFS frontier.",
+      explanation: {
+        summary: "Publish the immediate -1 result when the maze contains no valid exit candidate.",
+        details:
+          "The terminal frame keeps the blocked-cell ledger and empty exit set explicit so replay can justify the failure without rescanning the grid.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "nearest-exit-from-entrance-in-maze-no-exit-candidate",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "Return -1"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  searchLoop: while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the BFS queue as the next maze search source.`,
+      explanation: {
+        summary: "Expand the next reachable open cell in deterministic queue order.",
+        details:
+          "Each extract frame records the active maze source before neighbor inspection begins, which keeps the search frontier explicit across the entire exit search.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `nearest-exit-from-entrance-in-maze-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expand ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    if (exitSet.has(currentCell)) {
+      reachable = true;
+      exit = currentCell;
+      settled.push(currentCell);
+      metrics.settled = settled.length;
+
+      recorder.push({
+        phase: "Exit",
+        description: `${formatCellLabel(currentCell)} is the nearest boundary exit, so the BFS search can stop and switch to traceback.`,
+        explanation: {
+          summary: "Stop search on the first extracted exit because BFS guarantees the shortest escape path.",
+          details:
+            "The exit frame locks the winning boundary cell before traceback reconstructs the path directly into the replay state.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `nearest-exit-from-entrance-in-maze-exit-${currentCell}`,
+            path: "state.exit",
+            kind: "node",
+            intent: "result",
+            label: `Exit ${formatCellLabel(currentCell)}`
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row, column } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (grid[neighborRow]![neighborColumn] === "+") {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and stop because that maze cell is blocked.`,
+          explanation: {
+            summary: "Reject a blocked maze wall during the BFS expansion.",
+            details:
+              "Blocked cells stay explicit in the recorded grid and never enter the frontier, so replay does not infer wall handling from browser-only logic.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `nearest-exit-from-entrance-in-maze-blocked-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.blockedCells",
+              kind: "collection",
+              intent: "candidate",
+              label: `${formatCellLabel(neighbor)} blocked`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (visitedOpenSet.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the queue stable because BFS already discovered that open maze cell.`,
+          explanation: {
+            summary: "Skip a previously discovered open cell without re-enqueuing it.",
+            details:
+              "This preserves a deterministic visited ledger and avoids hidden deduplication during playback.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `nearest-exit-from-entrance-in-maze-known-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.visitedOpen",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already discovered`
+            }
+          ]
+        });
+        continue;
+      }
+
+      visitedOpenSet.add(neighbor);
+      visitedOpen.push(neighbor);
+      frontier.push(neighbor);
+      predecessors.set(neighbor, currentCell);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      const reachesExit = exitSet.has(neighbor);
+
+      recorder.push({
+        phase: reachesExit ? "Exit Found" : "Enqueue",
+        description: reachesExit
+          ? `${formatCellLabel(neighbor)} is the first discovered boundary exit, so replay locks that shortest escape candidate before traceback.`
+          : `${formatCellLabel(neighbor)} is open, so BFS records it as a new maze path candidate.`,
+        explanation: {
+          summary: reachesExit
+            ? "Discover the nearest exit and stop once this shortest frontier expansion is recorded."
+            : "Queue one newly discovered open maze cell for later expansion.",
+          details:
+            "The state update records queue growth, the visited-open ledger, and the predecessor link together so replay can justify every later traceback edge.",
+          tags: ["frontier", "edge"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `nearest-exit-from-entrance-in-maze-enqueue-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: reachesExit ? "state.exits" : "state.visitedOpen",
+            kind: "collection",
+            intent: reachesExit ? "result" : "frontier",
+            label: reachesExit
+              ? `Exit ${formatCellLabel(neighbor)} queued`
+              : `${formatCellLabel(neighbor)} discovered`
+          }
+        ]
+      });
+
+      if (reachesExit) {
+        reachable = true;
+        exit = neighbor;
+        settled.push(currentCell);
+        metrics.settled = settled.length;
+        activeEdge = [];
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is sealed after discovering the nearest exit on its search frontier.`,
+          explanation: {
+            summary: "Close the final search source before the trace transitions into traceback.",
+            details:
+              "This checkpoint keeps the BFS search and the path reconstruction phases distinct while preserving the settled and frontier ledgers exactly as they stood when the exit was found.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `nearest-exit-from-entrance-in-maze-checkpoint-${currentCell}`,
+              path: "state.settled",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} settled`
+            }
+          ]
+        });
+
+        break searchLoop;
+      }
+    }
+
+    if (reachable) {
+      break;
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed after all 4-direction maze neighbor checks.`,
+      explanation: {
+        summary: "Seal one open maze cell after its BFS expansion finishes.",
+        details:
+          "The checkpoint frame stores the queue and visited ledger directly so replay can jump to any settled boundary without rerunning neighbor scans.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `nearest-exit-from-entrance-in-maze-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} settled`
+        }
+      ]
+    });
+  }
+
+  if (reachable && exit) {
+    phaseMode = "traceback";
+    current = exit;
+    activeEdge = [];
+
+    recorder.push({
+      phase: "Traceback",
+      description:
+        "Switch from maze BFS expansion to predecessor traceback so replay can build the shortest escape route directly from the discovered exit.",
+      explanation: {
+        summary: "Begin reconstructing the nearest-exit path from the discovered boundary cell back to the entrance.",
+        details:
+          "The path is published as an explicit ledger instead of being inferred from hidden predecessor tables during playback.",
+        tags: ["checkpoint", "path"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "nearest-exit-from-entrance-in-maze-traceback-start",
+          path: "state.phaseMode",
+          kind: "value",
+          intent: "focus",
+          label: "Traceback"
+        }
+      ]
+    });
+
+    let tracebackCell: string | null = exit;
+
+    while (tracebackCell) {
+      current = tracebackCell;
+      const previousCell: string | null = predecessors.get(tracebackCell) ?? null;
+      activeEdge = previousCell ? [previousCell, tracebackCell] : [];
+      path.unshift(tracebackCell);
+
+      recorder.push({
+        phase: "Traceback",
+        description: previousCell
+          ? `${formatCellLabel(tracebackCell)} joins the escape route, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+          : `${formatCellLabel(tracebackCell)} closes the traceback as the entrance cell.`,
+        explanation: {
+          summary: previousCell
+            ? "Prepend one predecessor-linked maze cell to the escape path ledger."
+            : "Finish the escape path at the entrance.",
+          details:
+            "Each traceback frame grows the path ledger directly so the final route never depends on hidden predecessor reconstruction in the viewer.",
+          tags: ["path", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `nearest-exit-from-entrance-in-maze-path-${tracebackCell}-${path.length}`,
+            path: "state.path",
+            kind: "collection",
+            intent: "result",
+            label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+          }
+        ]
+      });
+
+      tracebackCell = previousCell;
+    }
+
+    stepsToExit = path.length - 1;
+  } else {
+    phaseMode = "resolved";
+    current = null;
+    activeEdge = [];
+    reachable = false;
+    stepsToExit = -1;
+
+    recorder.push({
+      phase: "No Path",
+      description:
+        "The BFS queue is empty before any boundary exit is discovered, so the maze has no escape route from the entrance.",
+      explanation: {
+        summary: "Publish the unreachable result once the maze frontier stalls.",
+        details:
+          "The terminal frame preserves the visited-open ledger directly, so replay can explain which cells were reachable even though no exit path exists.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "nearest-exit-from-entrance-in-maze-no-path",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "Return -1"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The nearest maze exit is ${formatCellLabel(exit!)} after ${stepsToExit ?? 0} step${stepsToExit === 1 ? "" : "s"} of BFS and traceback.`,
+    explanation: {
+      summary: "Publish the final escape route together with the returned step count.",
+      details:
+        "The terminal frame stores the exact exit cell, route ledger, and returned step count directly so replay can justify the maze answer without recomputing predecessor chains.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "nearest-exit-from-entrance-in-maze-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `${stepsToExit ?? 0} step${stepsToExit === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildZeroOneMatrixTrace(
   input: ZeroOneMatrixInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -9786,6 +10467,8 @@ export function buildGraphTrace(
       return buildShortestBridgeTrace(graph as ShortestBridgeInput);
     case "shortest-path-binary-matrix":
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
+    case "nearest-exit-from-entrance-in-maze":
+      return buildNearestExitFromEntranceInMazeTrace(graph as NearestExitFromEntranceInMazeInput);
     case "01-matrix":
       return buildZeroOneMatrixTrace(graph as ZeroOneMatrixInput);
     case "as-far-from-land-as-possible":

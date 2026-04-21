@@ -53,6 +53,7 @@ import {
   isNumberOfIslandsInput,
   isRottingOrangesInput,
   isZeroOneMatrixInput,
+  isNearestExitFromEntranceInMazeInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
   isWallsAndGatesInput,
@@ -807,6 +808,25 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     }
 
     if (
+      step.state.kind === "nearest-exit-from-entrance-in-maze" &&
+      isNearestExitFromEntranceInMazeInput(run.input)
+    ) {
+      if (step.state.reachable === false && step.state.stepsToExit === -1) {
+        return "No exit · return -1";
+      }
+
+      if (step.state.reachable === true && step.state.stepsToExit !== null) {
+        return `Exit in ${step.state.stepsToExit} step${step.state.stepsToExit === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.current) {
+        return `Maze wave from ${step.state.current}`;
+      }
+
+      return `${step.state.frontier.length} corridor cell${step.state.frontier.length === 1 ? "" : "s"} queued`;
+    }
+
+    if (
       step.state.kind === "as-far-from-land-as-possible" &&
       isAsFarFromLandAsPossibleInput(run.input)
     ) {
@@ -1414,6 +1434,12 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             if (graphStep.state.kind === "count-connected-components") {
               return `${graphStep.state.componentCount} component${graphStep.state.componentCount === 1 ? "" : "s"}`;
+            }
+
+            if (graphStep.state.kind === "nearest-exit-from-entrance-in-maze") {
+              return graphStep.state.reachable === false
+                ? "Maze returns -1"
+                : `Exit in ${graphStep.state.stepsToExit ?? 0} step${graphStep.state.stepsToExit === 1 ? "" : "s"}`;
             }
 
             if (graphStep.state.kind === "01-matrix") {
@@ -2187,10 +2213,73 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (
+      step.state.kind === "nearest-exit-from-entrance-in-maze" &&
+      isNearestExitFromEntranceInMazeInput(run.input)
+    ) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Entrance</span>
+              <strong>{step.state.entrance}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Exit candidates</span>
+              <strong>{step.state.exits.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.reachable === true
+                  ? `${step.state.stepsToExit ?? 0} step${step.state.stepsToExit === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "-1"
+                    : "Searching"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) =>
+              row.map((cell, columnIndex) => {
+                const coordinate = `${rowIndex},${columnIndex}`;
+                const label =
+                  cell === "+"
+                    ? "Wall"
+                    : coordinate === step.state.exit
+                      ? "Exit"
+                      : coordinate === step.state.entrance
+                        ? "Enter"
+                        : step.state.path.includes(coordinate)
+                          ? "Path"
+                          : step.state.frontier.includes(coordinate)
+                            ? "Queued"
+                            : step.state.visitedOpen.includes(coordinate)
+                              ? "Seen"
+                              : "Open";
+
+                return (
+                  <div className="distance-row" key={coordinate}>
+                    <span>{coordinate}</span>
+                    <strong>{label}</strong>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      );
+    }
+
     return (
       <div className="distance-grid">
         {Object.entries(
           step.state.kind === "course-schedule" ||
+            step.state.kind === "nearest-exit-from-entrance-in-maze" ||
             step.state.kind === "01-matrix" ||
             step.state.kind === "as-far-from-land-as-possible" ||
             step.state.kind === "map-of-highest-peak" ||

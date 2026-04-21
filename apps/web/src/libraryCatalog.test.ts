@@ -149,6 +149,21 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("network-delay-time");
   });
 
+  it("surfaces maze-exit study paths through boundary-exit metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "boundary exits traceback"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain(
+      "nearest-exit-from-entrance-in-maze"
+    );
+  });
+
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

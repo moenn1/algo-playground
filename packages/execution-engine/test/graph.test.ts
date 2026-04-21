@@ -18,6 +18,7 @@ import {
   buildRottingOrangesTrace,
   buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
+  buildNearestExitFromEntranceInMazeTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
   buildMapOfHighestPeakTrace,
@@ -37,6 +38,7 @@ import {
   defaultRottingOrangesInput,
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
+  defaultNearestExitFromEntranceInMazeInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
   defaultMapOfHighestPeakInput,
@@ -828,6 +830,50 @@ describe("graph execution engine", () => {
     expect(unreachableFinalStep.state.pathLength).toBeNull();
     expect(unreachableFinalStep.state.path).toEqual([]);
     expect(unreachableFinalStep.state.visitedOpen).toEqual(["0,0", "0,1", "0,2", "0,3", "1,3"]);
+  });
+
+  it("records deterministic nearest exits and sealed mazes for Nearest Exit from Entrance in Maze", () => {
+    const firstTrace = buildNearestExitFromEntranceInMazeTrace(
+      defaultNearestExitFromEntranceInMazeInput
+    );
+    const secondTrace = buildNearestExitFromEntranceInMazeTrace(
+      defaultNearestExitFromEntranceInMazeInput
+    );
+    const sealedTrace = buildNearestExitFromEntranceInMazeTrace({
+      grid: [
+        ["+", "+", "+", "+", "+"],
+        ["+", ".", ".", ".", "+"],
+        ["+", "+", "+", ".", "+"],
+        ["+", "+", "+", ".", "+"],
+        ["+", "+", "+", "+", "."]
+      ],
+      entrance: [1, 1]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const sealedFinalStep = sealedTrace.steps[sealedTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("nearest-exit-from-entrance-in-maze");
+    if (referenceFinalStep.state.kind !== "nearest-exit-from-entrance-in-maze") {
+      throw new Error("Expected the nearest-exit-from-entrance-in-maze state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.reachable).toBe(true);
+    expect(referenceFinalStep.state.stepsToExit).toBe(5);
+    expect(referenceFinalStep.state.exit).toBe("3,4");
+    expect(referenceFinalStep.state.path).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3", "3,4"]);
+
+    expect(sealedFinalStep.phase).toBe("No Path");
+    expect(sealedFinalStep.state.kind).toBe("nearest-exit-from-entrance-in-maze");
+    if (sealedFinalStep.state.kind !== "nearest-exit-from-entrance-in-maze") {
+      throw new Error("Expected the nearest-exit-from-entrance-in-maze state.");
+    }
+    expect(sealedFinalStep.state.reachable).toBe(false);
+    expect(sealedFinalStep.state.stepsToExit).toBe(-1);
+    expect(sealedFinalStep.state.path).toEqual([]);
+    expect(sealedFinalStep.state.visitedOpen).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3"]);
+    expect(sealedFinalStep.state.exits).toEqual(["4,4"]);
   });
 
   it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {

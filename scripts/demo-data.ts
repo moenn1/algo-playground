@@ -571,6 +571,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "sealed-binary-exit"]
   },
   {
+    key: "graph-reference-maze-exit",
+    algorithmId: "nearest-exit-from-entrance-in-maze",
+    presetId: "graph.reference-maze-exit",
+    recordedAt: "2026-04-21T18:04:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-maze-exit"]
+  },
+  {
+    key: "graph-sealed-maze-exit",
+    algorithmId: "nearest-exit-from-entrance-in-maze",
+    presetId: "graph.sealed-maze-exit",
+    recordedAt: "2026-04-21T18:05:00.000Z",
+    tags: ["seeded-demo", "graph", "sealed-maze-exit"]
+  },
+  {
     key: "graph-reference-zero-matrix",
     algorithmId: "01-matrix",
     presetId: "graph.reference-zero-matrix",

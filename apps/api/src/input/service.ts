@@ -16,6 +16,7 @@ import type {
   PathfindingGraphInputPayload,
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
+  NearestExitFromEntranceInMazeInputPayload,
   ZeroOneMatrixInputPayload,
   AsFarFromLandAsPossibleInputPayload,
   MapOfHighestPeakInputPayload,
@@ -231,6 +232,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Shortest Path in Binary Matrix",
     domain: "graph"
   },
+  "nearest-exit-from-entrance-in-maze": {
+    id: "nearest-exit-from-entrance-in-maze",
+    label: "Nearest Exit from Entrance in Maze",
+    domain: "graph"
+  },
   "01-matrix": {
     id: "01-matrix",
     label: "01 Matrix",
@@ -314,6 +320,9 @@ const pacificAtlanticAlgorithms = [supportedAlgorithms["pacific-atlantic-water-f
 const shortestBridgeAlgorithms = [supportedAlgorithms["shortest-bridge"]] as const;
 const shortestPathBinaryMatrixAlgorithms = [
   supportedAlgorithms["shortest-path-binary-matrix"]
+] as const;
+const nearestExitFromEntranceInMazeAlgorithms = [
+  supportedAlgorithms["nearest-exit-from-entrance-in-maze"]
 ] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
 const asFarFromLandAsPossibleAlgorithms = [
@@ -526,6 +535,16 @@ const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInputPayload
     [1, 1, 0, 0, 0],
     [1, 1, 1, 1, 0]
   ]
+};
+const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceInMazeInputPayload = {
+  grid: [
+    ["+", "+", "+", "+", "+"],
+    ["+", ".", ".", ".", "+"],
+    ["+", "+", "+", ".", "+"],
+    ["+", "+", "+", ".", "."],
+    ["+", "+", "+", "+", "+"]
+  ],
+  entrance: [1, 1]
 };
 const defaultZeroOneMatrixInput: ZeroOneMatrixInputPayload = {
   grid: [
@@ -2213,6 +2232,112 @@ function normalizeShortestPathBinaryMatrixInput(
   };
 }
 
+function normalizeNearestExitFromEntranceInMazeInput(
+  payload: unknown
+): NearestExitFromEntranceInMazeInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Nearest Exit from Entrance in Maze input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze input must be an object with grid and entrance fields."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+    entrance?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze input must include a non-empty grid."
+    );
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze input must use 8 rows or fewer."
+    );
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty maze row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "string" || (cell !== "." && cell !== "+")) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be "." or "+".`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze input rows must all be the same length."
+    );
+  }
+
+  if (
+    !Array.isArray(value.entrance) ||
+    value.entrance.length !== 2 ||
+    typeof value.entrance[0] !== "number" ||
+    !Number.isInteger(value.entrance[0]) ||
+    typeof value.entrance[1] !== "number" ||
+    !Number.isInteger(value.entrance[1])
+  ) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze input must include an entrance coordinate pair."
+    );
+  }
+
+  const entrance = [value.entrance[0], value.entrance[1]] as [number, number];
+
+  if (entrance[0] < 0 || entrance[0] >= grid.length || entrance[1] < 0 || entrance[1] >= columnCount) {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze entrance must stay within the grid."
+    );
+  }
+
+  if (grid[entrance[0]]![entrance[1]] !== ".") {
+    throw new HttpError(
+      400,
+      "Nearest Exit from Entrance in Maze entrance must start on an open cell."
+    );
+  }
+
+  return {
+    grid,
+    entrance
+  };
+}
+
 function normalizeZeroOneMatrixInput(payload: unknown): ZeroOneMatrixInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2564,6 +2689,8 @@ function normalizeGraphInput(
       return normalizeShortestBridgeInput(payload);
     case "shortest-path-binary-matrix":
       return normalizeShortestPathBinaryMatrixInput(payload);
+    case "nearest-exit-from-entrance-in-maze":
+      return normalizeNearestExitFromEntranceInMazeInput(payload);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(payload);
     case "as-far-from-land-as-possible":
@@ -2595,6 +2722,7 @@ function isGridGraphPayload(
   | PacificAtlanticWaterFlowInputPayload
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
+  | NearestExitFromEntranceInMazeInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
   | SurroundedRegionsInputPayload
@@ -2619,6 +2747,17 @@ function serializeGraphInput(input: GraphInputPayload) {
       {
         courseCount: input.courseCount,
         prerequisites: input.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
+  if ("entrance" in input) {
+    return JSON.stringify(
+      {
+        grid: input.grid,
+        entrance: input.entrance
       },
       null,
       2
@@ -4188,6 +4327,49 @@ const presetDefinitions: InputPresetDefinition[] = [
           [0, 0, 1, 1],
           [0, 1, 1, 0]
         ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-maze-exit",
+      label: "Reference maze exit",
+      description:
+        "Use a corridor maze with one clear boundary escape so replay shows blocked-wall inspections, queue growth, and explicit shortest-exit traceback from the entrance.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: nearestExitFromEntranceInMazeAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultNearestExitFromEntranceInMazeInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.sealed-maze-exit",
+      label: "Sealed maze exit",
+      description:
+        "Leave one isolated boundary opening unreachable from the entrance so replay can show the BFS frontier exhausting the reachable corridor before publishing the -1 maze result.",
+      scenario: "sealed-exit",
+      kind: "curated",
+      domain: "graph",
+      algorithms: nearestExitFromEntranceInMazeAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          ["+", "+", "+", "+", "+"],
+          ["+", ".", ".", ".", "+"],
+          ["+", "+", "+", ".", "+"],
+          ["+", "+", "+", ".", "+"],
+          ["+", "+", "+", "+", "."]
+        ],
+        entrance: [1, 1]
       },
       options: {}
     })

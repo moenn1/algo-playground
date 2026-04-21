@@ -45,6 +45,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `pacific-atlantic-water-flow`
 - `shortest-bridge`
 - `shortest-path-binary-matrix`
+- `nearest-exit-from-entrance-in-maze`
 - `01-matrix`
 - `as-far-from-land-as-possible`
 - `map-of-highest-peak`
@@ -495,6 +496,24 @@ Shortest Path in Binary Matrix records:
 - `state.blockedCells`: the deterministic row-major ledger of blocked cells in the grid
 - `state.pathLength`: the terminal shortest-path length in cells when the destination is reachable
 - `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
+
+Nearest Exit from Entrance in Maze records:
+
+- `state.kind`: `"nearest-exit-from-entrance-in-maze"`
+- `state.grid`: the open-vs-wall maze snapshot for the current search or traceback frame
+- `state.settled`: corridor cells whose outgoing BFS checks are fully recorded
+- `state.frontier`: the ordered queue of corridor cells still waiting to expand
+- `state.current`: the corridor cell currently acting as the search focus or traceback cursor
+- `state.activeEdge`: the active source-to-neighbor inspection or predecessor traceback edge
+- `state.phaseMode`: `"search"`, `"traceback"`, or `"resolved"` so replay can distinguish live corridor expansion from route reconstruction
+- `state.entrance`: the fixed starting corridor cell
+- `state.exits`: the deterministic boundary-exit candidates, excluding the entrance cell itself
+- `state.path`: the explicit nearest-exit path ledger published during traceback
+- `state.visitedOpen`: the deterministic ledger of reachable corridor cells discovered so far
+- `state.blockedCells`: the deterministic row-major ledger of wall cells in the maze
+- `state.stepsToExit`: the returned shortest escape distance in steps, or `-1` when no exit is reachable
+- `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
+- `state.exit`: the boundary cell chosen as the nearest deterministic exit once one is discovered
 
 01 Matrix records:
 

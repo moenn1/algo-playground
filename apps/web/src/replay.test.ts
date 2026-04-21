@@ -213,6 +213,43 @@ describe("buildRun", () => {
     expect(finalStep.state.rejectedEdges).toEqual([]);
   });
 
+  it("builds maze-exit replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "nearest-exit-from-entrance-in-maze",
+      JSON.stringify(
+        {
+          grid: [
+            ["+", "+", "+", "+", "+"],
+            ["+", ".", ".", ".", "+"],
+            ["+", "+", "+", ".", "+"],
+            ["+", "+", "+", ".", "."],
+            ["+", "+", "+", "+", "+"]
+          ],
+          entrance: [1, 1]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("nearest-exit-from-entrance-in-maze");
+    expect(finalStep.state.kind).toBe("nearest-exit-from-entrance-in-maze");
+    if (finalStep.state.kind !== "nearest-exit-from-entrance-in-maze") {
+      throw new Error("Expected the maze-exit graph state.");
+    }
+    expect(finalStep.state.reachable).toBe(true);
+    expect(finalStep.state.stepsToExit).toBe(5);
+    expect(finalStep.state.exit).toBe("3,4");
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds count-connected-components replay runs from the shared graph engine", () => {
     const run = buildRun(
       "count-connected-components",

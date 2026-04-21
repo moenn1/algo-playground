@@ -569,7 +569,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much work went into island marking versus bridge-wave expansion before the minimum flip count locked in.",
     skills: ["island marking", "multi-source bfs", "bridge waves"],
     spotlight: "A strong graph continuation because it reuses grid traversal primitives while turning the answer into a deterministic phase transition from component marking to shortest bridge expansion.",
-    nextAlgorithmIds: ["shortest-path-binary-matrix", "pacific-atlantic-water-flow"]
+    nextAlgorithmIds: ["shortest-path-binary-matrix", "nearest-exit-from-entrance-in-maze"]
   },
   "shortest-path-binary-matrix": {
     stage: "core",
@@ -581,7 +581,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much blocked-cell scanning and queue churn happened before the shortest route locked in.",
     skills: ["8-direction bfs", "traceback", "blocked-cell ledgers"],
     spotlight: "A strong graph continuation because it keeps the grid frontier model while adding an explicit path-recovery phase instead of stopping at reachability alone.",
-    nextAlgorithmIds: ["pacific-atlantic-water-flow", "01-matrix"]
+    nextAlgorithmIds: ["nearest-exit-from-entrance-in-maze", "01-matrix"]
+  },
+  "nearest-exit-from-entrance-in-maze": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.945,
+    timeToExplore: "6 min",
+    complexity: "The BFS stays grid-local, but the replay has to separate the entrance from valid boundary exits while preserving the first deterministic escape and its traceback.",
+    outcome: "See exactly when a corridor cell is discovered, which boundary opening becomes the nearest exit, and how traceback rebuilds the final escape route.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much corridor search and wall checking happened before the shortest escape path locked in.",
+    skills: ["4-direction bfs", "boundary exits", "traceback"],
+    spotlight: "A strong follow-up to blocked-grid pathfinding because it reuses explicit frontier instrumentation while switching the terminal condition from one fixed target to the nearest valid boundary exit.",
+    nextAlgorithmIds: ["shortest-path-binary-matrix", "01-matrix"]
   },
   "surrounded-regions": {
     stage: "core",

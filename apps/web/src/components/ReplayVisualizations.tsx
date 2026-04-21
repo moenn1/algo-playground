@@ -25,6 +25,7 @@ import {
   isRottingOrangesInput,
   isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
+  isNearestExitFromEntranceInMazeInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
@@ -892,6 +893,68 @@ function formatShortestPathBinaryMatrixCellStatus(
 
   if (step.state.visitedOpen.includes(cell)) {
     return step.state.phaseMode === "traceback" ? "Reachable open cell" : "Discovered open cell";
+  }
+
+  return "Open";
+}
+
+function getNearestExitMazeCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "nearest-exit-from-entrance-in-maze" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "water";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return "active";
+  }
+
+  return "land";
+}
+
+function formatNearestExitMazeCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "nearest-exit-from-entrance-in-maze" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback" ? "Traceback focus" : "Search focus";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return cell === step.state.exit ? "Nearest exit" : cell === step.state.entrance ? "Entrance" : "Escape path";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "Queued open cell";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "Wall";
+  }
+
+  if (cell === step.state.entrance) {
+    return "Entrance";
+  }
+
+  if (step.state.exits.includes(cell)) {
+    return "Exit candidate";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return step.state.phaseMode === "traceback" ? "Reachable corridor" : "Discovered corridor";
   }
 
   return "Open";
@@ -3596,6 +3659,189 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.capturedAny
                 ? `Protected cells remain at ${step.state.safeCells.join(", ")}`
                 : "Replay stores the safe-region ledger directly without recomputing border reachability."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "nearest-exit-from-entrance-in-maze" &&
+    isNearestExitFromEntranceInMazeInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} maze grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Nearest Exit from Entrance in Maze status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Escape path</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Discovered corridor</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.exits.length} exit candidate{step.state.exits.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.reachable === true
+                  ? `Nearest exit in ${step.state.stepsToExit ?? 0} step${step.state.stepsToExit === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "Maze exit remains unreachable"
+                    : `${step.state.frontier.length} corridor cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? step.state.entrance}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getNearestExitMazeCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === "+" ? "Wall" : cell === step.state.entrance ? "Enter" : "Open"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatNearestExitMazeCellStatus(cell, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Maze focus</span>
+              <strong>{step.state.current ?? step.state.entrance}</strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} path cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.visitedOpen.length} corridor cell${step.state.visitedOpen.length === 1 ? "" : "s"} discovered`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued corridor cells</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Visited open</strong>
+                  <span className="graph-node-status">{step.state.visitedOpen.length}</span>
+                </div>
+                <span className="graph-node-distance">Reachable corridor cells</span>
+                <span className="graph-node-meta">
+                  {step.state.visitedOpen.length > 0
+                    ? step.state.visitedOpen.join(" · ")
+                    : "No corridor cells discovered"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Escape path</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.stepsToExit !== null
+                    ? `${step.state.stepsToExit} step${step.state.stepsToExit === 1 ? "" : "s"}`
+                    : "No path yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.reachable === null
+                      ? step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"
+                      : step.state.reachable
+                        ? "Resolved"
+                        : "No exit"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.reachable === true
+                    ? `Exit ${step.state.exit ?? "pending"}`
+                    : `${step.state.blockedCells.length} wall${step.state.blockedCells.length === 1 ? "" : "s"} recorded`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Entrance</span>
+            <strong>{step.state.entrance}</strong>
+            <p>The BFS search always seeds from the same open entrance cell.</p>
+          </div>
+          <div className="mini-card">
+            <span>Exit candidates</span>
+            <div className="pill-row">
+              {step.state.exits.length > 0 ? (
+                step.state.exits.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No valid exits</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>
+              {step.state.reachable === true
+                ? `${step.state.stepsToExit ?? 0} step${step.state.stepsToExit === 1 ? "" : "s"}`
+                : step.state.reachable === false
+                  ? "-1"
+                  : "Pending"}
+            </strong>
+            <p>
+              {step.state.reachable === true
+                ? `Replay stores the nearest exit ${step.state.exit} and the full traceback path directly.`
+                : step.state.reachable === false
+                  ? "Replay stores the reachable corridor ledger directly when no exit can be reached."
+                  : "The maze frontier is still expanding toward the boundary."}
             </p>
           </div>
         </div>

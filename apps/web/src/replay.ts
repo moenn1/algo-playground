@@ -33,6 +33,7 @@ import {
   defaultRottingOrangesInput,
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
+  defaultNearestExitFromEntranceInMazeInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
   defaultMapOfHighestPeakInput,
@@ -335,6 +336,20 @@ export function isShortestPathBinaryMatrixInput(
     "grid" in input &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
+export function isNearestExitFromEntranceInMazeInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: string[][]; entrance: [number, number] }> {
+  return (
+    "grid" in input &&
+    "entrance" in input &&
+    Array.isArray(input.entrance) &&
+    input.entrance.length === 2 &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "string" && (cell === "." || cell === "+"))
     )
   );
 }
@@ -933,6 +948,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "nearest-exit-from-entrance-in-maze",
+    name: "Nearest Exit from Entrance in Maze",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Blocked-maze replay records entrance-seeded BFS waves, deterministic first-exit selection, and explicit traceback into the nearest boundary escape.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "." for open cells, "+" for walls, and an entrance coordinate pair.',
+    defaultInput: serializeGraphInput(defaultNearestExitFromEntranceInMazeInput),
+    domain: "graph"
+  },
+  {
     id: "01-matrix",
     name: "01 Matrix",
     badge: "Graph",
@@ -1259,6 +1286,7 @@ export function describeInputFootprint(run: ReplayRun): string {
         isPacificAtlanticWaterFlowInput(run.input) ||
         isShortestBridgeInput(run.input) ||
         isShortestPathBinaryMatrixInput(run.input) ||
+        isNearestExitFromEntranceInMazeInput(run.input) ||
         isSurroundedRegionsInput(run.input) ||
         isWallsAndGatesInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`

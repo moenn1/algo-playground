@@ -181,6 +181,8 @@ The shortest-bridge presets resolve for Shortest Bridge and use `{ "grid": numbe
 
 The binary-matrix path presets resolve for Shortest Path in Binary Matrix and use `{ "grid": number[][] }` as the normalized contract, where `0` is open and `1` is blocked.
 
+The maze-exit presets resolve for Nearest Exit from Entrance in Maze and use `{ "grid": string[][], "entrance": [row, column] }` as the normalized contract, where `"."` is an open corridor cell, `"+"` is a wall, and the entrance must point at an open cell. The curated pair covers one reachable boundary exit and one isolated boundary exit so replay can show both traceback and stalled-frontier `-1` outcomes.
+
 The shoreline presets resolve for As Far from Land as Possible and use `{ "grid": number[][] }` as the normalized contract, where `1` is land and `0` is water.
 
 The highest-peak presets resolve for Map of Highest Peak and use `{ "grid": number[][] }` as the normalized contract, where `1` is water and `0` is land.
@@ -284,6 +286,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Top K Frequent Elements payloads must define between 2 and 24 integers plus an integer `k` between `1` and the number of distinct values.
 - Pacific Atlantic Water Flow payloads must define a rectangular grid up to `8 x 8` and every height must be a non-negative integer.
 - Shortest Path in Binary Matrix payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
+- Nearest Exit from Entrance in Maze payloads must define a rectangular grid up to `8 x 8`, every cell must be `"."` or `"+"`, and the entrance must point at an open in-bounds cell.
 - As Far from Land as Possible payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
 - Map of Highest Peak payloads must define a rectangular grid up to `8 x 8`, every cell must be either `0` or `1`, and at least one water cell must be present.
 - Surrounded Regions payloads must define a rectangular grid up to `8 x 8` and every cell must normalize to `"X"` or `"O"`.

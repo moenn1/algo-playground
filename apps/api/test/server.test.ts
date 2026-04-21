@@ -1014,6 +1014,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "2 x 2 grid"
     });
 
+    const mazeExitPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-maze-exit/resolve",
+      payload: {
+        algorithmId: "nearest-exit-from-entrance-in-maze"
+      }
+    });
+
+    expect(mazeExitPreset.statusCode).toBe(200);
+    expect(mazeExitPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-maze-exit"
+      },
+      algorithm: {
+        id: "nearest-exit-from-entrance-in-maze",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
+    const sealedMazePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.sealed-maze-exit/resolve",
+      payload: {
+        algorithmId: "nearest-exit-from-entrance-in-maze"
+      }
+    });
+
+    expect(sealedMazePreset.statusCode).toBe(200);
+    expect(sealedMazePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.sealed-maze-exit"
+      },
+      algorithm: {
+        id: "nearest-exit-from-entrance-in-maze",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2595,6 +2637,44 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validateMazeExitInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "nearest-exit-from-entrance-in-maze",
+        payload: {
+          grid: [
+            ["+", "+", "+", "+", "+"],
+            ["+", ".", ".", ".", "+"],
+            ["+", "+", "+", ".", "+"],
+            ["+", "+", "+", ".", "."],
+            ["+", "+", "+", "+", "+"]
+          ],
+          entrance: [1, 1]
+        }
+      }
+    });
+
+    expect(validateMazeExitInput.statusCode).toBe(200);
+    expect(validateMazeExitInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "nearest-exit-from-entrance-in-maze",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["+", "+", "+", "+", "+"],
+          ["+", ".", ".", ".", "+"],
+          ["+", "+", "+", ".", "+"],
+          ["+", "+", "+", ".", "."],
+          ["+", "+", "+", "+", "+"]
+        ],
+        entrance: [1, 1]
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const validateCountComponentsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2959,6 +3039,31 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "grid[1][1] must be either 0 or 1."
+    });
+  });
+
+  it("rejects nearest-exit-from-entrance-in-maze payloads whose entrance is blocked", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "nearest-exit-from-entrance-in-maze",
+        payload: {
+          grid: [
+            ["+", "+", "+"],
+            ["+", "+", "."],
+            ["+", "+", "+"]
+          ],
+          entrance: [1, 1]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Nearest Exit from Entrance in Maze entrance must start on an open cell."
     });
   });
 
