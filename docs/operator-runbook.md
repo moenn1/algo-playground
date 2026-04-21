@@ -26,11 +26,15 @@ The demo seed currently materializes:
 - Insertion Sort on `sorting.baseline`
 - Shell Sort on `sorting.baseline`
 - Selection Sort on `sorting.baseline`
+- Quick Sort on `sorting.baseline`
+- Merge Sort on `sorting.baseline`
 - Heap Sort on `sorting.baseline`
 - Bubble Sort on `sorting.reverse-sorted`
 - Insertion Sort on `sorting.reverse-sorted`
 - Shell Sort on `sorting.reverse-sorted`
 - Selection Sort on `sorting.reverse-sorted`
+- Quick Sort on `sorting.reverse-sorted`
+- Merge Sort on `sorting.reverse-sorted`
 - Heap Sort on `sorting.reverse-sorted`
 - Binary Search on `search.reference-hit`
 - Binary Search on `search.missing-target`
@@ -62,6 +66,8 @@ The demo seed currently materializes:
 - Largest Rectangle in Histogram on `stack.inner-valley`
 - Min Stack on `stack.reference-min-stack`
 - Min Stack on `stack.recovering-minimum`
+- Breadth-First Search on `graph.reference-route`
+- Breadth-First Search on `graph.disconnected-target`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - Course Schedule on `graph.reference-schedule`
@@ -75,7 +81,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 25 algorithms with runs, 50 runs total, and 2 saved comparisons.
+That seed currently produces 28 algorithms with runs, 56 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

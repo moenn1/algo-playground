@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Expanded the deterministic demo seed so Quick Sort, Merge Sort, and Breadth-First Search now ship with persisted replay runs alongside the rest of the supported catalog.
+- Updated the operator runbook and seeded-dataset totals so local replay, history, and persistence checks now reflect all 28 currently supported algorithms with 56 seeded runs.
 - Added a shared sorting replay for Shell Sort, including deterministic gap-pass checkpoints, explicit gapped swaps, and reuse of the shared `comparisons` and `writes` metrics.
 - Wired Shell Sort through the input-service presets and validation, replay shell, library catalog, seeded demo data, and sorting-family documentation so TraceDeck now covers a seventh shared sorting replay without widening the sorting state contract.
 - Added a shared sorting replay for Heap Sort, including deterministic heapify comparisons, explicit root-extraction swaps, sift-down repair checkpoints, and reuse of the shared `comparisons` and `writes` metrics.

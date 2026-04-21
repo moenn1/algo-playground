@@ -39,6 +39,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "sorting", "baseline"]
   },
   {
+    key: "sorting-baseline-quick",
+    algorithmId: "quick-sort",
+    presetId: "sorting.baseline",
+    recordedAt: "2026-04-20T09:02:30.000Z",
+    tags: ["seeded-demo", "sorting", "baseline"]
+  },
+  {
+    key: "sorting-baseline-merge",
+    algorithmId: "merge-sort",
+    presetId: "sorting.baseline",
+    recordedAt: "2026-04-20T09:02:45.000Z",
+    tags: ["seeded-demo", "sorting", "baseline"]
+  },
+  {
     key: "sorting-baseline-insertion",
     algorithmId: "insertion-sort",
     presetId: "sorting.baseline",
@@ -64,6 +78,20 @@ const demoRunPlans: DemoRunPlan[] = [
     algorithmId: "selection-sort",
     presetId: "sorting.reverse-sorted",
     recordedAt: "2026-04-20T09:06:00.000Z",
+    tags: ["seeded-demo", "sorting", "worst-case"]
+  },
+  {
+    key: "sorting-reverse-quick",
+    algorithmId: "quick-sort",
+    presetId: "sorting.reverse-sorted",
+    recordedAt: "2026-04-20T09:06:10.000Z",
+    tags: ["seeded-demo", "sorting", "worst-case"]
+  },
+  {
+    key: "sorting-reverse-merge",
+    algorithmId: "merge-sort",
+    presetId: "sorting.reverse-sorted",
+    recordedAt: "2026-04-20T09:06:20.000Z",
     tags: ["seeded-demo", "sorting", "worst-case"]
   },
   {
@@ -303,6 +331,20 @@ const demoRunPlans: DemoRunPlan[] = [
     presetId: "stack.recovering-minimum",
     recordedAt: "2026-04-20T09:07:59.984Z",
     tags: ["seeded-demo", "stack", "recovering-minimum"]
+  },
+  {
+    key: "graph-reference-bfs",
+    algorithmId: "bfs",
+    presetId: "graph.reference-route",
+    recordedAt: "2026-04-20T09:08:15.000Z",
+    tags: ["seeded-demo", "graph", "reference-route"]
+  },
+  {
+    key: "graph-disconnected-bfs",
+    algorithmId: "bfs",
+    presetId: "graph.disconnected-target",
+    recordedAt: "2026-04-20T09:08:45.000Z",
+    tags: ["seeded-demo", "graph", "disconnected-target"]
   },
   {
     key: "graph-reference-route",
