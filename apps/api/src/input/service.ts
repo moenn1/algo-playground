@@ -193,6 +193,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Number of Islands",
     domain: "graph"
   },
+  "max-area-of-island": {
+    id: "max-area-of-island",
+    label: "Max Area of Island",
+    domain: "graph"
+  },
   "pacific-atlantic-water-flow": {
     id: "pacific-atlantic-water-flow",
     label: "Pacific Atlantic Water Flow",
@@ -264,6 +269,7 @@ const redundantConnectionAlgorithms = [supportedAlgorithms["redundant-connection
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
+const maxAreaOfIslandAlgorithms = [supportedAlgorithms["max-area-of-island"]] as const;
 const pacificAtlanticAlgorithms = [supportedAlgorithms["pacific-atlantic-water-flow"]] as const;
 const shortestBridgeAlgorithms = [supportedAlgorithms["shortest-bridge"]] as const;
 const shortestPathBinaryMatrixAlgorithms = [
@@ -423,6 +429,14 @@ const defaultNumberOfIslandsInput: NumberOfIslandsInputPayload = {
     ["1", "1", "0", "0", "0"],
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
+    ["0", "0", "0", "1", "1"]
+  ]
+};
+const defaultMaxAreaOfIslandInput: NumberOfIslandsInputPayload = {
+  grid: [
+    ["0", "0", "1", "0", "0"],
+    ["1", "1", "1", "0", "1"],
+    ["0", "1", "0", "0", "1"],
     ["0", "0", "0", "1", "1"]
   ]
 };
@@ -2265,6 +2279,7 @@ function normalizeGraphInput(
     case "rotting-oranges":
       return normalizeRottingOrangesInput(payload);
     case "number-of-islands":
+    case "max-area-of-island":
       return normalizeNumberOfIslandsInput(payload);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(payload);
@@ -3640,6 +3655,46 @@ const presetDefinitions: InputPresetDefinition[] = [
       kind: "curated",
       domain: "graph",
       algorithms: numberOfIslandsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          ["1", "0", "1"],
+          ["0", "1", "0"],
+          ["1", "0", "1"]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-max-area",
+      label: "Reference max-area island",
+      description:
+        "Use a flood-fill grid with one plus-shaped island that overtakes the area ledger before a smaller trailing component closes.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: maxAreaOfIslandAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultMaxAreaOfIslandInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.diagonal-single-cells",
+      label: "Diagonal single cells",
+      description:
+        "Separate every land cell diagonally so replay can show the largest-island ledger staying pinned at area 1 under four-directional adjacency.",
+      scenario: "diagonal",
+      kind: "curated",
+      domain: "graph",
+      algorithms: maxAreaOfIslandAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({

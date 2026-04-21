@@ -463,6 +463,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong graph continuation because it reuses the grid replay surface from contagion-style BFS while shifting the goal to deterministic component counting.",
     nextAlgorithmIds: ["rotting-oranges", "course-schedule"]
   },
+  "max-area-of-island": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.915,
+    timeToExplore: "7 min",
+    complexity: "The replay still interleaves a row-major scan with frontier-based expansion, but now each finished component must also update a running largest-area scoreboard.",
+    outcome: "See exactly when flood-fill growth turns into a completed island, which island takes the lead, and why diagonal single cells never push the maximum above 1.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much scan and flood-fill work happened before the largest-island verdict stabilized.",
+    skills: ["connected components", "flood fill", "result ledgers"],
+    spotlight: "A strong connected-component follow-up because it reuses the Number of Islands traversal shell while turning the terminal contract into an explicit largest-area outcome.",
+    nextAlgorithmIds: ["number-of-islands", "shortest-bridge"]
+  },
   "pacific-atlantic-water-flow": {
     stage: "core",
     focus: "pathfinding",

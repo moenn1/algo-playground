@@ -33,6 +33,7 @@ export const supportedAlgorithmIds = [
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
+  "max-area-of-island",
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",

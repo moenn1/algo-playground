@@ -243,6 +243,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("number-of-islands");
   });
 
+  it("surfaces max-area-of-island study paths through largest-island metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "state-tracking",
+        q: "largest island area flood fill"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("max-area-of-island");
+  });
+
   it("surfaces walls-and-gates study paths through multi-source bfs metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

@@ -473,6 +473,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "diagonal-islands"]
   },
   {
+    key: "graph-reference-max-area",
+    algorithmId: "max-area-of-island",
+    presetId: "graph.reference-max-area",
+    recordedAt: "2026-04-20T09:16:05.000Z",
+    tags: ["seeded-demo", "graph", "reference-max-area"]
+  },
+  {
+    key: "graph-diagonal-single-cells",
+    algorithmId: "max-area-of-island",
+    presetId: "graph.diagonal-single-cells",
+    recordedAt: "2026-04-20T09:16:10.000Z",
+    tags: ["seeded-demo", "graph", "diagonal-single-cells"]
+  },
+  {
     key: "graph-reference-flow",
     algorithmId: "pacific-atlantic-water-flow",
     presetId: "graph.reference-flow",

@@ -1014,6 +1014,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const maxAreaPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-max-area/resolve",
+      payload: {
+        algorithmId: "max-area-of-island"
+      }
+    });
+
+    expect(maxAreaPreset.statusCode).toBe(200);
+    expect(maxAreaPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-max-area"
+      },
+      algorithm: {
+        id: "max-area-of-island",
+        domain: "graph"
+      },
+      footprint: "4 x 5 grid"
+    });
+
+    const diagonalSingleCellsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.diagonal-single-cells/resolve",
+      payload: {
+        algorithmId: "max-area-of-island"
+      }
+    });
+
+    expect(diagonalSingleCellsPreset.statusCode).toBe(200);
+    expect(diagonalSingleCellsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.diagonal-single-cells"
+      },
+      algorithm: {
+        id: "max-area-of-island",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const pacificAtlanticPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-flow/resolve",
@@ -1998,6 +2040,38 @@ describe("TraceDeck API foundation", () => {
           ["1", "1", "0"],
           ["0", "1", "0"],
           ["1", "0", "1"]
+        ]
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const validateMaxAreaOfIslandInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "max-area-of-island",
+        payload: {
+          grid: [
+            [0, 0, 1],
+            [1, 1, 1],
+            [0, 1, 0]
+          ]
+        }
+      }
+    });
+
+    expect(validateMaxAreaOfIslandInput.statusCode).toBe(200);
+    expect(validateMaxAreaOfIslandInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "max-area-of-island",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["0", "0", "1"],
+          ["1", "1", "1"],
+          ["0", "1", "0"]
         ]
       },
       footprint: "3 x 3 grid"

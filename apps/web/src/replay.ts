@@ -25,6 +25,7 @@ import {
   defaultMinStackInput,
   defaultNetworkDelayTimeInput,
   defaultNumberOfIslandsInput,
+  defaultMaxAreaOfIslandInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRedundantConnectionInput,
   defaultRottingOrangesInput,
@@ -806,6 +807,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: 'JSON with a grid using "0" for water and "1" for land.',
     defaultInput: serializeGraphInput(defaultNumberOfIslandsInput),
+    domain: "graph"
+  },
+  {
+    id: "max-area-of-island",
+    name: "Max Area of Island",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Connected-component replay records row-major scan checkpoints, flood-fill growth, and the terminal largest-island area ledger.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "0" for water and "1" for land.',
+    defaultInput: serializeGraphInput(defaultMaxAreaOfIslandInput),
     domain: "graph"
   },
   {

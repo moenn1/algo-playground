@@ -17,6 +17,7 @@ export type GraphAlgorithmId =
   | "course-schedule"
   | "rotting-oranges"
   | "number-of-islands"
+  | "max-area-of-island"
   | "pacific-atlantic-water-flow"
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
@@ -34,6 +35,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
+  "max-area-of-island",
   "pacific-atlantic-water-flow",
   "shortest-bridge",
   "shortest-path-binary-matrix",
@@ -222,6 +224,27 @@ export interface NumberOfIslandsExecutionState extends JsonObject {
   remainingLand: string[];
 }
 
+export interface MaxAreaOfIslandExecutionState extends JsonObject {
+  kind: "max-area-of-island";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  islandCount: number;
+  activeIslandId: number | null;
+  activeIsland: string[];
+  activeIslandArea: number;
+  completedIslands: string[][];
+  completedAreas: number[];
+  cellIslands: Record<string, number>;
+  remainingLand: string[];
+  maxArea: number;
+  largestIslandId: number | null;
+  largestIsland: string[];
+}
+
 export interface PacificAtlanticWaterFlowExecutionState extends JsonObject {
   kind: "pacific-atlantic-water-flow";
   grid: number[][];
@@ -308,6 +331,7 @@ export type GraphExecutionState =
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
+  | MaxAreaOfIslandExecutionState
   | PacificAtlanticWaterFlowExecutionState
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
@@ -453,6 +477,26 @@ interface NumberOfIslandsRuntimeState {
   remainingLand: Set<string>;
 }
 
+interface MaxAreaOfIslandRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  scan: string | null;
+  islandCount: number;
+  activeIslandId: number | null;
+  activeIsland: string[];
+  activeIslandArea: number;
+  completedIslands: string[][];
+  completedAreas: number[];
+  cellIslands: Record<string, number>;
+  remainingLand: Set<string>;
+  maxArea: number;
+  largestIslandId: number | null;
+  largestIsland: string[];
+}
+
 interface PacificAtlanticWaterFlowRuntimeState {
   grid: number[][];
   settled: string[];
@@ -575,6 +619,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "number-of-islands",
     label: "Number of Islands",
     implementationVersion: "graph-engine-0.4.0"
+  },
+  "max-area-of-island": {
+    id: "max-area-of-island",
+    label: "Max Area of Island",
+    implementationVersion: "graph-engine-0.14.0"
   },
   "pacific-atlantic-water-flow": {
     id: "pacific-atlantic-water-flow",
@@ -736,6 +785,15 @@ export const defaultNumberOfIslandsInput: NumberOfIslandsInput = {
     ["1", "1", "0", "0", "0"],
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
+    ["0", "0", "0", "1", "1"]
+  ]
+};
+
+export const defaultMaxAreaOfIslandInput: NumberOfIslandsInput = {
+  grid: [
+    ["0", "0", "1", "0", "0"],
+    ["1", "1", "1", "0", "1"],
+    ["0", "1", "0", "0", "1"],
     ["0", "0", "0", "1", "1"]
   ]
 };
@@ -934,6 +992,31 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
         ...state.cellIslands
       },
       remainingLand: state.remainingLand.slice()
+    };
+  }
+
+  if (state.kind === "max-area-of-island") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      scan: state.scan,
+      islandCount: state.islandCount,
+      activeIslandId: state.activeIslandId,
+      activeIsland: state.activeIsland.slice(),
+      activeIslandArea: state.activeIslandArea,
+      completedIslands: state.completedIslands.map((island) => island.slice()),
+      completedAreas: state.completedAreas.slice(),
+      cellIslands: {
+        ...state.cellIslands
+      },
+      remainingLand: state.remainingLand.slice(),
+      maxArea: state.maxArea,
+      largestIslandId: state.largestIslandId,
+      largestIsland: state.largestIsland.slice()
     };
   }
 
@@ -1637,6 +1720,8 @@ export function parseGraphInputText(
       return normalizeRottingOrangesInput(parsed);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(parsed);
+    case "max-area-of-island":
+      return normalizeNumberOfIslandsInput(parsed);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(parsed);
     case "shortest-bridge":
@@ -1670,6 +1755,8 @@ export function normalizeGraphInput(
     case "rotting-oranges":
       return normalizeRottingOrangesInput(input);
     case "number-of-islands":
+      return normalizeNumberOfIslandsInput(input);
+    case "max-area-of-island":
       return normalizeNumberOfIslandsInput(input);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(input);
@@ -2192,6 +2279,37 @@ function createNumberOfIslandsRecorder() {
   });
 }
 
+function createMaxAreaOfIslandRecorder() {
+  return createTraceRecorder<MaxAreaOfIslandRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "max-area-of-island",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "max-area-of-island",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        scan: runtimeState.scan,
+        islandCount: runtimeState.islandCount,
+        activeIslandId: runtimeState.activeIslandId,
+        activeIsland: runtimeState.activeIsland.slice(),
+        activeIslandArea: runtimeState.activeIslandArea,
+        completedIslands: runtimeState.completedIslands.map((island) => island.slice()),
+        completedAreas: runtimeState.completedAreas.slice(),
+        cellIslands: {
+          ...runtimeState.cellIslands
+        },
+        remainingLand: Array.from(runtimeState.remainingLand).sort(compareCellIds),
+        maxArea: runtimeState.maxArea,
+        largestIslandId: runtimeState.largestIslandId,
+        largestIsland: runtimeState.largestIsland.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createPacificAtlanticWaterFlowRecorder() {
   return createTraceRecorder<
     PacificAtlanticWaterFlowRuntimeState,
@@ -2339,6 +2457,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
+    | ReturnType<typeof createMaxAreaOfIslandRecorder>
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
@@ -5324,6 +5443,425 @@ export function buildPacificAtlanticWaterFlowTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildMaxAreaOfIslandTrace(
+  input: NumberOfIslandsInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["max-area-of-island"];
+  const normalizedInput = normalizeNumberOfIslandsInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const remainingLand = new Set<string>();
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const completedIslands: string[][] = [];
+  const completedAreas: number[] = [];
+  const cellIslands: Record<string, number> = {};
+  const recorder = createMaxAreaOfIslandRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let scan: string | null = null;
+  let islandCount = 0;
+  let activeIslandId: number | null = null;
+  let activeIsland: string[] = [];
+  let activeIslandArea = 0;
+  let maxArea = 0;
+  let largestIslandId: number | null = null;
+  let largestIsland: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      if (grid[row]![column] === "1") {
+        remainingLand.add(makeCellId(row, column));
+      }
+    }
+  }
+
+  const createRuntimeState = (): MaxAreaOfIslandRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    scan,
+    islandCount,
+    activeIslandId,
+    activeIsland,
+    activeIslandArea,
+    completedIslands,
+    completedAreas,
+    cellIslands,
+    remainingLand,
+    maxArea,
+    largestIslandId,
+    largestIsland
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The grid scan records every unresolved land cell before traversal starts so replay can compare each completed island area against a stable largest-island ledger.",
+    explanation: {
+      summary: "Seed the remaining-land ledger and reset the largest-area scoreboard before the first row-major scan step.",
+      details:
+        "The opening frame stores the full grid, every unresolved land coordinate, and a zeroed max-area outcome so replay never infers island sizes from hidden traversal state.",
+      tags: ["snapshot", "result"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "max-area-of-island-initial",
+        path: "state.remainingLand",
+        kind: "collection",
+        intent: "focus",
+        label: `${remainingLand.size} land cell${remainingLand.size === 1 ? "" : "s"} awaiting scan`
+      }
+    ]
+  });
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+      const value = grid[row]![column]!;
+      scan = cell;
+      current = null;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      if (value === "0") {
+        recorder.push({
+          phase: "Scan",
+          description: `Scan ${formatCellLabel(cell)} and skip water because it cannot grow the largest-island area ledger.`,
+          explanation: {
+            summary: "Advance the row-major scan across water without creating a frontier.",
+            details:
+              "Water still gets its own checkpoint so replay can explain why this cell does not affect either island discovery or the current max-area result.",
+            tags: ["scan", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `max-area-of-island-water-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "candidate",
+              label: `Water ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (!remainingLand.has(cell)) {
+        recorder.push({
+          phase: "Scan",
+          description: `Scan ${formatCellLabel(cell)} and keep moving because that land already belongs to island ${cellIslands[cell] ?? "?"}.`,
+          explanation: {
+            summary: "Advance the row-major scan past land that was already claimed during an earlier island traversal.",
+            details:
+              "Replay records these passes explicitly so the scan order stays deterministic even after flood-fill work grows and scores an island before the cursor reaches later cells.",
+            tags: ["scan", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `max-area-of-island-claimed-${cell}`,
+              path: "state.scan",
+              kind: "node",
+              intent: "visited",
+              label: `Island ${cellIslands[cell] ?? "?"} already claimed ${formatCellLabel(cell)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      islandCount += 1;
+      activeIslandId = islandCount;
+      activeIsland = [cell];
+      activeIslandArea = 1;
+      frontier.push(cell);
+      remainingLand.delete(cell);
+      cellIslands[cell] = activeIslandId;
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Seed Island",
+        description: `Land ${formatCellLabel(cell)} starts island ${activeIslandId} with area 1 and becomes the first frontier cell.`,
+        explanation: {
+          summary: "Start a new island when the row-major scan reaches unresolved land.",
+          details:
+            "The seed cell is claimed immediately so replay can show both the island count and the active island area rising before the rest of the component is explored.",
+          tags: ["scan", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `max-area-of-island-seed-${cell}`,
+            path: "state.activeIslandArea",
+            kind: "node",
+            intent: "frontier",
+            label: `Island ${activeIslandId} seeded at area 1`
+          }
+        ]
+      });
+
+      scan = null;
+
+      while (frontier.length > 0) {
+        const currentCell = frontier.shift();
+
+        if (!currentCell) {
+          break;
+        }
+
+        current = currentCell;
+        activeEdge = [];
+        metrics.frontier = frontier.length;
+
+        recorder.push({
+          phase: "Extract",
+          description: `Island ${activeIslandId} expands from ${formatCellLabel(currentCell)} with area ${activeIslandArea} against a current max of ${maxArea}.`,
+          explanation: {
+            summary: "Expand the next claimed land cell from the active island frontier.",
+            details:
+              "The queue order is recorded before neighbor checks begin so replay can compare live flood-fill growth against the current largest-island result without hidden bookkeeping.",
+            tags: ["frontier", "result"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `max-area-of-island-current-${currentCell}`,
+              path: "state.current",
+              kind: "node",
+              intent: "active",
+              label: `Explore ${formatCellLabel(currentCell)}`
+            }
+          ]
+        });
+
+        const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+        for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+          const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+          const neighborValue = grid[neighborRow]![neighborColumn]!;
+          activeEdge = [currentCell, neighbor];
+          metrics.inspections += 1;
+
+          if (neighborValue === "0") {
+            recorder.push({
+              phase: "Inspect",
+              description: `Inspect ${formatCellLabel(neighbor)} and stop because water breaks the current island boundary.`,
+              explanation: {
+                summary: "Inspect a neighboring water cell without growing the active island.",
+                details:
+                  "Water adjacency is recorded explicitly so replay can explain why the candidate island area does not increase through that edge.",
+                tags: ["edge", "focus"]
+              },
+              runtimeState: createRuntimeState(),
+              metrics,
+              highlights: [
+                {
+                  key: `max-area-of-island-water-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+                  path: `state.grid.${neighborRow}.${neighborColumn}`,
+                  kind: "node",
+                  intent: "candidate",
+                  label: `Water ${formatCellLabel(neighbor)}`
+                }
+              ]
+            });
+            continue;
+          }
+
+          if (!remainingLand.has(neighbor)) {
+            recorder.push({
+              phase: "Inspect",
+              description: `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because island ${cellIslands[neighbor] ?? activeIslandId} already claimed it.`,
+              explanation: {
+                summary: "Inspect previously claimed land without re-enqueuing it.",
+                details:
+                  "This keeps island membership deterministic and prevents replay from inferring deduplication from hidden visited state while the max-area ledger stays unchanged.",
+                tags: ["edge", "visited"]
+              },
+              runtimeState: createRuntimeState(),
+              metrics,
+              highlights: [
+                {
+                  key: `max-area-of-island-claimed-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+                  path: `state.cellIslands.${neighbor}`,
+                  kind: "node",
+                  intent: "visited",
+                  label: `Island ${cellIslands[neighbor] ?? activeIslandId}`
+                }
+              ]
+            });
+            continue;
+          }
+
+          frontier.push(neighbor);
+          activeIsland.push(neighbor);
+          activeIslandArea += 1;
+          remainingLand.delete(neighbor);
+          cellIslands[neighbor] = activeIslandId;
+          metrics.frontier = frontier.length;
+          metrics.updates += 1;
+
+          recorder.push({
+            phase: "Expand",
+            description: `Land ${formatCellLabel(neighbor)} joins island ${activeIslandId}, raising its area to ${activeIslandArea}.`,
+            explanation: {
+              summary: "Claim one neighboring land cell and append it to the active frontier.",
+              details:
+                "The recorded state includes the frontier queue, island membership, current island area, and remaining unresolved land so replay never rebuilds the largest-island candidate from scratch.",
+              tags: ["edge", "frontier"]
+            },
+            runtimeState: createRuntimeState(),
+            metrics,
+            highlights: [
+              {
+                key: `max-area-of-island-expand-${currentCell}-${neighbor}-${metrics.updates}`,
+                path: "state.activeIslandArea",
+                kind: "node",
+                intent: "frontier",
+                label: `Island ${activeIslandId} grows to ${activeIslandArea}`
+              }
+            ]
+          });
+        }
+
+        settled.push(currentCell);
+        current = currentCell;
+        activeEdge = [];
+        metrics.settled = settled.length;
+        metrics.frontier = frontier.length;
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is fully processed inside island ${activeIslandId}.`,
+          explanation: {
+            summary: "Seal one land cell after all of its neighbor inspections are recorded.",
+            details:
+              "This checkpoint preserves the component frontier, processed land ledger, and current island area directly so replay can reopen any flood-fill boundary.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `max-area-of-island-settled-${currentCell}`,
+              path: "state.settled",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} settled`
+            }
+          ]
+        });
+      }
+
+      completedIslands.push(activeIsland.slice());
+      completedAreas.push(activeIslandArea);
+      current = null;
+      activeEdge = [];
+      metrics.frontier = frontier.length;
+
+      if (activeIslandArea > maxArea) {
+        maxArea = activeIslandArea;
+        largestIslandId = activeIslandId;
+        largestIsland = activeIsland.slice();
+
+        recorder.push({
+          phase: "Max Update",
+          description: `Island ${activeIslandId} becomes the new largest island with area ${maxArea}.`,
+          explanation: {
+            summary: "Publish a new leading island area as soon as the active component closes.",
+            details:
+              "Replay records the winning island id, area, and cell membership directly so later frames can explain the final maximum without replay-time recomputation.",
+            tags: ["checkpoint", "result"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `max-area-of-island-max-${activeIslandId}`,
+              path: "state.maxArea",
+              kind: "node",
+              intent: "result",
+              label: `Largest area now ${maxArea}`
+            }
+          ]
+        });
+      }
+
+      recorder.push({
+        phase: "Island Complete",
+        description: `Island ${activeIslandId} closes with area ${activeIslandArea}.`,
+        explanation: {
+          summary: "Publish the completed connected component before the row-major scan resumes.",
+          details:
+            "Replay stores the full component membership and per-island area ledger so later scan steps can explain both why those cells no longer seed islands and how the current maximum was established.",
+          tags: ["checkpoint", "result"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `max-area-of-island-complete-${activeIslandId}`,
+            path: "state.completedAreas",
+            kind: "collection",
+            intent: "result",
+            label: `Island ${activeIslandId} area ${activeIslandArea}`
+          }
+        ]
+      });
+
+      activeIslandId = null;
+      activeIsland = [];
+      activeIslandArea = 0;
+    }
+  }
+
+  scan = null;
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The full row-major scan completes with a maximum island area of ${maxArea} across ${islandCount} island${islandCount === 1 ? "" : "s"}.`,
+    explanation: {
+      summary: "Publish the terminal largest-island area once every grid cell has been scanned or claimed.",
+      details:
+        "The terminal frame preserves the full per-island area ledger, the winning island membership, and the remaining-land set directly so replay can explain the final result without rerunning traversal.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "max-area-of-island-final",
+        path: "state.maxArea",
+        kind: "node",
+        intent: "result",
+        label: `Largest island area ${maxArea}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestBridgeTrace(
   input: ShortestBridgeInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -7045,6 +7583,8 @@ export function buildGraphTrace(
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
     case "number-of-islands":
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
+    case "max-area-of-island":
+      return buildMaxAreaOfIslandTrace(graph as NumberOfIslandsInput);
     case "pacific-atlantic-water-flow":
       return buildPacificAtlanticWaterFlowTrace(graph as PacificAtlanticWaterFlowInput);
     case "shortest-bridge":

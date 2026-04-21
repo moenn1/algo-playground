@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -131,6 +131,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.isolated-fresh`: curated infection grid where one fresh orange remains unreachable
 - `graph.reference-islands`: curated archipelago grid with three deterministic connected components
 - `graph.diagonal-islands`: curated diagonal land pattern that stays disconnected under four-directional adjacency
+- `graph.reference-max-area`: curated flood-fill grid where one plus-shaped island takes the largest-area lead before a smaller trailing island closes
+- `graph.diagonal-single-cells`: curated diagonal land pattern where every island has area `1`
 - `graph.reference-flow`: curated heights grid with a stable dual-ocean coastline intersection
 - `graph.interior-sink`: curated basin where one low interior cell never joins either ocean reachability set
 - `graph.reference-bridge`: curated two-island grid with one stable shortest bridge
@@ -158,6 +160,8 @@ The scheduling presets resolve for Course Schedule and use `{ "courseCount": num
 The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] }` as the normalized contract, where `0` is empty, `1` is fresh, and `2` is rotten.
 
 The island-count presets resolve for Number of Islands and use `{ "grid": string[][] }` as the normalized contract, where `"0"` is water and `"1"` is land. Numeric `0` and `1` values are accepted during validation and normalized to strings.
+
+The max-area presets resolve for Max Area of Island and use that same `{ "grid": string[][] }` normalized contract. Replay preserves both the completed-island area ledger and the current winning island membership directly in the trace.
 
 The dual-ocean presets resolve for Pacific Atlantic Water Flow and use `{ "grid": number[][] }` as the normalized contract, where each cell is a non-negative integer height.
 
@@ -275,6 +279,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Course Schedule payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Rotting Oranges payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `0`, `1`, or `2`.
 - Number of Islands payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.
+- Max Area of Island payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.
 - Walls and Gates payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `-1`, `0`, or `2147483647`.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

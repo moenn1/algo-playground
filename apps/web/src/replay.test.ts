@@ -396,6 +396,42 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds max-area-of-island replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "max-area-of-island",
+      JSON.stringify(
+        {
+          grid: [
+            ["0", "0", "1", "0", "0"],
+            ["1", "1", "1", "0", "1"],
+            ["0", "1", "0", "0", "1"],
+            ["0", "0", "0", "1", "1"]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("max-area-of-island");
+    expect(finalStep.state.kind).toBe("max-area-of-island");
+    if (finalStep.state.kind !== "max-area-of-island") {
+      throw new Error("Expected the max-area-of-island graph state.");
+    }
+    expect(finalStep.state.maxArea).toBe(5);
+    expect(finalStep.state.completedAreas).toEqual([5, 4]);
+    expect(finalStep.state.remainingLand).toEqual([]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.maxArea"))).toBe(
+      true
+    );
+  });
+
   it("builds pacific-atlantic-water-flow replay runs from the shared graph engine", () => {
     const run = buildRun(
       "pacific-atlantic-water-flow",

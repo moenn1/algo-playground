@@ -179,6 +179,7 @@ function formatGraphNodeStatus(
     step.state.kind === "course-schedule" ||
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
+    step.state.kind === "max-area-of-island" ||
     step.state.kind === "pacific-atlantic-water-flow" ||
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
@@ -521,10 +522,15 @@ function formatOrangeCellStatus(
   }
 }
 
+type IslandTraversalState = Extract<
+  GraphExecutionState,
+  { kind: "number-of-islands" | "max-area-of-island" }
+>;
+
 function getIslandCellTone(
   cell: string,
   value: string,
-  step: TraceStep<Extract<GraphExecutionState, { kind: "number-of-islands" }>>
+  step: TraceStep<IslandTraversalState>
 ):
   | "current"
   | "frontier"
@@ -563,7 +569,7 @@ function getIslandCellTone(
 function formatIslandCellStatus(
   cell: string,
   value: string,
-  step: TraceStep<Extract<GraphExecutionState, { kind: "number-of-islands" }>>
+  step: TraceStep<IslandTraversalState>
 ): string {
   switch (getIslandCellTone(cell, value, step)) {
     case "current":
@@ -1671,17 +1677,22 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
-  if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+  if (
+    (step.state.kind === "number-of-islands" || step.state.kind === "max-area-of-island") &&
+    isNumberOfIslandsInput(run.input)
+  ) {
+    const maxAreaState = step.state.kind === "max-area-of-island" ? step.state : null;
+
     return (
       <>
         <div className="visual-heading">
           <div>
             <p className="eyebrow">Live State</p>
-            <h2>{run.algorithm.name} archipelago</h2>
+            <h2>{run.algorithm.name} island grid</h2>
           </div>
           <p className="visual-meta">Current phase: {step.phase}</p>
         </div>
-        <div className="graph-legend" aria-label="Number of Islands status legend">
+        <div className="graph-legend" aria-label={`${run.algorithm.name} status legend`}>
           <span className="graph-legend-pill graph-legend-pill-current">Active land</span>
           <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
           <span className="graph-legend-pill graph-legend-pill-settled">Claimed land</span>
@@ -1690,7 +1701,11 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
         <div className="graph-visual-grid">
           <div className="graph-stage island-stage">
             <div className="island-banner">
-              <span>{step.state.islandCount} island{step.state.islandCount === 1 ? "" : "s"} found</span>
+              <span>
+                {maxAreaState
+                  ? `Largest area ${maxAreaState.maxArea}`
+                  : `${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} found`}
+              </span>
               <strong>
                 {step.state.activeIslandId !== null
                   ? `Exploring island ${step.state.activeIslandId}`
@@ -1698,7 +1713,11 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                     ? `Scanning ${step.state.scan}`
                     : "Full grid scan complete"}
               </strong>
-              <p>{step.state.activeEdge.length > 0 ? formatActiveEdge(step.state.activeEdge) : step.state.scan ?? "No neighbor under inspection"}</p>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.scan ?? "No neighbor under inspection"}
+              </p>
             </div>
             <div
               className="island-stage-grid"
@@ -1733,12 +1752,22 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
           </div>
           <div className="graph-state-rail">
             <article className="mini-card graph-summary-card">
-              <span>Scan focus</span>
-              <strong>{step.state.scan ?? step.state.current ?? "Complete"}</strong>
+              <span>{maxAreaState ? "Largest island" : "Scan focus"}</span>
+              <strong>
+                {maxAreaState
+                  ? maxAreaState.largestIslandId !== null
+                    ? `Island ${maxAreaState.largestIslandId} · area ${maxAreaState.maxArea}`
+                    : "No land yet"
+                  : step.state.scan ?? step.state.current ?? "Complete"}
+              </strong>
               <p>
-                {step.state.activeIslandId !== null
-                  ? `Island ${step.state.activeIslandId} currently expanding`
-                  : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still unresolved`}
+                {maxAreaState
+                  ? maxAreaState.largestIsland.length > 0
+                    ? `${maxAreaState.largestIsland.join(" · ")}`
+                    : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still unresolved`
+                  : step.state.activeIslandId !== null
+                    ? `Island ${step.state.activeIslandId} currently expanding`
+                    : `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still unresolved`}
               </p>
             </article>
             <div className="graph-node-grid">
@@ -1768,14 +1797,22 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               </article>
               <article className="graph-node-card graph-node-card-path">
                 <div className="graph-node-card-header">
-                  <strong>Remaining land</strong>
-                  <span className="graph-node-status">{step.state.remainingLand.length}</span>
+                  <strong>{maxAreaState ? "Largest area" : "Remaining land"}</strong>
+                  <span className="graph-node-status">
+                    {maxAreaState ? maxAreaState.maxArea : step.state.remainingLand.length}
+                  </span>
                 </div>
-                <span className="graph-node-distance">Unresolved land cells</span>
+                <span className="graph-node-distance">
+                  {maxAreaState ? "Current winning island" : "Unresolved land cells"}
+                </span>
                 <span className="graph-node-meta">
-                  {step.state.remainingLand.length > 0
-                    ? step.state.remainingLand.join(" · ")
-                    : "Every land cell claimed"}
+                  {maxAreaState
+                    ? maxAreaState.largestIsland.length > 0
+                      ? maxAreaState.largestIsland.join(" · ")
+                      : "No winning island yet"
+                    : step.state.remainingLand.length > 0
+                      ? step.state.remainingLand.join(" · ")
+                      : "Every land cell claimed"}
                 </span>
               </article>
               <article className="graph-node-card graph-node-card-current">
@@ -1786,9 +1823,13 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 <span className="graph-node-distance">Finished island groups</span>
                 <span className="graph-node-meta">
                   {step.state.completedIslands.length > 0
-                    ? step.state.completedIslands
-                        .map((island, index) => `#${index + 1} (${island.length})`)
-                        .join(" · ")
+                    ? maxAreaState
+                      ? maxAreaState.completedAreas
+                          .map((area, index) => `#${index + 1} (${area})`)
+                          .join(" · ")
+                      : step.state.completedIslands
+                          .map((island, index) => `#${index + 1} (${island.length})`)
+                          .join(" · ")
                     : "No completed islands yet"}
                 </span>
               </article>
@@ -1798,6 +1839,11 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
         <div className="mini-grid">
           <div className="mini-card">
             <span>Active island</span>
+            <strong>
+              {step.state.activeIslandId !== null
+                ? `Island ${step.state.activeIslandId}${maxAreaState ? ` · area ${maxAreaState.activeIslandArea}` : ""}`
+                : "No active island"}
+            </strong>
             <div className="pill-row">
               {step.state.activeIsland.length > 0 ? (
                 step.state.activeIsland.map((cell) => (
@@ -1814,23 +1860,31 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
             <span>Island sizes</span>
             <p>
               {step.state.completedIslands.length > 0
-                ? step.state.completedIslands
-                    .map((island, index) => `#${index + 1}: ${island.length}`)
+                ? (maxAreaState
+                    ? maxAreaState.completedAreas
+                    : step.state.completedIslands.map((island) => island.length))
+                    .map((area, index) => `#${index + 1}: ${area}`)
                     .join(", ")
                 : "No completed islands yet"}
             </p>
           </div>
           <div className="mini-card">
-            <span>Traversal state</span>
+            <span>{maxAreaState ? "Outcome" : "Traversal state"}</span>
             <strong>
-              {step.state.activeIslandId !== null
-                ? `Island ${step.state.activeIslandId}`
-                : `${step.state.islandCount} total`}
+              {maxAreaState
+                ? `Max area ${maxAreaState.maxArea}`
+                : step.state.activeIslandId !== null
+                  ? `Island ${step.state.activeIslandId}`
+                  : `${step.state.islandCount} total`}
             </strong>
             <p>
-              {step.state.remainingLand.length > 0
-                ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
-                : "Replay records the final island ledger directly from the grid snapshots."}
+              {maxAreaState
+                ? step.state.remainingLand.length > 0
+                  ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
+                  : "Replay records the winning island ledger directly from the grid snapshots."
+                : step.state.remainingLand.length > 0
+                  ? `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} still waiting for the scan cursor.`
+                  : "Replay records the final island ledger directly from the grid snapshots."}
             </p>
           </div>
         </div>

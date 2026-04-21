@@ -803,17 +803,26 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingRooms.length} room${step.state.remainingRooms.length === 1 ? "" : "s"} still at inf`;
     }
 
-    if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+    if (
+      (step.state.kind === "number-of-islands" || step.state.kind === "max-area-of-island") &&
+      isNumberOfIslandsInput(run.input)
+    ) {
       if (step.state.scan) {
-        return `Scan ${step.state.scan} · ${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} found`;
+        return step.state.kind === "max-area-of-island"
+          ? `Scan ${step.state.scan} · max area ${step.state.maxArea}`
+          : `Scan ${step.state.scan} · ${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} found`;
       }
 
       if (step.state.activeIslandId !== null && step.state.current) {
-        return `Island ${step.state.activeIslandId} · explore ${step.state.current}`;
+        return step.state.kind === "max-area-of-island"
+          ? `Island ${step.state.activeIslandId} · area ${step.state.activeIslandArea}`
+          : `Island ${step.state.activeIslandId} · explore ${step.state.current}`;
       }
 
       if (step.state.completedIslands.length > 0 || step.state.islandCount > 0) {
-        return `${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} total`;
+        return step.state.kind === "max-area-of-island"
+          ? `Largest island area ${step.state.maxArea}`
+          : `${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} total`;
       }
 
       return `${step.state.remainingLand.length} land cell${step.state.remainingLand.length === 1 ? "" : "s"} awaiting scan`;
@@ -855,6 +864,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "course-schedule" &&
       step.state.kind !== "rotting-oranges" &&
       step.state.kind !== "number-of-islands" &&
+      step.state.kind !== "max-area-of-island" &&
       step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
@@ -1227,6 +1237,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             if (graphStep.state.kind === "number-of-islands") {
               return `${graphStep.state.islandCount} island${graphStep.state.islandCount === 1 ? "" : "s"} discovered`;
+            }
+
+            if (graphStep.state.kind === "max-area-of-island") {
+              return `Largest island area ${graphStep.state.maxArea}`;
             }
 
             if (graphStep.state.kind === "rotting-oranges") {
@@ -1676,21 +1690,32 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
-    if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
+    if (
+      (step.state.kind === "number-of-islands" || step.state.kind === "max-area-of-island") &&
+      isNumberOfIslandsInput(run.input)
+    ) {
       return (
         <>
           <div className="search-summary-grid">
             <div className="distance-row">
-              <span>Islands</span>
-              <strong>{step.state.islandCount}</strong>
+              <span>{step.state.kind === "max-area-of-island" ? "Max area" : "Islands"}</span>
+              <strong>
+                {step.state.kind === "max-area-of-island"
+                  ? step.state.maxArea
+                  : step.state.islandCount}
+              </strong>
             </div>
             <div className="distance-row">
               <span>Frontier</span>
               <strong>{step.state.frontier.length}</strong>
             </div>
             <div className="distance-row">
-              <span>Remaining land</span>
-              <strong>{step.state.remainingLand.length}</strong>
+              <span>{step.state.kind === "max-area-of-island" ? "Active area" : "Remaining land"}</span>
+              <strong>
+                {step.state.kind === "max-area-of-island"
+                  ? step.state.activeIslandArea
+                  : step.state.remainingLand.length}
+              </strong>
             </div>
             <div className="distance-row">
               <span>Scan</span>
@@ -1790,6 +1815,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
         {Object.entries(
           step.state.kind === "course-schedule" ||
             step.state.kind === "number-of-islands" ||
+            step.state.kind === "max-area-of-island" ||
             step.state.kind === "walls-and-gates"
             ? {}
             : step.state.distances

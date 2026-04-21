@@ -9,6 +9,7 @@ import {
   buildNetworkDelayTimeTrace,
   buildRedundantConnectionTrace,
   buildGraphValidTreeTrace,
+  buildMaxAreaOfIslandTrace,
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
   buildRottingOrangesTrace,
@@ -20,6 +21,7 @@ import {
   defaultCloneGraphInput,
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
+  defaultMaxAreaOfIslandInput,
   defaultNetworkDelayTimeInput,
   defaultRedundantConnectionInput,
   defaultNumberOfIslandsInput,
@@ -299,6 +301,7 @@ describe("graph execution engine", () => {
     expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
     expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
     expect(serializeGraphInput(defaultNumberOfIslandsInput)).toContain('"1"');
+    expect(serializeGraphInput(defaultMaxAreaOfIslandInput)).toContain('"1"');
     expect(
       parseGraphInputText(serializeGraphInput(defaultGraphValidTreeInput), "graph-valid-tree")
     ).toEqual(defaultGraphValidTreeInput);
@@ -326,6 +329,9 @@ describe("graph execution engine", () => {
     expect(
       parseGraphInputText(serializeGraphInput(defaultNumberOfIslandsInput), "number-of-islands")
     ).toEqual(defaultNumberOfIslandsInput);
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultMaxAreaOfIslandInput), "max-area-of-island")
+    ).toEqual(defaultMaxAreaOfIslandInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultPacificAtlanticWaterFlowInput),
@@ -462,6 +468,40 @@ describe("graph execution engine", () => {
     expect(diagonalFinalStep.state.islandCount).toBe(5);
     expect(diagonalFinalStep.state.completedIslands).toHaveLength(5);
     expect(diagonalFinalStep.state.cellIslands["1,1"]).toBe(3);
+  });
+
+  it("records deterministic largest-island ledgers for Max Area of Island", () => {
+    const firstTrace = buildMaxAreaOfIslandTrace(defaultMaxAreaOfIslandInput);
+    const secondTrace = buildMaxAreaOfIslandTrace(defaultMaxAreaOfIslandInput);
+    const diagonalTrace = buildMaxAreaOfIslandTrace({
+      grid: [
+        ["1", "0", "1"],
+        ["0", "1", "0"],
+        ["1", "0", "1"]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const diagonalFinalStep = diagonalTrace.steps[diagonalTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("max-area-of-island");
+    if (referenceFinalStep.state.kind !== "max-area-of-island") {
+      throw new Error("Expected the max-area-of-island state.");
+    }
+    expect(referenceFinalStep.state.maxArea).toBe(5);
+    expect(referenceFinalStep.state.completedAreas).toEqual([5, 4]);
+    expect(referenceFinalStep.state.largestIslandId).toBe(1);
+    expect(referenceFinalStep.state.remainingLand).toEqual([]);
+
+    expect(diagonalFinalStep.phase).toBe("Resolution");
+    expect(diagonalFinalStep.state.kind).toBe("max-area-of-island");
+    if (diagonalFinalStep.state.kind !== "max-area-of-island") {
+      throw new Error("Expected the max-area-of-island state.");
+    }
+    expect(diagonalFinalStep.state.maxArea).toBe(1);
+    expect(diagonalFinalStep.state.completedAreas).toEqual([1, 1, 1, 1, 1]);
+    expect(diagonalFinalStep.state.largestIslandId).toBe(1);
   });
 
   it("records deterministic safe-region discovery and enclosed captures for Surrounded Regions", () => {
