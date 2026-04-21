@@ -25,6 +25,7 @@ export type GraphAlgorithmId =
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
   | "01-matrix"
+  | "as-far-from-land-as-possible"
   | "surrounded-regions"
   | "walls-and-gates";
 
@@ -47,6 +48,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "shortest-bridge",
   "shortest-path-binary-matrix",
   "01-matrix",
+  "as-far-from-land-as-possible",
   "surrounded-regions",
   "walls-and-gates"
 ];
@@ -93,6 +95,10 @@ export interface ZeroOneMatrixInput extends JsonObject {
   grid: number[][];
 }
 
+export interface AsFarFromLandAsPossibleInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInput extends JsonObject {
   grid: string[][];
 }
@@ -111,6 +117,7 @@ export type GraphInput =
   | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
   | ZeroOneMatrixInput
+  | AsFarFromLandAsPossibleInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
 
@@ -351,6 +358,23 @@ export interface ZeroOneMatrixExecutionState extends JsonObject {
   unresolvedCells: string[];
 }
 
+export interface AsFarFromLandAsPossibleExecutionState extends JsonObject {
+  kind: "as-far-from-land-as-possible";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  landCells: string[];
+  updatedWater: string[];
+  remainingWater: string[];
+  outcome: "active" | "resolved" | "no-land" | "no-water";
+  maxDistance: number | null;
+  answer: number | null;
+  farthestWater: string[];
+  unreachableWater: string[];
+}
+
 export interface SurroundedRegionsExecutionState extends JsonObject {
   kind: "surrounded-regions";
   grid: string[][];
@@ -398,6 +422,7 @@ export type GraphExecutionState =
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
   | ZeroOneMatrixExecutionState
+  | AsFarFromLandAsPossibleExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
@@ -660,6 +685,22 @@ interface ZeroOneMatrixRuntimeState {
   unresolvedCells: string[];
 }
 
+interface AsFarFromLandAsPossibleRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  landCells: string[];
+  updatedWater: string[];
+  remainingWater: Set<string>;
+  outcome: "active" | "resolved" | "no-land" | "no-water";
+  maxDistance: number | null;
+  answer: number | null;
+  farthestWater: string[];
+  unreachableWater: string[];
+}
+
 interface ShortestBridgeRuntimeState {
   grid: number[][];
   settled: string[];
@@ -765,6 +806,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "01-matrix",
     label: "01 Matrix",
     implementationVersion: "graph-engine-0.16.0"
+  },
+  "as-far-from-land-as-possible": {
+    id: "as-far-from-land-as-possible",
+    label: "As Far from Land as Possible",
+    implementationVersion: "graph-engine-0.17.0"
   },
   "surrounded-regions": {
     id: "surrounded-regions",
@@ -976,6 +1022,14 @@ export const defaultZeroOneMatrixInput: ZeroOneMatrixInput = {
     [0, 0, 0],
     [0, 1, 0],
     [1, 1, 1]
+  ]
+};
+
+export const defaultAsFarFromLandAsPossibleInput: AsFarFromLandAsPossibleInput = {
+  grid: [
+    [1, 0, 1],
+    [0, 0, 0],
+    [1, 0, 1]
   ]
 };
 
@@ -1278,6 +1332,25 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       fullyResolved: state.fullyResolved,
       maxDistance: state.maxDistance,
       unresolvedCells: state.unresolvedCells.slice()
+    };
+  }
+
+  if (state.kind === "as-far-from-land-as-possible") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      landCells: state.landCells.slice(),
+      updatedWater: state.updatedWater.slice(),
+      remainingWater: state.remainingWater.slice(),
+      outcome: state.outcome,
+      maxDistance: state.maxDistance,
+      answer: state.answer,
+      farthestWater: state.farthestWater.slice(),
+      unreachableWater: state.unreachableWater.slice()
     };
   }
 
@@ -1844,6 +1917,54 @@ function normalizeZeroOneMatrixInput(candidate: unknown): ZeroOneMatrixInput {
   };
 }
 
+function normalizeAsFarFromLandAsPossibleInput(
+  candidate: unknown
+): AsFarFromLandAsPossibleInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("As Far from Land as Possible input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("As Far from Land as Possible input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("As Far from Land as Possible input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("As Far from Land as Possible input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Surrounded Regions input must be an object with a grid field.");
@@ -1988,6 +2109,8 @@ export function parseGraphInputText(
       return normalizeShortestPathBinaryMatrixInput(parsed);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(parsed);
+    case "as-far-from-land-as-possible":
+      return normalizeAsFarFromLandAsPossibleInput(parsed);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
@@ -2029,6 +2152,8 @@ export function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(input);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(input);
+    case "as-far-from-land-as-possible":
+      return normalizeAsFarFromLandAsPossibleInput(input);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
@@ -2731,6 +2856,35 @@ function createZeroOneMatrixRecorder() {
   });
 }
 
+function createAsFarFromLandAsPossibleRecorder() {
+  return createTraceRecorder<
+    AsFarFromLandAsPossibleRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "as-far-from-land-as-possible",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "as-far-from-land-as-possible",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        landCells: runtimeState.landCells.slice(),
+        updatedWater: runtimeState.updatedWater.slice(),
+        remainingWater: Array.from(runtimeState.remainingWater).sort(compareCellIds),
+        outcome: runtimeState.outcome,
+        maxDistance: runtimeState.maxDistance,
+        answer: runtimeState.answer,
+        farthestWater: runtimeState.farthestWater.slice(),
+        unreachableWater: runtimeState.unreachableWater.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createSurroundedRegionsRecorder() {
   return createTraceRecorder<
     SurroundedRegionsRuntimeState,
@@ -2807,6 +2961,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
+    | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
@@ -8160,6 +8315,338 @@ export function buildZeroOneMatrixTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildAsFarFromLandAsPossibleTrace(
+  input: AsFarFromLandAsPossibleInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["as-far-from-land-as-possible"];
+  const normalizedInput = normalizeAsFarFromLandAsPossibleInput(input);
+  const grid: number[][] = normalizedInput.grid.map((row) =>
+    row.map((cell) => (cell === 1 ? 0 : wallsAndGatesInfinity))
+  );
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const landCells: string[] = [];
+  const landCellSet = new Set<string>();
+  const remainingWater = new Set<string>();
+  const recorder = createAsFarFromLandAsPossibleRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let updatedWater: string[] = [];
+  let outcome: "active" | "resolved" | "no-land" | "no-water" = "active";
+  let maxDistance: number | null = null;
+  let answer: number | null = null;
+  let farthestWater: string[] = [];
+  let unreachableWater: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const inputValue = normalizedInput.grid[row]![column]!;
+      const cell = makeCellId(row, column);
+
+      if (inputValue === 1) {
+        landCells.push(cell);
+        landCellSet.add(cell);
+        frontier.push(cell);
+      } else {
+        remainingWater.add(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+
+  const createRuntimeState = (): AsFarFromLandAsPossibleRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    landCells,
+    updatedWater,
+    remainingWater,
+    outcome,
+    maxDistance,
+    answer,
+    farthestWater,
+    unreachableWater
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      frontier.length > 0
+        ? `${frontier.length} land cell${frontier.length === 1 ? "" : "s"} seed the shoreline BFS before any water cell receives a distance.`
+        : `${remainingWater.size} water cell${remainingWater.size === 1 ? "" : "s"} wait for land that never appears in the grid.`,
+    explanation: {
+      summary: "Seed every land source and convert water into explicit unresolved shoreline-distance slots.",
+      details:
+        "The opening frame stores the ordered land frontier and every unresolved water cell directly so replay never rebuilds the shoreline wave from hidden BFS state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "as-far-from-land-as-possible-initial",
+        path: frontier.length > 0 ? "state.frontier" : "state.remainingWater",
+        kind: "collection",
+        intent: "focus",
+        label:
+          frontier.length > 0
+            ? `${frontier.length} land source${frontier.length === 1 ? "" : "s"} queued`
+            : `${remainingWater.size} water cell${remainingWater.size === 1 ? "" : "s"} without land`
+      }
+    ]
+  });
+
+  if (remainingWater.size === 0) {
+    outcome = "no-water";
+    answer = -1;
+
+    recorder.push({
+      phase: "Edge Case",
+      description: "Every cell is already land, so no water candidate exists and the algorithm returns -1 immediately.",
+      explanation: {
+        summary: "Publish the edge-case answer when the grid contains land only.",
+        details:
+          "Replay still records the land-source ledger directly so the immediate -1 result does not depend on rescanning the input for missing water.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "as-far-from-land-as-possible-no-water",
+          path: "state.answer",
+          kind: "node",
+          intent: "result",
+          label: "Return -1"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  if (frontier.length === 0) {
+    outcome = "no-land";
+    answer = -1;
+    unreachableWater = Array.from(remainingWater).sort(compareCellIds);
+
+    recorder.push({
+      phase: "Edge Case",
+      description: `No land source exists, so water cells ${unreachableWater.map(formatCellLabel).join(", ")} cannot receive any shoreline distance and the algorithm returns -1.`,
+      explanation: {
+        summary: "Publish the edge-case answer when the grid contains water only.",
+        details:
+          "Replay preserves the unresolved water ledger directly so the -1 result does not depend on another source scan after the frontier stays empty.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "as-far-from-land-as-possible-no-land",
+          path: "state.unreachableWater",
+          kind: "collection",
+          intent: "result",
+          label: "No land source"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    updatedWater = [];
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} becomes the active shoreline source for water-distance filling.`,
+      explanation: {
+        summary: "Expand the next land or resolved water cell from the ordered multi-source frontier.",
+        details:
+          "Replay records the active shoreline source before neighbor checks begin so each BFS wave stays readable without recomputing queue order.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `as-far-from-land-as-possible-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expand ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row, column } = parseCellId(currentCell);
+    const currentDistance = grid[row]![column]!;
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const neighborValue = grid[neighborRow]![neighborColumn]!;
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (neighborValue !== wallsAndGatesInfinity) {
+        const isLand = landCellSet.has(neighbor);
+
+        recorder.push({
+          phase: "Inspect",
+          description: isLand
+            ? `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that cell is already land.`
+            : `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that water cell already holds shoreline distance ${neighborValue}.`,
+          explanation: {
+            summary: isLand
+              ? "Inspect a land source without enqueuing it again."
+              : "Inspect an already resolved water cell without replacing its first shoreline distance.",
+            details: isLand
+              ? "Land cells remain fixed at distance 0, so replay preserves the original multi-source shoreline seed without duplicate queue work."
+              : "Previously resolved water cells keep their first recorded distance, which preserves the BFS proof that the nearest shoreline arrived first.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `as-far-from-land-as-possible-inspect-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label: isLand
+                ? `Land ${formatCellLabel(neighbor)}`
+                : `Distance ${neighborValue} at ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const nextDistance = currentDistance + 1;
+      grid[neighborRow]![neighborColumn] = nextDistance;
+      frontier.push(neighbor);
+      updatedWater.push(neighbor);
+      remainingWater.delete(neighbor);
+      if (maxDistance === null || nextDistance > maxDistance) {
+        maxDistance = nextDistance;
+        farthestWater = [neighbor];
+      } else if (nextDistance === maxDistance) {
+        farthestWater = [...farthestWater, neighbor].sort(compareCellIds);
+      }
+      metrics.updates += 1;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Update",
+        description: `Water cell ${formatCellLabel(neighbor)} locks shoreline distance ${nextDistance} and joins the frontier.`,
+        explanation: {
+          summary: "Publish one newly resolved water cell and enqueue it for the next BFS shoreline wave.",
+          details:
+            "The updated distance grid and frontier are recorded immediately so replay can jump to any shoreline assignment without browser-side recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `as-far-from-land-as-possible-update-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: `state.grid.${neighborRow}.${neighborColumn}`,
+            kind: "node",
+            intent: "frontier",
+            label: `Distance ${nextDistance}`
+          }
+        ]
+      });
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed for shoreline replay.`,
+      explanation: {
+        summary: "Seal one BFS source after all neighboring shoreline checks are recorded.",
+        details:
+          "This checkpoint captures the updated distance grid, remaining-water ledger, and queue state directly so replay can jump between BFS wave boundaries safely.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `as-far-from-land-as-possible-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} processed`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  updatedWater = [];
+  outcome = "resolved";
+  answer = maxDistance ?? -1;
+  unreachableWater = Array.from(remainingWater).sort(compareCellIds);
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description:
+      farthestWater.length === 1
+        ? `The farthest water cell is ${formatCellLabel(farthestWater[0]!)} at shoreline distance ${answer}.`
+        : `Water cells ${farthestWater.map(formatCellLabel).join(", ")} tie for the farthest shoreline distance of ${answer}.`,
+    explanation: {
+      summary: "Publish the terminal farthest-water result once the shoreline frontier empties.",
+      details:
+        "The terminal frame stores the final distance grid, farthest-water ledger, and returned answer directly so replay never recomputes the shoreline sweep offline.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "as-far-from-land-as-possible-final",
+        path: "state.farthestWater",
+        kind: "collection",
+        intent: "result",
+        label:
+          farthestWater.length === 1
+            ? `Farthest ${formatCellLabel(farthestWater[0]!)}`
+            : `Farthest tie ${farthestWater.map(formatCellLabel).join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildSurroundedRegionsTrace(
   input: SurroundedRegionsInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -8859,6 +9346,8 @@ export function buildGraphTrace(
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
     case "01-matrix":
       return buildZeroOneMatrixTrace(graph as ZeroOneMatrixInput);
+    case "as-far-from-land-as-possible":
+      return buildAsFarFromLandAsPossibleTrace(graph as AsFarFromLandAsPossibleInput);
     case "surrounded-regions":
       return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":

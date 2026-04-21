@@ -53,6 +53,7 @@ import {
   isNumberOfIslandsInput,
   isRottingOrangesInput,
   isZeroOneMatrixInput,
+  isAsFarFromLandAsPossibleInput,
   isWallsAndGatesInput,
   type AccentTone,
   type DynamicProgrammingRun,
@@ -804,6 +805,33 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingCells.length} cell${step.state.remainingCells.length === 1 ? "" : "s"} still pending`;
     }
 
+    if (
+      step.state.kind === "as-far-from-land-as-possible" &&
+      isAsFarFromLandAsPossibleInput(run.input)
+    ) {
+      if (step.state.outcome === "no-land" && step.state.unreachableWater.length > 0) {
+        return `No land · ${step.state.unreachableWater.length} water cell${step.state.unreachableWater.length === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.outcome === "no-water") {
+        return "No water · answer -1";
+      }
+
+      if (step.state.answer !== null && step.state.outcome === "resolved") {
+        return `Farthest water distance ${step.state.answer}`;
+      }
+
+      if (step.state.current) {
+        return `Expand ${step.state.current}`;
+      }
+
+      if (step.state.updatedWater.length > 0) {
+        return `Update ${truncateText(step.state.updatedWater.join(" · "), 36)}`;
+      }
+
+      return `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} still pending`;
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       if (step.state.fullyReachable === false && step.state.unreachableRooms.length > 0) {
         return `Blocked rooms ${truncateText(step.state.unreachableRooms.join(" · "), 36)}`;
@@ -909,6 +937,29 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.remainingCells.length} 1 cell${step.state.remainingCells.length === 1 ? "" : "s"} awaiting distance`;
     }
 
+    if (
+      step.state.kind === "as-far-from-land-as-possible" &&
+      isAsFarFromLandAsPossibleInput(run.input)
+    ) {
+      if (step.state.outcome === "no-land") {
+        return `No land source · ${step.state.unreachableWater.length} water cell${step.state.unreachableWater.length === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.outcome === "no-water") {
+        return "No water candidate · return -1";
+      }
+
+      if (step.state.current) {
+        return `Shoreline wave from ${step.state.current}`;
+      }
+
+      if (step.state.answer !== null) {
+        return `Farthest water distance ${step.state.answer}`;
+      }
+
+      return `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} awaiting shoreline distance`;
+    }
+
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
       if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
         return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
@@ -938,6 +989,7 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       step.state.kind !== "max-area-of-island" &&
       step.state.kind !== "island-perimeter" &&
       step.state.kind !== "01-matrix" &&
+      step.state.kind !== "as-far-from-land-as-possible" &&
       step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
@@ -1338,6 +1390,18 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               return graphStep.state.fullyResolved === false
                 ? `${graphStep.state.unresolvedCells.length} unresolved 1 cell${graphStep.state.unresolvedCells.length === 1 ? "" : "s"}`
                 : `Max nearest-zero distance ${graphStep.state.maxDistance ?? 0}`;
+            }
+
+            if (graphStep.state.kind === "as-far-from-land-as-possible") {
+              if (graphStep.state.outcome === "no-land") {
+                return `${graphStep.state.unreachableWater.length} water cell${graphStep.state.unreachableWater.length === 1 ? "" : "s"} without land`;
+              }
+
+              if (graphStep.state.outcome === "no-water") {
+                return "Land-only grid returns -1";
+              }
+
+              return `Farthest water distance ${graphStep.state.answer ?? 0}`;
             }
 
             return `${graphStep.state.settled.length} nodes settled`;
@@ -1777,6 +1841,52 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (
+      step.state.kind === "as-far-from-land-as-possible" &&
+      isAsFarFromLandAsPossibleInput(run.input)
+    ) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Remaining</span>
+              <strong>{step.state.remainingWater.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Updated</span>
+              <strong>{step.state.updatedWater.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Answer</span>
+              <strong>{step.state.answer ?? "Pending"}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`shoreline-row-${rowIndex}`}>
+                {rowIndex}:
+                {row
+                  .map((value, columnIndex) => {
+                    const cell = `${rowIndex},${columnIndex}`;
+
+                    if (step.state.landCells.includes(cell)) {
+                      return "land";
+                    }
+
+                    return value === 2147483647 ? "water" : value.toString();
+                  })
+                  .join(" ")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
       return (
         <>
@@ -2016,6 +2126,7 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
         {Object.entries(
           step.state.kind === "course-schedule" ||
             step.state.kind === "01-matrix" ||
+            step.state.kind === "as-far-from-land-as-possible" ||
             step.state.kind === "number-of-islands" ||
             step.state.kind === "max-area-of-island" ||
             step.state.kind === "island-perimeter" ||

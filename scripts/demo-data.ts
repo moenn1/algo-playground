@@ -585,6 +585,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "no-zero-matrix"]
   },
   {
+    key: "graph-reference-shoreline",
+    algorithmId: "as-far-from-land-as-possible",
+    presetId: "graph.reference-shoreline",
+    recordedAt: "2026-04-21T16:20:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-shoreline"]
+  },
+  {
+    key: "graph-ocean-only",
+    algorithmId: "as-far-from-land-as-possible",
+    presetId: "graph.ocean-only",
+    recordedAt: "2026-04-21T16:21:00.000Z",
+    tags: ["seeded-demo", "graph", "ocean-only"]
+  },
+  {
     key: "graph-reference-capture",
     algorithmId: "surrounded-regions",
     presetId: "graph.reference-capture",

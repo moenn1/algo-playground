@@ -485,7 +485,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates expose how much queue churn and distance-filling work happened before the nearest-zero matrix stabilized or stalled.",
     skills: ["multi-source bfs", "nearest-zero distances", "distance matrices"],
     spotlight: "A strong immediate follow-up to Walls and Gates because it reuses the same distance-fill runtime while removing walls and making every 1 cell prove its nearest zero.",
-    nextAlgorithmIds: ["walls-and-gates", "shortest-path-binary-matrix"]
+    nextAlgorithmIds: ["as-far-from-land-as-possible", "shortest-path-binary-matrix"]
+  },
+  "as-far-from-land-as-possible": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.835,
+    timeToExplore: "7 min",
+    complexity: "The frontier stays BFS-readable, but the replay also has to preserve the evolving shoreline-distance grid and the terminal -1 edge cases when land or water is missing entirely.",
+    outcome: "See exactly when land cells seed the wave, which water cells lock their nearest shoreline distance next, and which single farthest water cell or tie set produces the final answer.",
+    metricsLens: "Settled, frontier, inspections, and updates expose how much shoreline scanning and queue churn happened before the farthest-water answer stabilized or short-circuited.",
+    skills: ["multi-source bfs", "shoreline distances", "edge-case ledgers"],
+    spotlight: "A strong follow-up to 01 Matrix because it reuses the same distance-fill runtime while switching the terminal contract from full matrix publication to one farthest-water answer.",
+    nextAlgorithmIds: ["01-matrix", "pacific-atlantic-water-flow"]
   },
   "number-of-islands": {
     stage: "core",

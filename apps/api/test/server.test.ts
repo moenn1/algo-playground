@@ -930,6 +930,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const shorelinePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-shoreline/resolve",
+      payload: {
+        algorithmId: "as-far-from-land-as-possible"
+      }
+    });
+
+    expect(shorelinePreset.statusCode).toBe(200);
+    expect(shorelinePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-shoreline"
+      },
+      algorithm: {
+        id: "as-far-from-land-as-possible",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const oceanOnlyPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.ocean-only/resolve",
+      payload: {
+        algorithmId: "as-far-from-land-as-possible"
+      }
+    });
+
+    expect(oceanOnlyPreset.statusCode).toBe(200);
+    expect(oceanOnlyPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.ocean-only"
+      },
+      algorithm: {
+        id: "as-far-from-land-as-possible",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2447,6 +2489,38 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validateAsFarFromLandInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "as-far-from-land-as-possible",
+        payload: {
+          grid: [
+            [1, 0, 1],
+            [0, 0, 0],
+            [1, 0, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateAsFarFromLandInput.statusCode).toBe(200);
+    expect(validateAsFarFromLandInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "as-far-from-land-as-possible",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [1, 0, 1],
+          [0, 0, 0],
+          [1, 0, 1]
+        ]
+      },
+      footprint: "3 x 3 grid"
+    });
+
     const validateCountComponentsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2802,6 +2876,29 @@ describe("TraceDeck API foundation", () => {
         payload: {
           grid: [
             [0, 1, 0],
+            [0, 2, 0]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "grid[1][1] must be either 0 or 1."
+    });
+  });
+
+  it("rejects as-far-from-land-as-possible payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "as-far-from-land-as-possible",
+        payload: {
+          grid: [
+            [1, 0, 1],
             [0, 2, 0]
           ]
         }

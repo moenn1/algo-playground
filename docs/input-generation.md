@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `01-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `01-matrix`, `as-far-from-land-as-possible`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -143,6 +143,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.sealed-binary-exit`: curated blocked grid where the exit remains unreachable after search exhaustion
 - `graph.reference-zero-matrix`: curated nearest-zero matrix where BFS distance fills fan out from several zero sources
 - `graph.no-zero-matrix`: curated nearest-zero matrix with no zero source so the unresolved `1` ledger publishes immediately
+- `graph.reference-shoreline`: curated shoreline grid where multi-source land seeding produces one farthest water cell
+- `graph.ocean-only`: curated shoreline grid with no land source so the unresolved water ledger publishes with an immediate `-1`
 - `graph.reference-capture`: curated capture grid with one border-safe region and several enclosed flips
 - `graph.border-safe`: curated capture grid where every `O` stays connected to the border
 - `graph.reference-gates`: curated room map where every empty room reaches a gate with a stable shortest distance
@@ -176,6 +178,8 @@ The dual-ocean presets resolve for Pacific Atlantic Water Flow and use `{ "grid"
 The shortest-bridge presets resolve for Shortest Bridge and use `{ "grid": number[][] }` as the normalized contract, where `0` is water and `1` is land.
 
 The binary-matrix path presets resolve for Shortest Path in Binary Matrix and use `{ "grid": number[][] }` as the normalized contract, where `0` is open and `1` is blocked.
+
+The shoreline presets resolve for As Far from Land as Possible and use `{ "grid": number[][] }` as the normalized contract, where `1` is land and `0` is water.
 
 The border-capture presets resolve for Surrounded Regions and use `{ "grid": string[][] }` as the normalized contract, where `"X"` is a wall and `"O"` is an open cell. Lowercase `x` and `o` values are accepted during validation and normalized to uppercase strings.
 
@@ -276,6 +280,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Top K Frequent Elements payloads must define between 2 and 24 integers plus an integer `k` between `1` and the number of distinct values.
 - Pacific Atlantic Water Flow payloads must define a rectangular grid up to `8 x 8` and every height must be a non-negative integer.
 - Shortest Path in Binary Matrix payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
+- As Far from Land as Possible payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
 - Surrounded Regions payloads must define a rectangular grid up to `8 x 8` and every cell must normalize to `"X"` or `"O"`.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.

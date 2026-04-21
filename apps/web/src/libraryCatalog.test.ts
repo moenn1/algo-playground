@@ -368,6 +368,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("01-matrix");
   });
 
+  it("surfaces as-far-from-land-as-possible study paths through shoreline metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "shoreline farthest water multi-source"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("as-far-from-land-as-possible");
+  });
+
   it("surfaces shortest-bridge study paths through bridge-wave metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

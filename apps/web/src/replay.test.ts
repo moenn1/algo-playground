@@ -694,6 +694,43 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds as-far-from-land-as-possible replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "as-far-from-land-as-possible",
+      JSON.stringify(
+        {
+          grid: [
+            [1, 0, 1],
+            [0, 0, 0],
+            [1, 0, 1]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("as-far-from-land-as-possible");
+    expect(finalStep.state.kind).toBe("as-far-from-land-as-possible");
+    if (finalStep.state.kind !== "as-far-from-land-as-possible") {
+      throw new Error("Expected the as-far-from-land-as-possible graph state.");
+    }
+    expect(finalStep.state.outcome).toBe("resolved");
+    expect(finalStep.state.answer).toBe(2);
+    expect(finalStep.state.farthestWater).toEqual(["1,1"]);
+    expect(
+      run.trace.steps.some((step) =>
+        getTraceStepPaths(step).some((path) => path.startsWith("state.grid"))
+      )
+    ).toBe(true);
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

@@ -34,6 +34,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultZeroOneMatrixInput,
+  defaultAsFarFromLandAsPossibleInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   defaultTwoSumInput,
@@ -338,6 +339,17 @@ export function isShortestPathBinaryMatrixInput(
 }
 
 export function isZeroOneMatrixInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
+export function isAsFarFromLandAsPossibleInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: number[][] }> {
   return (
@@ -917,6 +929,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with a grid using 0 for sources and 1 for unresolved cells.",
     defaultInput: serializeGraphInput(defaultZeroOneMatrixInput),
+    domain: "graph"
+  },
+  {
+    id: "as-far-from-land-as-possible",
+    name: "As Far from Land as Possible",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Multi-source shoreline replay records land-seeded BFS waves, deterministic water-distance fills, and explicit -1 edge cases when the grid has no land or no water.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 1 for land and 0 for water.",
+    defaultInput: serializeGraphInput(defaultAsFarFromLandAsPossibleInput),
     domain: "graph"
   },
   {

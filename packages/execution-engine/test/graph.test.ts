@@ -19,6 +19,7 @@ import {
   buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
   buildZeroOneMatrixTrace,
+  buildAsFarFromLandAsPossibleTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
@@ -36,6 +37,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultZeroOneMatrixInput,
+  defaultAsFarFromLandAsPossibleInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   formatGraphDistance,
@@ -403,6 +405,12 @@ describe("graph execution engine", () => {
     expect(parseGraphInputText(serializeGraphInput(defaultZeroOneMatrixInput), "01-matrix")).toEqual(
       defaultZeroOneMatrixInput
     );
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultAsFarFromLandAsPossibleInput),
+        "as-far-from-land-as-possible"
+      )
+    ).toEqual(defaultAsFarFromLandAsPossibleInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultSurroundedRegionsInput),
@@ -858,6 +866,69 @@ describe("graph execution engine", () => {
       "2,1",
       "2,2"
     ]);
+  });
+
+  it("records deterministic shoreline fills and explicit edge cases for As Far from Land as Possible", () => {
+    const resolvedTrace = buildAsFarFromLandAsPossibleTrace(defaultAsFarFromLandAsPossibleInput);
+    const noLandTrace = buildAsFarFromLandAsPossibleTrace({
+      grid: [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+      ]
+    });
+    const noWaterTrace = buildAsFarFromLandAsPossibleTrace({
+      grid: [
+        [1, 1],
+        [1, 1]
+      ]
+    });
+    const resolvedFinalStep = resolvedTrace.steps[resolvedTrace.steps.length - 1]!;
+    const noLandFinalStep = noLandTrace.steps[noLandTrace.steps.length - 1]!;
+    const noWaterFinalStep = noWaterTrace.steps[noWaterTrace.steps.length - 1]!;
+
+    expect(resolvedFinalStep.phase).toBe("Resolution");
+    expect(resolvedFinalStep.state.kind).toBe("as-far-from-land-as-possible");
+    if (resolvedFinalStep.state.kind !== "as-far-from-land-as-possible") {
+      throw new Error("Expected the as-far-from-land-as-possible state.");
+    }
+    expect(resolvedFinalStep.state.outcome).toBe("resolved");
+    expect(resolvedFinalStep.state.answer).toBe(2);
+    expect(resolvedFinalStep.state.maxDistance).toBe(2);
+    expect(resolvedFinalStep.state.farthestWater).toEqual(["1,1"]);
+    expect(resolvedFinalStep.state.grid).toEqual([
+      [0, 1, 0],
+      [1, 2, 1],
+      [0, 1, 0]
+    ]);
+
+    expect(noLandFinalStep.phase).toBe("Edge Case");
+    expect(noLandFinalStep.state.kind).toBe("as-far-from-land-as-possible");
+    if (noLandFinalStep.state.kind !== "as-far-from-land-as-possible") {
+      throw new Error("Expected the as-far-from-land-as-possible state.");
+    }
+    expect(noLandFinalStep.state.outcome).toBe("no-land");
+    expect(noLandFinalStep.state.answer).toBe(-1);
+    expect(noLandFinalStep.state.unreachableWater).toEqual([
+      "0,0",
+      "0,1",
+      "0,2",
+      "1,0",
+      "1,1",
+      "1,2",
+      "2,0",
+      "2,1",
+      "2,2"
+    ]);
+
+    expect(noWaterFinalStep.phase).toBe("Edge Case");
+    expect(noWaterFinalStep.state.kind).toBe("as-far-from-land-as-possible");
+    if (noWaterFinalStep.state.kind !== "as-far-from-land-as-possible") {
+      throw new Error("Expected the as-far-from-land-as-possible state.");
+    }
+    expect(noWaterFinalStep.state.outcome).toBe("no-water");
+    expect(noWaterFinalStep.state.answer).toBe(-1);
+    expect(noWaterFinalStep.state.remainingWater).toEqual([]);
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {

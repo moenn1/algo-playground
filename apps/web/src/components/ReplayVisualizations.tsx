@@ -26,6 +26,7 @@ import {
   isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
   isZeroOneMatrixInput,
+  isAsFarFromLandAsPossibleInput,
   isSurroundedRegionsInput,
   isWallsAndGatesInput,
   type SearchRun,
@@ -186,6 +187,7 @@ function formatGraphNodeStatus(
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "01-matrix" ||
+    step.state.kind === "as-far-from-land-as-possible" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
@@ -195,6 +197,7 @@ function formatGraphNodeStatus(
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
+    isAsFarFromLandAsPossibleInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -243,6 +246,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
+    isAsFarFromLandAsPossibleInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isWallsAndGatesInput(run.input)
@@ -1041,6 +1045,77 @@ function formatZeroOneMatrixCellStatus(
   }
 }
 
+function formatAsFarFromLandCellValue(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "as-far-from-land-as-possible" }>>
+): string {
+  if (step.state.landCells.includes(cell)) {
+    return "Land";
+  }
+
+  if (value === 2147483647) {
+    return "Water";
+  }
+
+  return `Dist ${value}`;
+}
+
+function getAsFarFromLandCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "as-far-from-land-as-possible" }>>
+): "current" | "frontier" | "settled" | "updated" | "gate" | "room" | "blocked" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.landCells.includes(cell)) {
+    return "gate";
+  }
+
+  if (step.state.updatedWater.includes(cell)) {
+    return "updated";
+  }
+
+  if (step.state.unreachableWater.includes(cell)) {
+    return "blocked";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  return value === 2147483647 ? "room" : "settled";
+}
+
+function formatAsFarFromLandCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "as-far-from-land-as-possible" }>>
+): string {
+  switch (getAsFarFromLandCellTone(cell, value, step)) {
+    case "current":
+      return step.state.landCells.includes(cell) ? "Active land" : "Wave source";
+    case "frontier":
+      return step.state.landCells.includes(cell) ? "Queued land" : "Queued water";
+    case "updated":
+      return `Distance ${value}`;
+    case "settled":
+      return step.state.landCells.includes(cell) ? "Processed land" : `Settled ${value}`;
+    case "gate":
+      return "Land source";
+    case "blocked":
+      return "Water without land";
+    default:
+      return value === 2147483647 ? "Open water" : `Distance ${value}`;
+  }
+}
+
 function formatInterval(interval: number[]): string {
   if (interval.length !== 2) {
     return "Pending";
@@ -1801,6 +1876,193 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.unresolvedCells.length > 0
                 ? `Pending 1 cells remain at ${step.state.unresolvedCells.join(", ")}`
                 : "Replay records every nearest-zero fill directly from the matrix snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "as-far-from-land-as-possible" &&
+    isAsFarFromLandAsPossibleInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} shoreline grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="As Far from Land as Possible status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active source</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled distance</span>
+          <span className="graph-legend-pill graph-legend-pill-path">
+            {step.state.outcome === "no-land" ? "Water without land" : "Land source"}
+          </span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage gate-stage">
+            <div className="gate-banner">
+              <span>
+                {step.state.landCells.length} land cell{step.state.landCells.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.outcome === "no-land"
+                  ? `${step.state.unreachableWater.length} water cell${step.state.unreachableWater.length === 1 ? "" : "s"} have no shoreline source`
+                  : step.state.outcome === "no-water"
+                    ? "No water cell exists, so the answer is -1"
+                    : step.state.outcome === "resolved"
+                      ? `Farthest water reaches land in ${step.state.answer ?? 0} step${step.state.answer === 1 ? "" : "s"}`
+                      : `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} still pending`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `Expanding ${step.state.current}`
+                    : "No edge under inspection"}
+              </p>
+            </div>
+            <div
+              className="gate-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getAsFarFromLandCellTone(cell, value, step);
+                  const className = ["gate-cell", `gate-cell-${tone}`].filter(Boolean).join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="gate-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="gate-cell-value">
+                        {formatAsFarFromLandCellValue(cell, value, step)}
+                      </strong>
+                      <span className="gate-cell-status">
+                        {formatAsFarFromLandCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Wave focus</span>
+              <strong>{step.state.current ?? "Pending extraction"}</strong>
+              <p>
+                {step.state.current
+                  ? `${step.state.remainingWater.length} water cell${step.state.remainingWater.length === 1 ? "" : "s"} still unresolved`
+                  : `${step.state.frontier.length} cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued shoreline sources</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Processed</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled land and water cells</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No processed cells yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Remaining</strong>
+                  <span className="graph-node-status">{step.state.remainingWater.length}</span>
+                </div>
+                <span className="graph-node-distance">Pending water cells</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingWater.length > 0
+                    ? step.state.remainingWater.join(" · ")
+                    : "All water cells resolved"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.outcome === "active"
+                      ? "Filling"
+                      : step.state.outcome === "resolved"
+                        ? "Resolved"
+                        : "Edge case"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.answer === null ? "No terminal answer yet" : `Answer ${step.state.answer}`}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.farthestWater.length > 0
+                    ? `Farthest: ${step.state.farthestWater.join(" · ")}`
+                    : step.state.unreachableWater.length > 0
+                      ? `Water without land: ${step.state.unreachableWater.join(" · ")}`
+                      : "Replay records shoreline distances directly in the grid."}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Updated water</span>
+            <div className="pill-row">
+              {step.state.updatedWater.length > 0 ? (
+                step.state.updatedWater.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No new shoreline distances this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Land ledger</span>
+            <strong>{step.state.landCells.join(" · ") || "No land cells"}</strong>
+            <p>
+              {step.state.landCells.length > 0
+                ? "Every land cell seeds the shoreline BFS wave."
+                : "No land source exists in this input."}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Answer</span>
+            <strong>{step.state.answer ?? "Pending"}</strong>
+            <p>
+              {step.state.outcome === "resolved"
+                ? `Farthest water cells: ${step.state.farthestWater.join(", ")}`
+                : step.state.outcome === "no-land"
+                  ? `Immediate -1 because ${step.state.unreachableWater.length} water cell${step.state.unreachableWater.length === 1 ? "" : "s"} have no land source`
+                  : step.state.outcome === "no-water"
+                    ? "Immediate -1 because the grid contains land only."
+                    : "The shoreline wave is still expanding."}
             </p>
           </div>
         </div>

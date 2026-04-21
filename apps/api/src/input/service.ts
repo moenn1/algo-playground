@@ -17,6 +17,7 @@ import type {
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
   ZeroOneMatrixInputPayload,
+  AsFarFromLandAsPossibleInputPayload,
   InputPresetSummary,
   RottingOrangesInputPayload,
   ResolveInputPresetInput,
@@ -234,6 +235,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "01 Matrix",
     domain: "graph"
   },
+  "as-far-from-land-as-possible": {
+    id: "as-far-from-land-as-possible",
+    label: "As Far from Land as Possible",
+    domain: "graph"
+  },
   "surrounded-regions": {
     id: "surrounded-regions",
     label: "Surrounded Regions",
@@ -304,6 +310,9 @@ const shortestPathBinaryMatrixAlgorithms = [
   supportedAlgorithms["shortest-path-binary-matrix"]
 ] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
+const asFarFromLandAsPossibleAlgorithms = [
+  supportedAlgorithms["as-far-from-land-as-possible"]
+] as const;
 const surroundedRegionsAlgorithms = [supportedAlgorithms["surrounded-regions"]] as const;
 const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
@@ -516,6 +525,13 @@ const defaultZeroOneMatrixInput: ZeroOneMatrixInputPayload = {
     [0, 0, 0],
     [0, 1, 0],
     [1, 1, 1]
+  ]
+};
+const defaultAsFarFromLandAsPossibleInput: AsFarFromLandAsPossibleInputPayload = {
+  grid: [
+    [1, 0, 1],
+    [0, 0, 0],
+    [1, 0, 1]
   ]
 };
 const defaultSurroundedRegionsInput: SurroundedRegionsInputPayload = {
@@ -2240,6 +2256,74 @@ function normalizeZeroOneMatrixInput(payload: unknown): ZeroOneMatrixInputPayloa
   };
 }
 
+function normalizeAsFarFromLandAsPossibleInput(
+  payload: unknown
+): AsFarFromLandAsPossibleInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "As Far from Land as Possible input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "As Far from Land as Possible input must be an object with a grid field."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "As Far from Land as Possible input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "As Far from Land as Possible input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(
+      400,
+      "As Far from Land as Possible input rows must all be the same length."
+    );
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(payload: unknown): SurroundedRegionsInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2401,6 +2485,8 @@ function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(payload);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(payload);
+    case "as-far-from-land-as-possible":
+      return normalizeAsFarFromLandAsPossibleInput(payload);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(payload);
     case "walls-and-gates":
@@ -2426,6 +2512,7 @@ function isGridGraphPayload(
   | PacificAtlanticWaterFlowInputPayload
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
+  | AsFarFromLandAsPossibleInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload {
   return "grid" in graph && Array.isArray(graph.grid);
@@ -4056,6 +4143,46 @@ const presetDefinitions: InputPresetDefinition[] = [
           [1, 1, 1],
           [1, 1, 1],
           [1, 1, 1]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-shoreline",
+      label: "Reference shoreline",
+      description:
+        "Use the canonical shoreline grid so replay shows multi-source land seeding, deterministic water-distance fills, and the farthest water cell.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: asFarFromLandAsPossibleAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultAsFarFromLandAsPossibleInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.ocean-only",
+      label: "Ocean-only grid",
+      description:
+        "Remove every land source so replay can publish the full unresolved water ledger and the immediate -1 shoreline answer.",
+      scenario: "missing-source",
+      kind: "curated",
+      domain: "graph",
+      algorithms: asFarFromLandAsPossibleAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [0, 0, 0],
+          [0, 0, 0],
+          [0, 0, 0]
         ]
       },
       options: {}
