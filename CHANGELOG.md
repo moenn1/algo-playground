@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a second shared window runtime for Longest Substring Without Repeating Characters, including deterministic duplicate checkpoints, explicit shrink steps, and stable reuse of the `expansions`, `shrinks`, and `bestUpdates` metrics.
+- Wired Longest Substring Without Repeating Characters through the input-service presets and validation, replay shell, library catalog, seeded demo data, and window-family documentation so TraceDeck now covers a recognizable string sliding-window problem alongside the existing numeric target-window replay.
 - Added a shared graph replay for Walls and Gates, including deterministic multi-source gate seeding, explicit room-distance fills, and terminal blocked-room reporting through the execution engine.
 - Wired Walls and Gates through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a fifth reusable graph story alongside pathfinding, dependency scheduling, grid infection replay, and connected-component counting.
 - Added a shared heap runtime for Kth Largest Element in an Array, including deterministic heap seeding, explicit root-replacement checkpoints, ranked top-k snapshots, and stable `inspections`, `pushes`, and `pops` metrics.

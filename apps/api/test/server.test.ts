@@ -888,6 +888,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 lanes / target 7"
     });
 
+    const substringWindowPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/window.reference-substring/resolve",
+      payload: {
+        algorithmId: "longest-substring-without-repeating-characters"
+      }
+    });
+
+    expect(substringWindowPreset.statusCode).toBe(200);
+    expect(substringWindowPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "window.reference-substring"
+      },
+      algorithm: {
+        id: "longest-substring-without-repeating-characters",
+        domain: "window"
+      },
+      footprint: "8 chars"
+    });
+
     const intervalPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/interval.reference-overlap/resolve",
@@ -1159,6 +1180,30 @@ describe("TraceDeck API foundation", () => {
         target: 15
       },
       footprint: "6 lanes / target 15"
+    });
+
+    const validateSubstringWindowInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "longest-substring-without-repeating-characters",
+        payload: {
+          text: "pwwkew"
+        }
+      }
+    });
+
+    expect(validateSubstringWindowInput.statusCode).toBe(200);
+    expect(validateSubstringWindowInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "longest-substring-without-repeating-characters",
+        domain: "window"
+      },
+      input: {
+        text: "pwwkew"
+      },
+      footprint: "6 chars"
     });
 
     const validateIntervalInput = await server.inject({

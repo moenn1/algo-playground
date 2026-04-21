@@ -10,6 +10,7 @@ export const supportedAlgorithmIds = [
   "container-with-most-water",
   "trapping-rain-water",
   "minimum-size-subarray-sum",
+  "longest-substring-without-repeating-characters",
   "two-sum",
   "kth-largest-element-in-an-array",
   "merge-intervals",
@@ -75,10 +76,18 @@ export interface TwoPointersInputPayload extends JsonObject {
   heights: number[];
 }
 
-export interface WindowInputPayload extends JsonObject {
+export interface MinimumSizeSubarrayWindowInputPayload extends JsonObject {
   array: number[];
   target: number;
 }
+
+export interface LongestSubstringWindowInputPayload extends JsonObject {
+  text: string;
+}
+
+export type WindowInputPayload =
+  | MinimumSizeSubarrayWindowInputPayload
+  | LongestSubstringWindowInputPayload;
 
 export interface HashInputPayload extends JsonObject {
   array: number[];

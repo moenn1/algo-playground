@@ -123,6 +123,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "window", "no-solution"]
   },
   {
+    key: "window-reference-substring",
+    algorithmId: "longest-substring-without-repeating-characters",
+    presetId: "window.reference-substring",
+    recordedAt: "2026-04-20T09:07:50.250Z",
+    tags: ["seeded-demo", "window", "reference-substring"]
+  },
+  {
+    key: "window-overlapping-repeat",
+    algorithmId: "longest-substring-without-repeating-characters",
+    presetId: "window.overlapping-repeat",
+    recordedAt: "2026-04-20T09:07:50.500Z",
+    tags: ["seeded-demo", "window", "overlapping-repeat"]
+  },
+  {
     key: "hash-reference-hit",
     algorithmId: "two-sum",
     presetId: "hash.reference-hit",

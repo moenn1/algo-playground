@@ -223,6 +223,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "Good for learning replay surfaces where the active region moves even when the result stays the same.",
     nextAlgorithmIds: ["merge-intervals", "binary-search"]
   },
+  "longest-substring-without-repeating-characters": {
+    stage: "core",
+    focus: "windowing",
+    order: 7.5,
+    timeToExplore: "6 min",
+    complexity: "The scan stays linear, but repeated characters force the left edge to contract before the window can grow again.",
+    outcome: "See the exact duplicate hit, the contraction steps that restore uniqueness, and the substring that finally becomes the best answer.",
+    metricsLens: "Expansions, shrinks, and best updates show how much churn the string window needed before the longest unique span stabilized.",
+    skills: ["string windows", "duplicate handling", "best-substring tracking"],
+    spotlight: "One of the most recognizable interview string problems and a strong second replay shape for the sliding-window family.",
+    nextAlgorithmIds: ["minimum-size-subarray-sum", "two-sum"]
+  },
   "daily-temperatures": {
     stage: "core",
     focus: "state-tracking",

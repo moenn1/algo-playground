@@ -36,6 +36,8 @@ The demo seed currently materializes:
 - Trapping Rain Water on `two-pointers.stepped-reservoir`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
+- Longest Substring Without Repeating Characters on `window.reference-substring`
+- Longest Substring Without Repeating Characters on `window.overlapping-repeat`
 - Two Sum on `hash.reference-hit`
 - Two Sum on `hash.negative-values`
 - Kth Largest Element in an Array on `heap.reference-kth`
@@ -65,7 +67,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 20 algorithms with runs, 40 runs total, and 2 saved comparisons.
+That seed currently produces 21 algorithms with runs, 42 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

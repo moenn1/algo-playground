@@ -330,6 +330,35 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds string-window replay runs for longest unique substrings", () => {
+    const run = buildRun(
+      "longest-substring-without-repeating-characters",
+      JSON.stringify(
+        {
+          text: "abcabcbb"
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "window") {
+      throw new Error("Expected a window run.");
+    }
+
+    const windowRun = run as WindowRun;
+    const finalStep = windowRun.trace.steps[windowRun.trace.steps.length - 1]!;
+
+    expect(windowRun.algorithm.id).toBe("longest-substring-without-repeating-characters");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("longest-substring-without-repeating-characters");
+    expect(finalStep.state.bestSubstring).toBe("abc");
+    expect(finalStep.state.bestLength).toBe(3);
+    expect(
+      windowRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.bestSubstring"))
+    ).toBe(true);
+  });
+
   it("builds two-pointer replay runs from the shared two-pointer engine", () => {
     const run = buildRun(
       "container-with-most-water",

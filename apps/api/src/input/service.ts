@@ -73,6 +73,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Minimum Size Subarray Sum",
     domain: "window"
   },
+  "longest-substring-without-repeating-characters": {
+    id: "longest-substring-without-repeating-characters",
+    label: "Longest Substring Without Repeating Characters",
+    domain: "window"
+  },
   "two-sum": {
     id: "two-sum",
     label: "Two Sum",
@@ -157,7 +162,10 @@ const rotatedSearchAlgorithms = [
 ] as const;
 const containerTwoPointersAlgorithms = [supportedAlgorithms["container-with-most-water"]] as const;
 const trappingRainWaterAlgorithms = [supportedAlgorithms["trapping-rain-water"]] as const;
-const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
+const minimumSizeWindowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
+const substringWindowAlgorithms = [
+  supportedAlgorithms["longest-substring-without-repeating-characters"]
+] as const;
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
 const heapAlgorithms = [supportedAlgorithms["kth-largest-element-in-an-array"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
@@ -194,6 +202,9 @@ const defaultTrappingRainWaterInput: TwoPointersInputPayload = {
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
   target: 7
+};
+const defaultLongestSubstringInput: WindowInputPayload = {
+  text: "abcabcbb"
 };
 const defaultHashInput: HashInputPayload = {
   array: [2, 7, 11, 15],
@@ -300,6 +311,12 @@ interface InputPresetDefinition {
     options: JsonObject;
     seed?: number;
   };
+}
+
+function isLongestSubstringWindowInput(
+  input: WindowInputPayload
+): input is Extract<WindowInputPayload, { text: string }> {
+  return "text" in input && typeof input.text === "string";
 }
 
 function cloneAlgorithmDescriptor(
@@ -552,7 +569,7 @@ function normalizeSearchInput(
   return input;
 }
 
-function normalizeWindowInput(payload: unknown): WindowInputPayload {
+function parseWindowCandidate(payload: unknown) {
   const candidate =
     typeof payload === "string"
       ? (() => {
@@ -563,6 +580,12 @@ function normalizeWindowInput(payload: unknown): WindowInputPayload {
           }
         })()
       : payload;
+
+  return candidate;
+}
+
+function normalizeMinimumSizeWindowInput(payload: unknown): WindowInputPayload {
+  const candidate = parseWindowCandidate(payload);
 
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new HttpError(400, "Window input must be an object with array and target.");
@@ -600,6 +623,47 @@ function normalizeWindowInput(payload: unknown): WindowInputPayload {
     array,
     target: value.target
   };
+}
+
+function normalizeLongestSubstringWindowInput(payload: unknown): WindowInputPayload {
+  const candidate = parseWindowCandidate(payload);
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Window input must be an object with text.");
+  }
+
+  const value = candidate as {
+    text?: unknown;
+  };
+
+  if (typeof value.text !== "string") {
+    throw new HttpError(400, "Window input text must be a string.");
+  }
+
+  const characters = Array.from(value.text);
+
+  if (characters.length < 1) {
+    throw new HttpError(400, "Window input text must contain at least one character.");
+  }
+
+  if (characters.length > 32) {
+    throw new HttpError(400, "Window input text must contain 32 characters or fewer.");
+  }
+
+  return {
+    text: value.text
+  };
+}
+
+function normalizeWindowInput(
+  payload: unknown,
+  algorithmId: "minimum-size-subarray-sum" | "longest-substring-without-repeating-characters"
+): WindowInputPayload {
+  if (algorithmId === "longest-substring-without-repeating-characters") {
+    return normalizeLongestSubstringWindowInput(payload);
+  }
+
+  return normalizeMinimumSizeWindowInput(payload);
 }
 
 function normalizeTwoPointersInput(payload: unknown): TwoPointersInputPayload {
@@ -714,6 +778,16 @@ function serializeSearchInput(input: SearchInputPayload) {
 }
 
 function serializeWindowInput(input: WindowInputPayload) {
+  if ("text" in input) {
+    return JSON.stringify(
+      {
+        text: input.text
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
       array: input.array,
@@ -1708,12 +1782,19 @@ function normalizeAlgorithmInput(
   }
 
   if (algorithm.domain === "window") {
-    const window = normalizeWindowInput(payload);
+    const window = normalizeWindowInput(
+      payload,
+      algorithm.id === "longest-substring-without-repeating-characters"
+        ? "longest-substring-without-repeating-characters"
+        : "minimum-size-subarray-sum"
+    );
 
     return {
       input: window,
       normalizedInputText: serializeWindowInput(window),
-      footprint: `${window.array.length} lanes / target ${window.target}`
+      footprint: isLongestSubstringWindowInput(window)
+        ? `${Array.from(window.text).length} chars`
+        : `${window.array.length} lanes / target ${window.target}`
     };
   }
 
@@ -2186,7 +2267,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "window",
-      algorithms: windowAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: minimumSizeWindowAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -2203,13 +2284,49 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "miss",
       kind: "curated",
       domain: "window",
-      algorithms: windowAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: minimumSizeWindowAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: {
         array: [1, 1, 1, 1, 1, 1],
         target: 9
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "window.reference-substring",
+      label: "Reference unique substring",
+      description:
+        "Use the classic repeating-pattern string so replay shows expansion, duplicate detection, contraction, and the final longest unique substring.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "window",
+      algorithms: substringWindowAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultLongestSubstringInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "window.overlapping-repeat",
+      label: "Overlapping repeat window",
+      description:
+        "Keep repeats close together so replay shows several shrink steps before a new unique substring can become the best answer.",
+      scenario: "overlap",
+      kind: "curated",
+      domain: "window",
+      algorithms: substringWindowAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        text: "pwwkew"
       },
       options: {}
     })

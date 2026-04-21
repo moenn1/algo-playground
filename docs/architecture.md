@@ -51,7 +51,7 @@ docs/             Architecture and developer workflow
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
 - Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
 - Shares replay-safe two-pointer state shapes across Container With Most Water and Trapping Rain Water so active walls, boundary maxima, basin fills, pruning moves, and terminal results stay readable across replay and persistence
-- Shares one replay-safe sliding-window state shape for Minimum Size Subarray Sum so active bounds, running sums, and best-window updates stay readable across replay and persistence
+- Shares a replay-safe sliding-window runtime family for Minimum Size Subarray Sum and Longest Substring Without Repeating Characters so active bounds, running sums or substrings, duplicate pressure, and best-window updates stay readable across replay and persistence
 - Shares one replay-safe hash state shape for Two Sum so complement lookups, stored entries, and matched pairs stay readable across replay and persistence
 - Shares one replay-safe heap state shape for Kth Largest Element in an Array so size-`k` heap order, ranked candidates, root replacements, and final cutoff state stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
@@ -61,7 +61,7 @@ docs/             Architecture and developer workflow
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
 - Publishes stable two-pointer semantics for area evaluation, shorter-wall pruning, boundary-max updates, basin fills, and explicit terminal result updates
-- Publishes stable window semantics for explicit expand, candidate, shrink, and terminal no-solution frames
+- Publishes stable window semantics for explicit expand, candidate or repeat, shrink, and terminal result frames across both numeric and string window problems
 - Publishes stable hash semantics for explicit complement lookups, lookup-table stores, and terminal pair matches
 - Publishes stable heap semantics for explicit heap seeding, cutoff-root replacement, rejected values, and terminal kth-largest reporting
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals

@@ -9,13 +9,13 @@ The service currently covers the supported algorithms already present in the wor
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`, `search-in-rotated-sorted-array`
 - Two-pointers: `container-with-most-water`, `trapping-rain-water`
-- Window: `minimum-size-subarray-sum`
+- Window: `minimum-size-subarray-sum`, `longest-substring-without-repeating-characters`
 - Hash: `two-sum`
 - Heap: `kth-largest-element-in-an-array`
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dijkstra`, `course-schedule`, `rotting-oranges`, `number-of-islands`
+- Graph: `bfs`, `dijkstra`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `walls-and-gates`
 
 ## Endpoints
 
@@ -150,8 +150,10 @@ The sorted search presets resolve for Binary Search. The rotated search presets 
 
 - `window.reference-target`: curated positive-array case with a shrinking best window
 - `window.no-solution`: curated positive-array case where no contiguous window reaches the target
+- `window.reference-substring`: curated classic repeating-pattern string where the best unique substring stabilizes after visible contractions
+- `window.overlapping-repeat`: curated string with close repeats so replay shows duplicate detection and several shrink steps before the next best answer lands
 
-Both window presets currently resolve for Minimum Size Subarray Sum through the same `algorithmId` field.
+The first two window presets resolve for Minimum Size Subarray Sum. The substring presets resolve for Longest Substring Without Repeating Characters.
 
 ### Two-pointers presets
 
@@ -219,7 +221,8 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Binary Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Search in Rotated Sorted Array payloads must define a distinct-integer array between 2 and 32 entries that is a rotation of a strictly increasing array, plus an integer target.
 - Two-pointer payloads must define between 2 and 24 non-negative integers in `heights`.
-- Window payloads must define between 2 and 32 positive integers plus a positive integer target.
+- Minimum Size Subarray Sum payloads must define between 2 and 32 positive integers plus a positive integer target.
+- Longest Substring Without Repeating Characters payloads must define a `text` string between 1 and 32 characters.
 - Hash payloads must define between 2 and 24 integers plus an integer target, and they must contain exactly one valid solution pair so replay stays deterministic.
 - Heap payloads must define between 2 and 24 integers plus an integer `k` between `1` and the array length.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.

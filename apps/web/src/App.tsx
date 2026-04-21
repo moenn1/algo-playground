@@ -141,10 +141,10 @@ const domainReference: Record<
     checkpoints: "Checkpoint stops separate area evaluations, best-pair updates, and pruning moves so pointer logic stays easy to scrub."
   },
   window: {
-    lens: "Track expansions, candidate hits, contractions, and shortest-window updates without hiding intermediate state.",
-    flow: "Window traces carry active bounds, current sum, and best-hit metadata directly in the recorded snapshot.",
+    lens: "Track expansions, duplicate or target hits, contractions, and best-window updates without hiding intermediate state.",
+    flow: "Window traces carry active bounds plus the algorithm-specific sum or substring state directly in the recorded snapshot.",
     metrics: "Window metrics emphasize `expansions`, `shrinks`, and `bestUpdates` for replay and history surfaces.",
-    checkpoints: "Storyboard stops call out the moments when the window first qualifies and when a better hit lands."
+    checkpoints: "Storyboard stops call out the moments when the window first qualifies, repeats, contracts, or lands a better answer."
   },
   hash: {
     lens: "Track complement lookups, stored entries, and the exact pair lock without reconstructing a hidden hash table.",
@@ -554,6 +554,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
 
   if (isWindowRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "longest-substring-without-repeating-characters") {
+      if (step.state.bestLength !== null && step.state.bestSubstring.length > 0) {
+        return `Best "${step.state.bestSubstring}" · length ${step.state.bestLength}`;
+      }
+
+      if (step.state.currentIndex !== null && step.state.currentChar !== null) {
+        return `Inspect "${step.state.currentChar}" at char ${step.state.currentIndex}`;
+      }
+
+      if (step.state.left !== null && step.state.right !== null) {
+        return `Active substring "${step.state.activeSubstring}"`;
+      }
+
+      return "Unique window waiting for first character";
+    }
 
     if (
       step.state.bestLength !== null &&
@@ -983,16 +999,28 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
           ? (() => {
               const windowStep = getRunStep(run, stepIndex);
 
-            if (windowStep.state.bestLength !== null) {
-              return `Best window length ${windowStep.state.bestLength}`;
-            }
+              if (windowStep.state.kind === "longest-substring-without-repeating-characters") {
+                if (windowStep.state.bestLength !== null) {
+                  return `Best unique length ${windowStep.state.bestLength}`;
+                }
 
-            if (windowStep.state.left !== null && windowStep.state.right !== null) {
-              return `${windowStep.state.right - windowStep.state.left + 1} active lanes`;
-            }
+                if (windowStep.state.left !== null && windowStep.state.right !== null) {
+                  return `${windowStep.state.right - windowStep.state.left + 1} active chars`;
+                }
 
-            return "Window waiting for first hit";
-          })()
+                return "Window waiting for first unique span";
+              }
+
+              if (windowStep.state.bestLength !== null) {
+                return `Best window length ${windowStep.state.bestLength}`;
+              }
+
+              if (windowStep.state.left !== null && windowStep.state.right !== null) {
+                return `${windowStep.state.right - windowStep.state.left + 1} active lanes`;
+              }
+
+              return "Window waiting for first hit";
+            })()
         : isTwoPointersRun(run)
           ? (() => {
               const twoPointersStep = getRunStep(run, stepIndex);
@@ -1201,6 +1229,101 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
 function WindowStage({ run, stepIndex }: { run: WindowRun; stepIndex: number }) {
   const step = getRunStep(run, stepIndex);
+
+  if (step.state.kind === "longest-substring-without-repeating-characters") {
+    const activeLeft = step.state.left;
+    const activeRight = step.state.right;
+    const bestStart = step.state.bestStart;
+    const bestEnd = step.state.bestEnd;
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} sweep</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="window-stage">
+          <div className="window-banner">
+            <span>{Array.from(step.state.text).length} characters</span>
+            <strong>
+              {activeLeft !== null && activeRight !== null
+                ? `Active substring "${step.state.activeSubstring}" across chars ${activeLeft} through ${activeRight}`
+                : "Window collapsed between expansions"}
+            </strong>
+            <p>
+              {step.state.bestLength !== null && step.state.bestSubstring.length > 0
+                ? `Best unique substring: "${step.state.bestSubstring}" at length ${step.state.bestLength}`
+                : "No unique substring recorded yet"}
+            </p>
+          </div>
+          <div className="window-grid">
+            {Array.from(step.state.text).map((char, index) => {
+              const isActive =
+                activeLeft !== null &&
+                activeRight !== null &&
+                index >= activeLeft &&
+                index <= activeRight;
+              const isBest =
+                bestStart !== null &&
+                bestEnd !== null &&
+                index >= bestStart &&
+                index <= bestEnd;
+              const isCurrent = step.state.currentIndex === index;
+              const isDuplicate =
+                step.state.duplicateChar !== null &&
+                (step.state.duplicateIndex === index || step.state.currentIndex === index);
+              const className = [
+                "window-cell",
+                isActive ? "window-cell-active" : "",
+                isCurrent || isDuplicate ? "window-cell-candidate" : "",
+                isBest ? "window-cell-best" : "",
+                activeLeft === index || activeRight === index ? "window-cell-edge" : ""
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <div className={className} key={`${index}-${char}`}>
+                  <span className="window-cell-index">{index}</span>
+                  <strong className="window-cell-value">{char}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Active window</span>
+            <strong>
+              {activeLeft !== null && activeRight !== null
+                ? `${activeLeft} to ${activeRight}`
+                : "Collapsed"}
+            </strong>
+          </div>
+          <div className="mini-card">
+            <span>Current char</span>
+            <strong>
+              {step.state.currentIndex !== null && step.state.currentChar !== null
+                ? `${step.state.currentChar} @ ${step.state.currentIndex}`
+                : "Waiting"}
+            </strong>
+          </div>
+          <div className="mini-card">
+            <span>Best substring</span>
+            <strong>
+              {step.state.bestLength !== null && step.state.bestSubstring.length > 0
+                ? `"${step.state.bestSubstring}" (${step.state.bestLength})`
+                : "Pending"}
+            </strong>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const activeLeft = step.state.left;
   const activeRight = step.state.right;
   const bestStart = step.state.bestStart;
@@ -1679,6 +1802,50 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
   if (isWindowRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "longest-substring-without-repeating-characters") {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Chars</span>
+              <strong>{Array.from(step.state.text).length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Current</span>
+              <strong>
+                {step.state.currentIndex !== null && step.state.currentChar !== null
+                  ? `${step.state.currentIndex}:${step.state.currentChar}`
+                  : "Waiting"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Window</span>
+              <strong>
+                {step.state.left !== null && step.state.right !== null
+                  ? `${step.state.left} to ${step.state.right}`
+                  : "Collapsed"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Best</span>
+              <strong>
+                {step.state.bestLength !== null && step.state.bestSubstring.length > 0
+                  ? `"${step.state.bestSubstring}" (${step.state.bestLength})`
+                  : "None"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {Array.from(step.state.text).map((char, index) => (
+              <span className="number-pill" key={`${char}-${index}`}>
+                {index}:{char}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
 
     return (
       <>

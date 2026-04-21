@@ -16,6 +16,7 @@ import {
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
+  defaultLongestSubstringInput,
   defaultKthLargestElementInput,
   defaultLargestRectangleInHistogramInput,
   defaultMinStackInput,
@@ -305,6 +306,12 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
 }
 
+function isLongestSubstringWindowInput(
+  input: WindowInput
+): input is Extract<WindowInput, { text: string }> {
+  return "text" in input && typeof input.text === "string";
+}
+
 function isHashRun(run: ReplayRun): run is HashRun {
   return run.algorithm.domain === "hash";
 }
@@ -458,6 +465,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Window Input",
     inputHint: "JSON with a positive integer array and a target sum.",
     defaultInput: serializeWindowInput(defaultMinimumSizeSubarrayInput),
+    domain: "window"
+  },
+  {
+    id: "longest-substring-without-repeating-characters",
+    name: "Longest Substring Without Repeating Characters",
+    badge: "Window",
+    accent: "teal",
+    description:
+      "String-window replay records duplicate hits, left-edge contractions, and the best unique substring without browser-side recomputation.",
+    inputLabel: "Window Input",
+    inputHint: "JSON with a text string up to 32 characters.",
+    defaultInput: serializeWindowInput(defaultLongestSubstringInput),
     domain: "window"
   },
   {
@@ -811,7 +830,7 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
   }
 
   if (algorithm.domain === "window") {
-    const input = parseWindowInputText(inputText);
+    const input = parseWindowInputText(inputText, algorithm.id);
     return buildWindowRunFromInput(algorithm, input);
   }
 
@@ -854,7 +873,9 @@ export function describeInputFootprint(run: ReplayRun): string {
   }
 
   if (isWindowRun(run)) {
-    return `${run.input.array.length} lanes / target ${run.input.target}`;
+    return isLongestSubstringWindowInput(run.input)
+      ? `${Array.from(run.input.text).length} chars`
+      : `${run.input.array.length} lanes / target ${run.input.target}`;
   }
 
   if (isTwoPointersRun(run)) {

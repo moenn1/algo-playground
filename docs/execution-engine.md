@@ -15,6 +15,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `container-with-most-water`
 - `trapping-rain-water`
 - `minimum-size-subarray-sum`
+- `longest-substring-without-repeating-characters`
 - `two-sum`
 - `kth-largest-element-in-an-array`
 - `merge-intervals`
@@ -28,6 +29,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `course-schedule`
 - `rotting-oranges`
 - `number-of-islands`
+- `walls-and-gates`
 
 ## Sorting Runtime Model
 
@@ -71,8 +73,11 @@ That shape stays reusable across classic binary search and rotated-array search 
 
 ## Window Runtime Model
 
-Minimum Size Subarray Sum establishes the first sliding-window runtime shape:
+The window runtime family now covers both Minimum Size Subarray Sum and Longest Substring Without Repeating Characters through one shared metric vocabulary plus algorithm-specific replay-safe state.
 
+Minimum Size Subarray Sum records:
+
+- `state.kind`: `"minimum-size-subarray-sum"`
 - `state.array`: the positive integer array under scan
 - `state.target`: the required minimum sum
 - `state.left`: the inclusive left bound of the active window, or `null` when the window is collapsed
@@ -82,13 +87,27 @@ Minimum Size Subarray Sum establishes the first sliding-window runtime shape:
 - `state.bestLength`: the best qualifying length, or `null` while no candidate exists
 - `state.candidateSatisfied`: whether the active window currently meets the target before the next shrink
 
+Longest Substring Without Repeating Characters records:
+
+- `state.kind`: `"longest-substring-without-repeating-characters"`
+- `state.text`: the source string under scan
+- `state.left` and `state.right`: the inclusive character bounds of the active unique window, or `null` when the window is collapsed
+- `state.currentIndex` and `state.currentChar`: the character currently entering or settling the window
+- `state.activeSubstring`: the current substring inside the live window
+- `state.activeEntries`: the active character/index pairs inside the live window
+- `state.characterLedger`: the current per-character counts and latest indices inside the window
+- `state.duplicateChar` and `state.duplicateIndex`: the duplicate that forced contraction, when one is active
+- `state.bestStart`, `state.bestEnd`, `state.bestLength`, and `state.bestSubstring`: the best unique substring recorded so far
+
 Shared window metrics focus on replaying the scan and contraction rhythm directly:
 
 - `expansions`: right-edge growth steps performed so far
 - `shrinks`: left-edge contraction steps performed so far
-- `bestUpdates`: times the runtime published a shorter qualifying window
+- `bestUpdates`: times the runtime published a better window
 
-The runtime records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and terminal `Done` or `No Solution` checkpoints so replay never has to infer qualifying intervals from aggregate counters alone.
+Minimum Size Subarray Sum records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and terminal `Done` or `No Solution` checkpoints so replay never has to infer qualifying intervals from aggregate counters alone.
+
+Longest Substring Without Repeating Characters records `Expand`, `Repeat`, `Shrink`, `Best Update`, and terminal `Done` checkpoints so replay can reopen the duplicate that forced contraction instead of jumping the left edge in one hidden move.
 
 ## Two-Pointers Runtime Model
 
