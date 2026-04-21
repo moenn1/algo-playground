@@ -179,6 +179,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "stack", "early-mismatch"]
   },
   {
+    key: "stack-reference-forecast",
+    algorithmId: "daily-temperatures",
+    presetId: "stack.reference-forecast",
+    recordedAt: "2026-04-20T09:07:59.500Z",
+    tags: ["seeded-demo", "stack", "reference-forecast"]
+  },
+  {
+    key: "stack-late-spike",
+    algorithmId: "daily-temperatures",
+    presetId: "stack.late-spike",
+    recordedAt: "2026-04-20T09:07:59.750Z",
+    tags: ["seeded-demo", "stack", "late-spike"]
+  },
+  {
     key: "graph-reference-route",
     algorithmId: "dijkstra",
     presetId: "graph.reference-route",

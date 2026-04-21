@@ -737,6 +737,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "8 tokens"
     });
 
+    const dailyTemperaturesPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/stack.reference-forecast/resolve",
+      payload: {
+        algorithmId: "daily-temperatures"
+      }
+    });
+
+    expect(dailyTemperaturesPreset.statusCode).toBe(200);
+    expect(dailyTemperaturesPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "stack.reference-forecast"
+      },
+      algorithm: {
+        id: "daily-temperatures",
+        domain: "stack"
+      },
+      footprint: "8 days"
+    });
+
     const validateSortingInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -965,6 +986,30 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "6 tokens"
     });
+
+    const validateDailyTemperaturesInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "daily-temperatures",
+        payload: {
+          temperatures: [70, 71, 69, 72]
+        }
+      }
+    });
+
+    expect(validateDailyTemperaturesInput.statusCode).toBe(200);
+    expect(validateDailyTemperaturesInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "daily-temperatures",
+        domain: "stack"
+      },
+      input: {
+        temperatures: [70, 71, 69, 72]
+      },
+      footprint: "4 days"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1029,6 +1074,26 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "heights[1] must be a non-negative integer."
+    });
+  });
+
+  it("rejects daily-temperatures payloads with out-of-range values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "daily-temperatures",
+        payload: {
+          temperatures: [72, 151, 69]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "temperatures[1] must be between 0 and 150."
     });
   });
 });

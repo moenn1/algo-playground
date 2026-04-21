@@ -81,6 +81,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("trapping-rain-water");
   });
 
+  it("surfaces daily-temperatures study paths through monotonic-stack metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "monotonic stack"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("daily-temperatures");
+  });
+
   it("sorts by persisted activity when requested", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms.filter((algorithm) => algorithm.domain === "sorting"),

@@ -12,6 +12,7 @@ import {
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultContainerWithMostWaterInput,
+  defaultDailyTemperaturesInput,
   defaultDijkstraInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
@@ -433,6 +434,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "stack"
   },
   {
+    id: "daily-temperatures",
+    name: "Daily Temperatures",
+    badge: "Stack",
+    accent: "teal",
+    description:
+      "Monotonic-stack replay records unresolved days, warmer-day resolutions, and the final wait ledger without browser-side recomputation.",
+    inputLabel: "Stack Input",
+    inputHint: "JSON with an integer temperatures array between 0 and 150.",
+    defaultInput: serializeStackInput(defaultDailyTemperaturesInput),
+    domain: "stack"
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search",
     badge: "Graph",
@@ -644,7 +657,7 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
   }
 
   if (algorithm.domain === "stack") {
-    const input = parseStackInputText(inputText);
+    const input = parseStackInputText(inputText, algorithm.id);
     return buildStackRunFromInput(algorithm, input);
   }
 
@@ -682,7 +695,9 @@ export function describeInputFootprint(run: ReplayRun): string {
   }
 
   if (isStackRun(run)) {
-    return `${run.input.expression.length} tokens`;
+    return "expression" in run.input
+      ? `${run.input.expression.length} tokens`
+      : `${run.input.temperatures.length} days`;
   }
 
   return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;

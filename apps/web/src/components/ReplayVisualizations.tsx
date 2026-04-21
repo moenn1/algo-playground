@@ -1,7 +1,9 @@
 import {
+  type DailyTemperaturesExecutionState,
   type ContainerWithMostWaterExecutionState,
   type GraphExecutionState,
   type SortingExecutionState,
+  type ValidParenthesesExecutionState,
   type TrappingRainWaterExecutionState,
   type TwoPointersExecutionState
 } from "@tracedeck/execution-engine";
@@ -224,7 +226,7 @@ function formatHashPair(values: number[]): string {
 
 function getStackTokenTone(
   index: number,
-  step: StackRun["trace"]["steps"][number]
+  step: TraceStep<ValidParenthesesExecutionState>
 ): "current" | "failed" | "stacked" | "matched" | "processed" | "idle" {
   if (step.state.failureIndex === index) {
     return "failed";
@@ -266,6 +268,53 @@ function formatStackTokenStatus(
     default:
       return "Pending";
   }
+}
+
+function isValidParenthesesStackState(
+  state: StackRun["trace"]["steps"][number]["state"]
+): state is ValidParenthesesExecutionState {
+  return state.kind === "valid-parentheses";
+}
+
+function isDailyTemperaturesStackState(
+  state: StackRun["trace"]["steps"][number]["state"]
+): state is DailyTemperaturesExecutionState {
+  return state.kind === "daily-temperatures";
+}
+
+function formatDailyTemperatureStatus(
+  index: number,
+  step: TraceStep<DailyTemperaturesExecutionState>
+): string {
+  if (step.state.cursor === index) {
+    return "Current";
+  }
+
+  if (step.state.comparisonIndex === index) {
+    return "Compare";
+  }
+
+  if (step.state.currentResolvedIndex === index && step.state.currentWait !== null) {
+    return `+${step.state.currentWait} day${step.state.currentWait === 1 ? "" : "s"}`;
+  }
+
+  if (step.state.stackIndices.includes(index)) {
+    return "Waiting";
+  }
+
+  if (step.state.resolvedWaits[index]! > 0) {
+    return `${step.state.resolvedWaits[index]} day${step.state.resolvedWaits[index] === 1 ? "" : "s"}`;
+  }
+
+  if (step.phase === "Done") {
+    return "No warmer day";
+  }
+
+  if (step.state.processedIndices.includes(index)) {
+    return "Scanned";
+  }
+
+  return "Pending";
 }
 
 function isContainerState(
@@ -816,6 +865,149 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
 
 export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+
+  if (isDailyTemperaturesStackState(step.state)) {
+    const minTemperature = Math.min(...step.state.temperatures);
+    const maxTemperature = Math.max(...step.state.temperatures);
+    const range = Math.max(1, maxTemperature - minTemperature);
+    const waitingLabel =
+      step.state.stackIndices.length > 0
+        ? step.state.stackIndices.map((index) => `Day ${index}`).join(", ")
+        : "No unresolved days";
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} stack</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="stack-stage">
+          <div className="stack-banner">
+            <span>{step.state.temperatures.length} forecast days queued</span>
+            <strong>
+              {step.state.cursor !== null && step.state.currentTemperature !== null
+                ? `Inspect day ${step.state.cursor} = ${step.state.currentTemperature}°`
+                : "Forecast resolved"}
+            </strong>
+            <p>
+              {step.state.currentResolvedIndex !== null && step.state.currentWait !== null
+                ? `Day ${step.state.currentResolvedIndex} settles after ${step.state.currentWait} day${step.state.currentWait === 1 ? "" : "s"}.`
+                : step.state.comparisonIndex !== null && step.state.cursor !== null
+                  ? `Compare day ${step.state.cursor} against unresolved day ${step.state.comparisonIndex}.`
+                  : step.state.stackIndices.length > 0
+                    ? `${step.state.stackIndices.length} unresolved day${step.state.stackIndices.length === 1 ? "" : "s"} still waiting for a warmer temperature.`
+                    : "No unresolved day is waiting on the stack."}
+            </p>
+          </div>
+          <div className="stack-visual-grid">
+            <div className="sort-stage" aria-label="Temperature forecast state">
+              {step.state.temperatures.map((temperature, index) => {
+                const classes = [
+                  "sort-bar",
+                  step.state.cursor === index ? "sort-bar-active" : "",
+                  step.state.comparisonIndex === index ? "sort-bar-swap" : "",
+                  step.state.currentResolvedIndex === index || step.state.resolvedWaits[index]! > 0
+                    ? "sort-bar-sorted"
+                    : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <div className={classes} key={`temperature-${index}-${temperature}`}>
+                    <span className="sort-bar-value">{temperature}</span>
+                    <div
+                      className="sort-bar-rod"
+                      style={{
+                        height: `${18 + ((temperature - minTemperature + 1) / (range + 1)) * 180}px`
+                      }}
+                    />
+                    <span className="sort-bar-index">{index}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="stack-stack-rail">
+              <article className="mini-card">
+                <span>Unresolved stack</span>
+                <strong>{step.state.stackIndices.length} day(s)</strong>
+                <p>{waitingLabel}</p>
+              </article>
+              <div className="stack-stack-grid">
+                {step.state.stackIndices.length > 0 ? (
+                  [...step.state.stackIndices]
+                    .map((day, index) => ({
+                      day,
+                      temperature: step.state.stackTemperatures[index] ?? null
+                    }))
+                    .reverse()
+                    .map(({ day, temperature }, index) => (
+                      <article className="stack-frame-card" key={`temperature-frame-${day}`}>
+                        <span>{index === 0 ? "Top" : `Depth ${index}`}</span>
+                        <strong>{temperature !== null ? `${temperature}°` : "Pending"}</strong>
+                        <p>Day {day} still needs a warmer future day</p>
+                      </article>
+                    ))
+                ) : (
+                  <div className="stack-frame-empty">Stack empty</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Current day</span>
+            <strong>{step.state.cursor !== null ? step.state.cursor : "Done"}</strong>
+            <p>
+              {step.state.currentTemperature !== null
+                ? `${step.state.currentTemperature} degrees`
+                : "No active temperature"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Comparison</span>
+            <strong>{step.state.comparisonIndex !== null ? `Day ${step.state.comparisonIndex}` : "None"}</strong>
+            <p>
+              {step.state.comparisonIndex !== null
+                ? `${step.state.temperatures[step.state.comparisonIndex]} degrees`
+                : "No unresolved day under inspection"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Resolved waits</span>
+            <strong>{step.state.resolvedWaits.filter((wait) => wait > 0).length}</strong>
+            <p>
+              {step.state.currentResolvedIndex !== null && step.state.currentWait !== null
+                ? `Latest: day ${step.state.currentResolvedIndex} waits ${step.state.currentWait}`
+                : "Zeroes stay visible for days with no warmer future temperature"}
+            </p>
+          </div>
+        </div>
+        <div className="sort-lane-strip" aria-label="Daily temperature ledger">
+          {step.state.temperatures.map((temperature, index) => (
+            <article className="lane-chip lane-chip-idle" key={`temperature-ledger-${index}`}>
+              <div className="lane-chip-header">
+                <span>Day {index}</span>
+                <strong>{temperature}°</strong>
+              </div>
+              <span className="lane-chip-status">
+                {formatDailyTemperatureStatus(index, step)}
+              </span>
+            </article>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (!isValidParenthesesStackState(step.state)) {
+    return null;
+  }
+
   const verdict =
     step.state.valid === true
       ? "Valid expression"

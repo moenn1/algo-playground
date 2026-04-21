@@ -13,7 +13,7 @@ The service currently covers the supported algorithms already present in the wor
 - Hash: `two-sum`
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
-- Stack: `valid-parentheses`
+- Stack: `valid-parentheses`, `daily-temperatures`
 - Graph: `bfs`, `dijkstra`
 
 ## Endpoints
@@ -170,8 +170,10 @@ Both dynamic-programming presets currently resolve for Longest Common Subsequenc
 
 - `stack.reference-valid`: curated balanced bracket string with a clean empty-stack finish
 - `stack.early-mismatch`: curated crossing mismatch that fails on the first invalid closer
+- `stack.reference-forecast`: curated canonical forecast with multiple warmer-day resolutions
+- `stack.late-spike`: curated forecast where one late warm day resolves several waiting days at once
 
-Both stack presets currently resolve for Valid Parentheses through the same `algorithmId` field.
+The bracket presets resolve for Valid Parentheses. The forecast presets resolve for Daily Temperatures.
 
 ## Validation Rules
 
@@ -192,7 +194,8 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 - Hash payloads must define between 2 and 24 integers plus an integer target, and they must contain exactly one valid solution pair so replay stays deterministic.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.
-- Stack payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.
+- Valid Parentheses payloads must define a non-empty bracket expression up to 32 characters using only `()`, `[]`, and `{}`.
+- Daily Temperatures payloads must define between 2 and 24 integer temperatures in the inclusive range `0` through `150`.
 - Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 

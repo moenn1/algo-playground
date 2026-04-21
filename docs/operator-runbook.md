@@ -44,6 +44,8 @@ The demo seed currently materializes:
 - Longest Common Subsequence on `dynamic-programming.no-overlap`
 - Valid Parentheses on `stack.reference-valid`
 - Valid Parentheses on `stack.early-mismatch`
+- Daily Temperatures on `stack.reference-forecast`
+- Daily Temperatures on `stack.late-spike`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
 - A baseline sorting comparison between Bubble Sort and Selection Sort

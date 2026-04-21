@@ -361,6 +361,35 @@ describe("buildRun", () => {
     expect(finalStep.state.stackTokens).toEqual([]);
     expect(finalStep.state.matchedPairs).toHaveLength(4);
   });
+
+  it("builds daily-temperatures replay runs from the shared stack engine", () => {
+    const run = buildRun(
+      "daily-temperatures",
+      JSON.stringify(
+        {
+          temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "stack") {
+      throw new Error("Expected a stack run.");
+    }
+
+    const stackRun = run as StackRun;
+    const finalStep = stackRun.trace.steps[stackRun.trace.steps.length - 1]!;
+
+    expect(stackRun.algorithm.id).toBe("daily-temperatures");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.kind).toBe("daily-temperatures");
+    if (finalStep.state.kind !== "daily-temperatures") {
+      throw new Error("Expected the daily-temperatures stack state.");
+    }
+    expect(finalStep.state.resolvedWaits).toEqual([1, 1, 4, 2, 1, 1, 0, 0]);
+    expect(finalStep.state.stackIndices).toEqual([6, 7]);
+  });
 });
 
 describe("replay visualizations", () => {

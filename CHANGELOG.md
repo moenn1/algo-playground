@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared stack runtime for Daily Temperatures, including deterministic monotonic-stack comparisons, explicit warmer-day resolution checkpoints, and stable `comparisons`, `pushes`, and `pops` metrics.
+- Wired Daily Temperatures through the replay shell, input-service presets and validation, demo seed data, library catalog, and stack-domain documentation so TraceDeck now covers a second reusable stack problem with product-grade replay support.
 - Added a shared two-pointer runtime for Trapping Rain Water, including deterministic boundary-max updates, explicit per-index fill checkpoints, and stable `evaluations`, `moves`, and `fills` metrics.
 - Wired Trapping Rain Water through the replay shell, input-service presets, demo seed data, library catalog, and validation coverage, and widened the shared two-pointer input contract to accept non-negative height arrays for basin-style problems.
 - Added a shared two-pointer runtime for Container With Most Water, including deterministic wall-pair evaluations, explicit pointer-pruning checkpoints, and stable `evaluations`, `moves`, and `bestUpdates` metrics.

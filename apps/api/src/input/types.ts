@@ -14,6 +14,7 @@ export const supportedAlgorithmIds = [
   "merge-intervals",
   "longest-common-subsequence",
   "valid-parentheses",
+  "daily-temperatures",
   "bfs",
   "dijkstra"
 ] as const;
@@ -63,7 +64,8 @@ export interface DynamicProgrammingInputPayload extends JsonObject {
 }
 
 export interface StackInputPayload extends JsonObject {
-  expression: string;
+  expression?: string;
+  temperatures?: number[];
 }
 
 export interface InputPresetSummary {

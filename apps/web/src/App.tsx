@@ -158,10 +158,10 @@ const domainReference: Record<
     checkpoints: "Checkpoint stops separate table fill from traceback so large grids still stay readable in replay."
   },
   stack: {
-    lens: "Track opener pushes, closer checks, matched segments, and the first invalid token without hidden stack mutation.",
-    flow: "Stack playback records the active token, full stack contents, matched pairs, and failure reason directly in each snapshot.",
-    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so validator work stays readable across future stack problems.",
-    checkpoints: "Storyboard stops call out the first mismatch or the clean empty-stack finish instead of inferring terminal validity."
+    lens: "Track unresolved stack entries, comparisons, and resolved outputs whether the problem is validating brackets or waiting for a warmer day.",
+    flow: "Stack playback records the active cursor, full stack contents, and per-step result signals directly in each snapshot instead of reconstructing browser-only state.",
+    metrics: "Stack metrics emphasize `comparisons`, `pushes`, and `pops` so monotonic-stack scans and bracket validation stay comparable inside one reusable runtime family.",
+    checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, or clean terminal ledger instead of inferring stack outcomes after the fact."
   },
   graph: {
     lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
@@ -268,6 +268,22 @@ function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
 
 function isStackRun(run: ReplayRun): run is StackRun {
   return run.algorithm.domain === "stack";
+}
+
+function isValidParenthesesStackStep(
+  step: StackRun["trace"]["steps"][number]
+): step is StackRun["trace"]["steps"][number] & {
+  state: Extract<StackRun["trace"]["steps"][number]["state"], { kind: "valid-parentheses" }>;
+} {
+  return step.state.kind === "valid-parentheses";
+}
+
+function isDailyTemperaturesStackStep(
+  step: StackRun["trace"]["steps"][number]
+): step is StackRun["trace"]["steps"][number] & {
+  state: Extract<StackRun["trace"]["steps"][number]["state"], { kind: "daily-temperatures" }>;
+} {
+  return step.state.kind === "daily-temperatures";
 }
 
 function formatGridCoordinate(cell: number[]): string | null {
@@ -581,23 +597,39 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   if (isStackRun(run)) {
     const step = getRunStep(run, stepIndex);
 
-    if (step.state.valid === true) {
-      return `Validated ${step.state.expression.length} tokens`;
+    if (isValidParenthesesStackStep(step)) {
+      if (step.state.valid === true) {
+        return `Validated ${step.state.expression.length} tokens`;
+      }
+
+      if (step.state.failureIndex !== null) {
+        return `Mismatch at slot ${step.state.failureIndex}`;
+      }
+
+      if (step.state.currentChar !== null && step.state.cursor !== null) {
+        return `Inspect slot ${step.state.cursor} = ${step.state.currentChar}`;
+      }
+
+      if (step.state.stackTokens.length > 0) {
+        return `Stack depth ${step.state.stackTokens.length}`;
+      }
+
+      return "Awaiting first token";
     }
 
-    if (step.state.failureIndex !== null) {
-      return `Mismatch at slot ${step.state.failureIndex}`;
+    if (step.state.currentResolvedIndex !== null && step.state.currentWait !== null) {
+      return `Resolve day ${step.state.currentResolvedIndex} in ${step.state.currentWait} day${step.state.currentWait === 1 ? "" : "s"}`;
     }
 
-    if (step.state.currentChar !== null && step.state.cursor !== null) {
-      return `Inspect slot ${step.state.cursor} = ${step.state.currentChar}`;
+    if (step.state.cursor !== null && step.state.currentTemperature !== null) {
+      return `Inspect day ${step.state.cursor} = ${step.state.currentTemperature}°`;
     }
 
-    if (step.state.stackTokens.length > 0) {
-      return `Stack depth ${step.state.stackTokens.length}`;
+    if (step.state.stackIndices.length > 0) {
+      return `${step.state.stackIndices.length} unresolved day${step.state.stackIndices.length === 1 ? "" : "s"}`;
     }
 
-    return "Awaiting first token";
+    return "Forecast settled";
   }
 
   const step = getRunStep(run, stepIndex);
@@ -848,19 +880,34 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
           ? (() => {
               const stackStep = getRunStep(run, stepIndex);
 
-              if (stackStep.state.valid === true) {
-                return "Expression validated";
+              if (isValidParenthesesStackStep(stackStep)) {
+                if (stackStep.state.valid === true) {
+                  return "Expression validated";
+                }
+
+                if (stackStep.state.failureIndex !== null) {
+                  return `Mismatch at slot ${stackStep.state.failureIndex}`;
+                }
+
+                if (stackStep.state.stackTokens.length > 0) {
+                  return `${stackStep.state.stackTokens.length} opener(s) pending`;
+                }
+
+                return `${stackStep.state.processedIndices.length} tokens processed`;
               }
 
-              if (stackStep.state.failureIndex !== null) {
-                return `Mismatch at slot ${stackStep.state.failureIndex}`;
+              if (
+                stackStep.state.currentResolvedIndex !== null &&
+                stackStep.state.currentWait !== null
+              ) {
+                return `Resolved day ${stackStep.state.currentResolvedIndex} with wait ${stackStep.state.currentWait}`;
               }
 
-              if (stackStep.state.stackTokens.length > 0) {
-                return `${stackStep.state.stackTokens.length} opener(s) pending`;
+              if (stackStep.state.stackIndices.length > 0) {
+                return `${stackStep.state.stackIndices.length} unresolved day(s) pending`;
               }
 
-              return `${stackStep.state.processedIndices.length} tokens processed`;
+              return `${stackStep.state.processedIndices.length} days scanned`;
             })()
         : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
 
@@ -1462,6 +1509,48 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
 
   if (isStackRun(run)) {
     const step = getRunStep(run, stepIndex);
+
+    if (isDailyTemperaturesStackStep(step)) {
+      const resolvedCount = step.state.resolvedWaits.filter((wait) => wait > 0).length;
+
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Current day</span>
+              <strong>
+                {step.state.cursor !== null && step.state.currentTemperature !== null
+                  ? `${step.state.cursor}:${step.state.currentTemperature}°`
+                  : "Done"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Comparison day</span>
+              <strong>
+                {step.state.comparisonIndex !== null
+                  ? `Day ${step.state.comparisonIndex}`
+                  : "None"}
+              </strong>
+            </div>
+            <div className="distance-row">
+              <span>Unresolved stack</span>
+              <strong>{step.state.stackIndices.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Resolved waits</span>
+              <strong>{resolvedCount}</strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.temperatures.map((temperature, index) => (
+              <span className="number-pill" key={`stack-temperature-pill-${index}`}>
+                {index}:{temperature}°/{step.state.resolvedWaits[index]}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
 
     return (
       <>

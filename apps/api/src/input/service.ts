@@ -87,6 +87,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Valid Parentheses",
     domain: "stack"
   },
+  "daily-temperatures": {
+    id: "daily-temperatures",
+    label: "Daily Temperatures",
+    domain: "stack"
+  },
   bfs: {
     id: "bfs",
     label: "Breadth-First Search",
@@ -115,7 +120,8 @@ const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as c
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
-const stackAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
+const validParenthesesAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
+const dailyTemperaturesAlgorithms = [supportedAlgorithms["daily-temperatures"]] as const;
 const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
@@ -154,6 +160,9 @@ const defaultDynamicProgrammingInput: DynamicProgrammingInputPayload = {
 };
 const defaultStackInput: StackInputPayload = {
   expression: "({[]})[]"
+};
+const defaultDailyTemperaturesInput: StackInputPayload = {
+  temperatures: [73, 74, 75, 71, 69, 72, 76, 73]
 };
 const defaultGraphInput: GraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
@@ -715,7 +724,7 @@ function serializeIntervalInput(input: IntervalInputPayload) {
   );
 }
 
-function normalizeStackInput(payload: unknown): StackInputPayload {
+function normalizeValidParenthesesInput(payload: unknown): StackInputPayload {
   const candidate =
     typeof payload === "string"
       ? (() => {
@@ -752,10 +761,82 @@ function normalizeStackInput(payload: unknown): StackInputPayload {
   };
 }
 
+function normalizeDailyTemperaturesInput(payload: unknown): StackInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Stack input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Stack input must be an object with a temperatures array.");
+  }
+
+  const value = candidate as {
+    temperatures?: unknown;
+  };
+
+  if (!Array.isArray(value.temperatures) || value.temperatures.length < 2) {
+    throw new HttpError(400, "Daily Temperatures input must include at least two temperatures.");
+  }
+
+  if (value.temperatures.length > 24) {
+    throw new HttpError(
+      400,
+      "Daily Temperatures input arrays must contain 24 temperatures or fewer."
+    );
+  }
+
+  const temperatures = value.temperatures.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry)) {
+      throw new HttpError(400, `temperatures[${index}] must be an integer.`);
+    }
+
+    if (entry < 0 || entry > 150) {
+      throw new HttpError(400, `temperatures[${index}] must be between 0 and 150.`);
+    }
+
+    return entry;
+  });
+
+  return {
+    temperatures
+  };
+}
+
+function normalizeStackInput(
+  payload: unknown,
+  algorithmId: SupportedAlgorithmId = "valid-parentheses"
+): StackInputPayload {
+  switch (algorithmId) {
+    case "valid-parentheses":
+      return normalizeValidParenthesesInput(payload);
+    case "daily-temperatures":
+      return normalizeDailyTemperaturesInput(payload);
+    default:
+      throw new HttpError(400, `Stack algorithm "${algorithmId}" is not supported.`);
+  }
+}
+
 function serializeStackInput(input: StackInputPayload) {
+  if (typeof input.expression === "string") {
+    return JSON.stringify(
+      {
+        expression: input.expression
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
-      expression: input.expression
+      temperatures: input.temperatures
     },
     null,
     2
@@ -1028,12 +1109,15 @@ function normalizeAlgorithmInput(
   }
 
   if (algorithm.domain === "stack") {
-    const stack = normalizeStackInput(payload);
+    const stack = normalizeStackInput(payload, algorithm.id);
 
     return {
       input: stack,
       normalizedInputText: serializeStackInput(stack),
-      footprint: `${stack.expression.length} tokens`
+      footprint:
+        typeof stack.expression === "string"
+          ? `${stack.expression.length} tokens`
+          : `${stack.temperatures.length} days`
     };
   }
 
@@ -1586,7 +1670,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "stack",
-      algorithms: stackAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: validParenthesesAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -1603,12 +1687,48 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "mismatch",
       kind: "curated",
       domain: "stack",
-      algorithms: stackAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: validParenthesesAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: {
         expression: "([)]"
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.reference-forecast",
+      label: "Reference warming forecast",
+      description:
+        "Use the canonical monotonic-stack forecast so replay shows unresolved days popping as warmer temperatures arrive.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "stack",
+      algorithms: dailyTemperaturesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultDailyTemperaturesInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "stack.late-spike",
+      label: "Late spike forecast",
+      description:
+        "Hold the warmest day until late in the skyline so replay resolves several waiting days in one deterministic burst.",
+      scenario: "late-spike",
+      kind: "curated",
+      domain: "stack",
+      algorithms: dailyTemperaturesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        temperatures: [68, 67, 65, 64, 66, 63, 72, 70]
       },
       options: {}
     })

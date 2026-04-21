@@ -55,7 +55,7 @@ docs/             Architecture and developer workflow
 - Shares one replay-safe hash state shape for Two Sum so complement lookups, stored entries, and matched pairs stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
 - Shares one replay-safe dynamic-programming state shape for Longest Common Subsequence so table snapshots, predecessor dependencies, and traceback recovery stay readable across replay and persistence
-- Shares one replay-safe stack state shape for Valid Parentheses so cursor position, stack contents, matched pairs, and failure reasons stay readable across replay and persistence
+- Shares one replay-safe stack runtime family across Valid Parentheses and Daily Temperatures so cursor position, stack contents, per-step resolutions, and terminal outcomes stay readable across replay and persistence
 - Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
@@ -64,7 +64,7 @@ docs/             Architecture and developer workflow
 - Publishes stable hash semantics for explicit complement lookups, lookup-table stores, and terminal pair matches
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals
 - Publishes stable dynamic-programming semantics for row-major table fills, deterministic traceback ties, and recovered subsequences
-- Publishes stable stack semantics for opener pushes, closer checks, matched-pair recovery, and terminal mismatch reporting
+- Publishes stable stack semantics for opener pushes, closer checks, monotonic-stack resolutions, and terminal mismatch or final-ledger reporting
 - Publishes stable graph semantics for frontier ordering, settled nodes, edge inspections, and route updates across BFS and Dijkstra
 - Keeps algorithm narration, highlights, and mutation checkpoints close to the execution logic instead of scattering them through the UI
 
