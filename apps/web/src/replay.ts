@@ -26,6 +26,7 @@ import {
   defaultNetworkDelayTimeInput,
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
+  defaultRedundantConnectionInput,
   defaultRottingOrangesInput,
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
@@ -757,6 +758,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with nodeCount and integer edge pairs as [from, to].",
     defaultInput: serializeGraphInput(defaultGraphValidTreeInput),
+    domain: "graph"
+  },
+  {
+    id: "redundant-connection",
+    name: "Redundant Connection",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Union-Find replay records accepted forest growth, the first cycle-closing edge in input order, and the terminal redundant-edge verdict.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodeCount and integer edge pairs as [from, to].",
+    defaultInput: serializeGraphInput(defaultRedundantConnectionInput),
     domain: "graph"
   },
   {

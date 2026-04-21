@@ -846,6 +846,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 nodes / 4 edges"
     });
 
+    const redundantPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-redundant/resolve",
+      payload: {
+        algorithmId: "redundant-connection"
+      }
+    });
+
+    expect(redundantPreset.statusCode).toBe(200);
+    expect(redundantPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-redundant"
+      },
+      algorithm: {
+        id: "redundant-connection",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 5 edges"
+    });
+
+    const lateRedundantPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.late-redundant/resolve",
+      payload: {
+        algorithmId: "redundant-connection"
+      }
+    });
+
+    expect(lateRedundantPreset.statusCode).toBe(200);
+    expect(lateRedundantPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.late-redundant"
+      },
+      algorithm: {
+        id: "redundant-connection",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 5 edges"
+    });
+
     const courseSchedulePreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-schedule/resolve",
@@ -2169,6 +2211,44 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "5 nodes / 4 edges"
+    });
+
+    const validateRedundantConnectionInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "redundant-connection",
+        payload: {
+          nodeCount: 5,
+          edges: [
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [1, 3],
+            [1, 4]
+          ]
+        }
+      }
+    });
+
+    expect(validateRedundantConnectionInput.statusCode).toBe(200);
+    expect(validateRedundantConnectionInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "redundant-connection",
+        domain: "graph"
+      },
+      input: {
+        nodeCount: 5,
+        edges: [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [1, 3],
+          [1, 4]
+        ]
+      },
+      footprint: "5 nodes / 5 edges"
     });
   });
 

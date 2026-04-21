@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -122,6 +122,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.reference-clone`: curated connected graph where clone allocation and clone-link commits both stay visible
 - `graph.disconnected-clone`: curated graph where one component stays unreachable from the clone entry node
 - `graph.reference-tree`: curated valid tree with deterministic Union-Find merges
+- `graph.reference-redundant`: curated graph where the first cycle-closing edge arrives before the queue ends
+- `graph.late-redundant`: curated graph where the redundant edge does not appear until the final input edge
 - `graph.cycle-closing-tree`: curated invalid graph with one rejected cycle-closing edge and a disconnected component
 - `graph.reference-schedule`: curated prerequisite graph with a deterministic topological order
 - `graph.blocked-cycle`: curated prerequisite graph where a dependency cycle blocks completion
@@ -148,6 +150,8 @@ The broadcast presets resolve for Network Delay Time and use the shared pathfind
 The clone-construction presets resolve for Clone Graph and use the shared pathfinding-style contract `{ "nodes": string[], "edges": [[from, to, weight], ...], "start": string, "target": null, "directed": boolean }`. Replay treats `start` as the clone entry node and publishes any unreachable nodes outside that entry component explicitly.
 
 The tree-validation presets resolve for Graph Valid Tree and use `{ "nodeCount": number, "edges": [[from, to], ...] }` as the normalized contract. Edge order is preserved exactly so Union-Find inspection, acceptance, and rejection checkpoints stay deterministic in replay.
+
+The redundant-edge presets resolve for Redundant Connection and use that same `{ "nodeCount": number, "edges": [[from, to], ...] }` contract. Edge order is the result contract: replay returns the first same-component edge encountered in input order.
 
 The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 

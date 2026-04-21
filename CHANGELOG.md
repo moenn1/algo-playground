@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Redundant Connection, including deterministic input-order edge inspection, explicit accepted-forest ledgers, and replay-safe first-cycle reporting through the Union-Find runtime.
+- Wired Redundant Connection through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct first-cycle detection problem alongside traversal, weighted broadcast, Union-Find tree validation, scheduling, infection, component counting, dual-ocean reachability, island bridging, blocked-grid pathfinding, capture, and room-filling replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 37 algorithms with runs, 74 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Network Delay Time, including deterministic weighted relay extraction, explicit reached-versus-unreachable ledgers, and replay-safe terminal network-delay reporting without hidden recomputation.
 - Wired Network Delay Time through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct weighted-broadcast problem alongside traversal, Union-Find, scheduling, infection, component counting, dual-ocean reachability, island bridging, blocked-grid pathfinding, capture, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 36 algorithms with runs, 72 total runs, and 2 saved comparisons.

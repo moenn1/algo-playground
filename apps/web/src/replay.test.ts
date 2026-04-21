@@ -213,6 +213,40 @@ describe("buildRun", () => {
     expect(finalStep.state.rejectedEdges).toEqual([]);
   });
 
+  it("builds redundant-connection replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "redundant-connection",
+      JSON.stringify(
+        {
+          nodeCount: 5,
+          edges: [
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [1, 3],
+            [1, 4]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("redundant-connection");
+    expect(finalStep.state.kind).toBe("redundant-connection");
+    if (finalStep.state.kind !== "redundant-connection") {
+      throw new Error("Expected the Redundant Connection state.");
+    }
+    expect(finalStep.state.hasRedundantConnection).toBe(true);
+    expect(finalStep.state.redundantEdge).toBe("#4 1-3");
+    expect(finalStep.state.rejectedEdges).toEqual(["#4 1-3"]);
+  });
+
   it("builds clone-graph replay runs from the shared graph engine", () => {
     const run = buildRun(
       "clone-graph",

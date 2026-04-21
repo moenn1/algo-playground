@@ -329,9 +329,14 @@ function formatCourseNodeMeta(
   return `Indegree ${step.state.indegrees[course] ?? 0}`;
 }
 
+type UnionFindGraphStep = TraceStep<
+  | Extract<GraphExecutionState, { kind: "graph-valid-tree" }>
+  | Extract<GraphExecutionState, { kind: "redundant-connection" }>
+>;
+
 function getTreeNodeTone(
   node: string,
-  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+  step: UnionFindGraphStep
 ): "current" | "path" | "settled" | "frontier" | "idle" {
   if (step.state.activeEdge.includes(node)) {
     return "current";
@@ -345,7 +350,11 @@ function getTreeNodeTone(
     return "settled";
   }
 
-  if (step.state.isTree === true) {
+  if (step.state.kind === "graph-valid-tree" && step.state.isTree === true) {
+    return "path";
+  }
+
+  if (step.state.kind === "redundant-connection" && step.state.hasRedundantConnection === true) {
     return "path";
   }
 
@@ -354,7 +363,7 @@ function getTreeNodeTone(
 
 function formatTreeNodeStatus(
   node: string,
-  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+  step: UnionFindGraphStep
 ): string {
   const tone = getTreeNodeTone(node, step);
 
@@ -376,7 +385,7 @@ function formatTreeNodeStatus(
 
 function formatTreeNodeMeta(
   node: string,
-  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+  step: UnionFindGraphStep
 ): string {
   const component = step.state.components.find((group) => group.includes(node)) ?? [node];
   return `Parent ${step.state.parents[node]} · Rank ${step.state.ranks[node]} · ${component.join(", ")}`;
@@ -2912,7 +2921,10 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
-  if (step.state.kind === "graph-valid-tree" && isGraphValidTreeInput(run.input)) {
+  if (
+    (step.state.kind === "graph-valid-tree" || step.state.kind === "redundant-connection") &&
+    isGraphValidTreeInput(run.input)
+  ) {
     const nodes = Array.from({ length: run.input.nodeCount }, (_, index) => `${index}`);
     const layout = buildGraphLayout(nodes);
     const currentLabel = step.state.current;
@@ -2996,11 +3008,13 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               })}
             </svg>
           </div>
-          <div className="graph-state-rail">
-            <article className="mini-card graph-summary-card">
-              <span>Validation focus</span>
-              <strong>{step.state.current ?? "Final ledger"}</strong>
-              <p>
+        <div className="graph-state-rail">
+          <article className="mini-card graph-summary-card">
+            <span>
+              {step.state.kind === "graph-valid-tree" ? "Validation focus" : "Cycle focus"}
+            </span>
+            <strong>{step.state.current ?? "Final ledger"}</strong>
+            <p>
                 {step.state.currentRoots.length === 2
                   ? `Roots ${step.state.currentRoots.join(" · ")}`
                   : `${step.state.componentCount} component${step.state.componentCount === 1 ? "" : "s"} remain`}
@@ -3062,13 +3076,36 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
           <div className="mini-card">
             <span>Outcome</span>
             <strong>
-              {step.state.isTree === null ? "Validating" : step.state.isTree ? "Valid tree" : "Invalid"}
+              {step.state.kind === "graph-valid-tree"
+                ? step.state.isTree === null
+                  ? "Validating"
+                  : step.state.isTree
+                    ? "Valid tree"
+                    : "Invalid"
+                : step.state.hasRedundantConnection === null
+                  ? "Scanning"
+                  : step.state.hasRedundantConnection
+                    ? "Redundant edge found"
+                    : "Acyclic"}
             </strong>
             <p>
-              {step.state.failureReason ??
-                step.state.components.map((group) => group.join(" · ")).join(" | ")}
+              {step.state.kind === "graph-valid-tree"
+                ? step.state.failureReason ??
+                  step.state.components.map((group) => group.join(" · ")).join(" | ")
+                : step.state.redundantEdge ?? step.state.components.map((group) => group.join(" · ")).join(" | ")}
             </p>
           </div>
+          {step.state.kind === "redundant-connection" ? (
+            <div className="mini-card">
+              <span>Redundant edge</span>
+              <strong>{step.state.redundantEdge ?? "Pending"}</strong>
+              <p>
+                {step.state.redundantEdge
+                  ? "First cycle-closing edge in input order"
+                  : "No same-component edge detected yet"}
+              </p>
+            </div>
+          ) : null}
         </div>
       </>
     );

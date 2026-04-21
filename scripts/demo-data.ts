@@ -417,6 +417,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "cycle-closing-tree"]
   },
   {
+    key: "graph-reference-redundant",
+    algorithmId: "redundant-connection",
+    presetId: "graph.reference-redundant",
+    recordedAt: "2026-04-20T09:10:50.000Z",
+    tags: ["seeded-demo", "graph", "reference-redundant"]
+  },
+  {
+    key: "graph-late-redundant",
+    algorithmId: "redundant-connection",
+    presetId: "graph.late-redundant",
+    recordedAt: "2026-04-20T09:10:55.000Z",
+    tags: ["seeded-demo", "graph", "late-redundant"]
+  },
+  {
     key: "graph-reference-schedule",
     algorithmId: "course-schedule",
     presetId: "graph.reference-schedule",

@@ -173,6 +173,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Graph Valid Tree",
     domain: "graph"
   },
+  "redundant-connection": {
+    id: "redundant-connection",
+    label: "Redundant Connection",
+    domain: "graph"
+  },
   "course-schedule": {
     id: "course-schedule",
     label: "Course Schedule",
@@ -255,6 +260,7 @@ const pathfindingGraphAlgorithms = [
 const networkDelayAlgorithms = [supportedAlgorithms["network-delay-time"]] as const;
 const cloneGraphAlgorithms = [supportedAlgorithms["clone-graph"]] as const;
 const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
+const redundantConnectionAlgorithms = [supportedAlgorithms["redundant-connection"]] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
@@ -391,6 +397,16 @@ const defaultGraphValidTreeInput: GraphValidTreeInputPayload = {
   edges: [
     [0, 1],
     [0, 2],
+    [1, 3],
+    [1, 4]
+  ]
+};
+const defaultRedundantConnectionInput: GraphValidTreeInputPayload = {
+  nodeCount: 5,
+  edges: [
+    [0, 1],
+    [1, 2],
+    [2, 3],
     [1, 3],
     [1, 4]
   ]
@@ -2242,6 +2258,7 @@ function normalizeGraphInput(
     case "network-delay-time":
       return normalizeNetworkDelayTimeInput(payload);
     case "graph-valid-tree":
+    case "redundant-connection":
       return normalizeGraphValidTreeInput(payload);
     case "course-schedule":
       return normalizeCourseScheduleInput(payload);
@@ -3442,6 +3459,49 @@ const presetDefinitions: InputPresetDefinition[] = [
     },
     resolve: () => ({
       input: defaultGraphValidTreeInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-redundant",
+      label: "Reference redundant edge",
+      description:
+        "Use one early cycle-closing edge so replay can publish the first redundant connection in deterministic input order.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: redundantConnectionAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultRedundantConnectionInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.late-redundant",
+      label: "Late redundant edge",
+      description:
+        "Delay the cycle until the last edge so replay preserves a longer accepted forest before the redundant connection locks.",
+      scenario: "late-cycle",
+      kind: "curated",
+      domain: "graph",
+      algorithms: redundantConnectionAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        nodeCount: 5,
+        edges: [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 4],
+          [0, 4]
+        ]
+      },
       options: {}
     })
   },

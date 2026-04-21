@@ -110,6 +110,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("largest-rectangle-in-histogram");
   });
 
+  it("surfaces redundant-connection study paths through union-find metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "cycle closing edge union-find"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("redundant-connection");
+  });
+
   it("surfaces network-delay-time study paths through broadcast metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

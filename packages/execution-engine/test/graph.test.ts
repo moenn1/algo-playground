@@ -7,6 +7,7 @@ import {
   buildDepthFirstSearchTrace,
   buildDijkstraTrace,
   buildNetworkDelayTimeTrace,
+  buildRedundantConnectionTrace,
   buildGraphValidTreeTrace,
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
@@ -20,6 +21,7 @@ import {
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
   defaultNetworkDelayTimeInput,
+  defaultRedundantConnectionInput,
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
@@ -210,6 +212,42 @@ describe("graph execution engine", () => {
     expect(invalidFinalStep.state.componentCount).toBe(2);
   });
 
+  it("records deterministic redundant-edge detection in input order", () => {
+    const firstTrace = buildRedundantConnectionTrace(defaultRedundantConnectionInput);
+    const secondTrace = buildRedundantConnectionTrace(defaultRedundantConnectionInput);
+    const lateCycleTrace = buildRedundantConnectionTrace({
+      nodeCount: 5,
+      edges: [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [0, 4]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const lateCycleFinalStep = lateCycleTrace.steps[lateCycleTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("redundant-connection");
+    if (referenceFinalStep.state.kind !== "redundant-connection") {
+      throw new Error("Expected the redundant-connection state.");
+    }
+    expect(referenceFinalStep.state.hasRedundantConnection).toBe(true);
+    expect(referenceFinalStep.state.redundantEdge).toBe("#4 1-3");
+    expect(referenceFinalStep.state.rejectedEdges).toEqual(["#4 1-3"]);
+    expect(referenceFinalStep.state.acceptedEdges).toEqual(["#1 0-1", "#2 1-2", "#3 2-3"]);
+
+    expect(lateCycleFinalStep.phase).toBe("Resolution");
+    expect(lateCycleFinalStep.state.kind).toBe("redundant-connection");
+    if (lateCycleFinalStep.state.kind !== "redundant-connection") {
+      throw new Error("Expected the redundant-connection state.");
+    }
+    expect(lateCycleFinalStep.state.redundantEdge).toBe("#5 0-4");
+    expect(lateCycleFinalStep.state.componentCount).toBe(1);
+  });
+
   it("records clone-ledger progress and unreachable nodes for Clone Graph", () => {
     const referenceTrace = buildCloneGraphTrace(defaultCloneGraphInput);
     const disconnectedTrace = buildCloneGraphTrace({
@@ -264,6 +302,12 @@ describe("graph execution engine", () => {
     expect(
       parseGraphInputText(serializeGraphInput(defaultGraphValidTreeInput), "graph-valid-tree")
     ).toEqual(defaultGraphValidTreeInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultRedundantConnectionInput),
+        "redundant-connection"
+      )
+    ).toEqual(defaultRedundantConnectionInput);
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
     );

@@ -13,6 +13,7 @@ export type GraphAlgorithmId =
   | "network-delay-time"
   | "clone-graph"
   | "graph-valid-tree"
+  | "redundant-connection"
   | "course-schedule"
   | "rotting-oranges"
   | "number-of-islands"
@@ -29,6 +30,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "network-delay-time",
   "clone-graph",
   "graph-valid-tree",
+  "redundant-connection",
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
@@ -170,6 +172,25 @@ export interface GraphValidTreeExecutionState extends JsonObject {
   failureReason: string | null;
 }
 
+export interface RedundantConnectionExecutionState extends JsonObject {
+  kind: "redundant-connection";
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: Record<string, number>;
+  ranks: Record<string, number>;
+  components: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
+  redundantEdge: string | null;
+  hasRedundantConnection: boolean | null;
+}
+
 export interface RottingOrangesExecutionState extends JsonObject {
   kind: "rotting-oranges";
   grid: number[][];
@@ -283,6 +304,7 @@ export type GraphExecutionState =
   | NetworkDelayTimeExecutionState
   | CloneGraphExecutionState
   | GraphValidTreeExecutionState
+  | RedundantConnectionExecutionState
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
@@ -383,6 +405,23 @@ interface GraphValidTreeRuntimeState {
   componentCount: number;
   isTree: boolean | null;
   failureReason: string | null;
+}
+
+interface RedundantConnectionRuntimeState {
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: number[];
+  ranks: number[];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
+  redundantEdge: string | null;
+  hasRedundantConnection: boolean | null;
 }
 
 interface RottingOrangesRuntimeState {
@@ -516,6 +555,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "graph-valid-tree",
     label: "Graph Valid Tree",
     implementationVersion: "graph-engine-0.6.0"
+  },
+  "redundant-connection": {
+    id: "redundant-connection",
+    label: "Redundant Connection",
+    implementationVersion: "graph-engine-0.13.0"
   },
   "course-schedule": {
     id: "course-schedule",
@@ -663,6 +707,17 @@ export const defaultGraphValidTreeInput: GraphValidTreeInput = {
   edges: [
     [0, 1],
     [0, 2],
+    [1, 3],
+    [1, 4]
+  ]
+};
+
+export const defaultRedundantConnectionInput: GraphValidTreeInput = {
+  nodeCount: 5,
+  edges: [
+    [0, 1],
+    [1, 2],
+    [2, 3],
     [1, 3],
     [1, 4]
   ]
@@ -817,6 +872,31 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       componentCount: state.componentCount,
       isTree: state.isTree,
       failureReason: state.failureReason
+    };
+  }
+
+  if (state.kind === "redundant-connection") {
+    return {
+      kind: state.kind,
+      nodeCount: state.nodeCount,
+      edges: state.edges.map((edge) => edge.slice() as [number, number]),
+      parents: {
+        ...state.parents
+      },
+      ranks: {
+        ...state.ranks
+      },
+      components: state.components.map((component) => component.slice()),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      currentRoots: state.currentRoots.slice(),
+      acceptedEdges: state.acceptedEdges.slice(),
+      rejectedEdges: state.rejectedEdges.slice(),
+      componentCount: state.componentCount,
+      redundantEdge: state.redundantEdge,
+      hasRedundantConnection: state.hasRedundantConnection
     };
   }
 
@@ -1549,6 +1629,8 @@ export function parseGraphInputText(
       return normalizeParsedPathfindingGraph(parsed);
     case "graph-valid-tree":
       return normalizeGraphValidTreeInput(parsed);
+    case "redundant-connection":
+      return normalizeGraphValidTreeInput(parsed);
     case "course-schedule":
       return normalizeCourseScheduleInput(parsed);
     case "rotting-oranges":
@@ -1580,6 +1662,8 @@ export function normalizeGraphInput(
     case "clone-graph":
       return normalizeParsedPathfindingGraph(input);
     case "graph-valid-tree":
+      return normalizeGraphValidTreeInput(input);
+    case "redundant-connection":
       return normalizeGraphValidTreeInput(input);
     case "course-schedule":
       return normalizeCourseScheduleInput(input);
@@ -1941,6 +2025,37 @@ function createGraphValidTreeRecorder() {
   });
 }
 
+function createRedundantConnectionRecorder() {
+  return createTraceRecorder<
+    RedundantConnectionRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "redundant-connection",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "redundant-connection",
+        nodeCount: runtimeState.nodeCount,
+        edges: runtimeState.edges.map((edge) => edge.slice() as [number, number]),
+        parents: serializeTreeNodeLedger(runtimeState.parents),
+        ranks: serializeTreeNodeLedger(runtimeState.ranks),
+        components: projectTreeComponents(runtimeState.nodeCount, runtimeState.parents),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        currentRoots: runtimeState.currentRoots.slice(),
+        acceptedEdges: runtimeState.acceptedEdges.slice(),
+        rejectedEdges: runtimeState.rejectedEdges.slice(),
+        componentCount: runtimeState.componentCount,
+        redundantEdge: runtimeState.redundantEdge,
+        hasRedundantConnection: runtimeState.hasRedundantConnection
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function compareCellIds(left: string, right: string): number {
   const [leftRowText = "0", leftColumnText = "0"] = left.split(",");
   const [rightRowText = "0", rightColumnText = "0"] = right.split(",");
@@ -2220,6 +2335,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createNetworkDelayTimeRecorder>
     | ReturnType<typeof createCloneGraphRecorder>
     | ReturnType<typeof createGraphValidTreeRecorder>
+    | ReturnType<typeof createRedundantConnectionRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
@@ -3688,6 +3804,267 @@ export function buildGraphValidTreeTrace(
         kind: "collection",
         intent: "result",
         label: isTree ? "Valid tree" : "Invalid tree"
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
+export function buildRedundantConnectionTrace(
+  input: GraphValidTreeInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["redundant-connection"];
+  const normalizedInput = normalizeGraphInput(
+    input,
+    "redundant-connection"
+  ) as GraphValidTreeInput;
+  const edgeLabels = normalizedInput.edges.map((edge, index) => createTreeEdgeLabel(edge, index));
+  const frontier = edgeLabels.slice();
+  const parents = Array.from({ length: normalizedInput.nodeCount }, (_, index) => index);
+  const ranks = Array.from({ length: normalizedInput.nodeCount }, () => 0);
+  const settled: string[] = [];
+  const acceptedEdges: string[] = [];
+  const rejectedEdges: string[] = [];
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let currentRoots: string[] = [];
+  let componentCount = normalizedInput.nodeCount;
+  let redundantEdge: string | null = null;
+  let hasRedundantConnection: boolean | null = null;
+  const recorder = createRedundantConnectionRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+
+  const createRuntimeState = (): RedundantConnectionRuntimeState => ({
+    nodeCount: normalizedInput.nodeCount,
+    edges: normalizedInput.edges,
+    parents,
+    ranks,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    currentRoots,
+    acceptedEdges,
+    rejectedEdges,
+    componentCount,
+    redundantEdge,
+    hasRedundantConnection
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Each node starts as its own representative and the input-order edge queue stays fixed so the first cycle-closing edge can be recovered deterministically.",
+    explanation: {
+      summary: "Seed the Union-Find ledger with one singleton component per node before scanning edges.",
+      details:
+        "The recorded parent and rank ledgers preserve the exact component state that produced the first redundant edge, so replay never has to rerun hidden unions.",
+      tags: ["snapshot", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "redundant-connection-init",
+        path: "state.components",
+        kind: "collection",
+        intent: "focus",
+        label: `${normalizedInput.nodeCount} singleton components`
+      }
+    ]
+  });
+
+  for (let index = 0; index < normalizedInput.edges.length; index += 1) {
+    const edge = normalizedInput.edges[index]!;
+    const edgeLabel = edgeLabels[index]!;
+    current = edgeLabel;
+    activeEdge = [String(edge[0]), String(edge[1])];
+    frontier.shift();
+    const leftRoot = findTreeRoot(parents, edge[0]);
+    const rightRoot = findTreeRoot(parents, edge[1]);
+    currentRoots = [String(leftRoot), String(rightRoot)];
+    metrics.inspections += 1;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Inspect",
+      description: `Inspect edge ${edge[0]}-${edge[1]} and compare roots ${leftRoot} and ${rightRoot}.`,
+      explanation: {
+        summary: "Read both representatives before deciding whether the edge closes a cycle.",
+        details:
+          "Input-order inspection is the contract for Redundant Connection, so replay records the representatives directly instead of inferring them later.",
+        tags: ["edge", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `redundant-connection-inspect-${index}`,
+          path: "state.activeEdge",
+          kind: "edge",
+          intent: "active",
+          label: edgeLabel
+        }
+      ]
+    });
+
+    if (leftRoot === rightRoot) {
+      rejectedEdges.push(edgeLabel);
+      redundantEdge = edgeLabel;
+      hasRedundantConnection = true;
+
+      recorder.push({
+        phase: "Cycle",
+        description: `Edge ${edge[0]}-${edge[1]} is redundant because both endpoints already share component ${leftRoot}.`,
+        explanation: {
+          summary: "The first same-component edge is the redundant connection returned by the runtime.",
+          details:
+            "The cycle-closing edge is recorded immediately with the live component ledger so replay can justify the verdict without recomputing earlier unions.",
+          tags: ["edge", "candidate"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `redundant-connection-cycle-${index}`,
+            path: "state.redundantEdge",
+            kind: "value",
+            intent: "candidate",
+            label: `Redundant ${edge[0]}-${edge[1]}`
+          }
+        ]
+      });
+
+      settled.push(edgeLabel);
+      metrics.settled = settled.length;
+
+      recorder.push({
+        phase: "Checkpoint",
+        description: `Edge ${edge[0]}-${edge[1]} is sealed as the first cycle-closing edge in input order.`,
+        explanation: {
+          summary: "Seal the redundant-edge verdict before publishing the terminal result.",
+          details:
+            "This checkpoint keeps the remaining frontier, accepted forest, and rejected edge explicit so the terminal frame can stay purely result-oriented.",
+          tags: ["checkpoint", "visited"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `redundant-connection-settled-${index}`,
+            path: "state.settled",
+            kind: "collection",
+            intent: "visited",
+            label: edgeLabel
+          }
+        ]
+      });
+
+      break;
+    }
+
+    let parentRoot = leftRoot;
+    let childRoot = rightRoot;
+
+    if (
+      ranks[leftRoot]! < ranks[rightRoot]! ||
+      (ranks[leftRoot] === ranks[rightRoot] && leftRoot > rightRoot)
+    ) {
+      parentRoot = rightRoot;
+      childRoot = leftRoot;
+    }
+
+    parents[childRoot] = parentRoot;
+    if (ranks[leftRoot] === ranks[rightRoot]) {
+      ranks[parentRoot] = ranks[parentRoot]! + 1;
+    }
+    acceptedEdges.push(edgeLabel);
+    componentCount -= 1;
+    metrics.updates += 1;
+    currentRoots = [String(findTreeRoot(parents, edge[0])), String(findTreeRoot(parents, edge[1]))];
+
+    recorder.push({
+      phase: "Union",
+      description: `Accept edge ${edge[0]}-${edge[1]} and merge component ${childRoot} into representative ${parentRoot}.`,
+      explanation: {
+        summary: "Commit one union because the edge still expands the forest without creating a cycle.",
+        details:
+          "The accepted forest and updated component ledger are recorded in the same frame so replay can reopen the exact state that led to the later redundant edge.",
+        tags: ["edge", "frontier"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `redundant-connection-union-${index}`,
+          path: "state.acceptedEdges",
+          kind: "collection",
+          intent: "frontier",
+          label: `Accepted ${edge[0]}-${edge[1]}`
+        }
+      ]
+    });
+
+    settled.push(edgeLabel);
+    metrics.settled = settled.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `Edge ${edge[0]}-${edge[1]} is fully recorded in the redundant-connection ledger.`,
+      explanation: {
+        summary: "Seal the accepted edge decision before moving to the next queued edge.",
+        details:
+          "This checkpoint stores the remaining edge queue, component groups, and accepted forest together so replay can scrub edge by edge without hidden transitions.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `redundant-connection-checkpoint-${index}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: edgeLabel
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  currentRoots = [];
+  hasRedundantConnection = redundantEdge !== null;
+
+  recorder.push({
+    phase: hasRedundantConnection ? "Resolution" : "No Cycle",
+    description: hasRedundantConnection
+      ? `Recovered ${redundantEdge} as the first cycle-closing edge in input order.`
+      : "No edge closed a cycle, so the input never produced a redundant connection.",
+    explanation: {
+      summary: hasRedundantConnection
+        ? "Publish the first redundant edge once the Union-Find scan detects a same-component link."
+        : "Publish the final forest state when no redundant connection exists in the scanned input.",
+      details: hasRedundantConnection
+        ? "The terminal frame keeps the accepted forest, rejected edge list, and component ledger together so replay can justify why this specific edge is returned."
+        : "The terminal frame preserves the final component ledger so replay can explain why every processed edge still expanded the forest.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "redundant-connection-final",
+        path: hasRedundantConnection ? "state.redundantEdge" : "state.acceptedEdges",
+        kind: hasRedundantConnection ? "value" : "collection",
+        intent: "result",
+        label: hasRedundantConnection ? "Redundant edge" : "Acyclic forest"
       }
     ]
   });
@@ -6660,6 +7037,8 @@ export function buildGraphTrace(
       return buildCloneGraphTrace(graph as PathfindingGraphInput);
     case "graph-valid-tree":
       return buildGraphValidTreeTrace(graph as GraphValidTreeInput);
+    case "redundant-connection":
+      return buildRedundantConnectionTrace(graph as GraphValidTreeInput);
     case "course-schedule":
       return buildCourseScheduleTrace(graph as CourseScheduleInput);
     case "rotting-oranges":

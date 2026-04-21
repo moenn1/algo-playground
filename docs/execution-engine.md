@@ -34,6 +34,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `network-delay-time`
 - `clone-graph`
 - `graph-valid-tree`
+- `redundant-connection`
 - `course-schedule`
 - `rotting-oranges`
 - `number-of-islands`
@@ -313,6 +314,24 @@ Graph Valid Tree records:
 - `state.isTree`: `true`, `false`, or `null` while validation is still in progress
 - `state.failureReason`: the explicit cycle or disconnected-component reason when validation fails
 
+Redundant Connection records:
+
+- `state.kind`: `"redundant-connection"`
+- `state.nodeCount` and `state.edges`: the normalized Union-Find input fixture
+- `state.parents`: the representative-parent ledger per node id
+- `state.ranks`: the union-by-rank ledger per node id
+- `state.components`: the projected connected components derived from the recorded parent ledger
+- `state.settled`: the processed edge labels already sealed into replay
+- `state.frontier`: the remaining input-order edge queue
+- `state.current`: the edge label currently being inspected
+- `state.activeEdge`: the active edge endpoints as node-id strings
+- `state.currentRoots`: the representatives being compared for the active edge
+- `state.acceptedEdges`: the accepted forest edges recorded before the cycle closes
+- `state.rejectedEdges`: the first same-component edge recorded as redundant
+- `state.componentCount`: the remaining connected-component count at the recorded frame
+- `state.redundantEdge`: the first cycle-closing edge in deterministic input order, or `null` while scanning
+- `state.hasRedundantConnection`: `true`, `false`, or `null` while the runtime is still in progress
+
 Clone Graph records:
 
 - `state.kind`: `"clone-graph"`
@@ -456,7 +475,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges or neighbor relationships inspected so far
 - `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Network Delay Time records the weighted relay frontier with that same deterministic ordering while publishing reached-versus-unreachable ledgers, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Network Delay Time records the weighted relay frontier with that same deterministic ordering while publishing reached-versus-unreachable ledgers, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Redundant Connection records that same input-order edge queue but stops at the first same-component edge, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Bridge records the first-island marking queue and then the bridge-expansion queue in deterministic row-major source order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 

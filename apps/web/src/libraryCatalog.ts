@@ -247,6 +247,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong graph systems problem because it adds a reusable Union-Find replay model instead of another queue-driven traversal.",
     nextAlgorithmIds: ["course-schedule", "dijkstra"]
   },
+  "redundant-connection": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.5,
+    timeToExplore: "6 min",
+    complexity: "The edge queue stays linear, but replay has to preserve the accepted forest and stop exactly at the first same-component edge.",
+    outcome: "See exactly when replay locks the first cycle-closing edge in input order instead of continuing past the redundant connection.",
+    metricsLens: "Settled, inspections, and updates expose how much forest-building work happened before the cycle verdict became inevitable.",
+    skills: ["union-find", "cycle detection", "input-order verdicts"],
+    spotlight: "A useful Union-Find follow-up because it reuses the same component ledger while changing the terminal contract from tree validation to first-cycle detection.",
+    nextAlgorithmIds: ["graph-valid-tree", "course-schedule"]
+  },
   "valid-parentheses": {
     stage: "foundation",
     focus: "state-tracking",
