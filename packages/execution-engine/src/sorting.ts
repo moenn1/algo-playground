@@ -8,6 +8,7 @@ import {
 
 export type SortingAlgorithmId =
   | "bubble-sort"
+  | "insertion-sort"
   | "selection-sort"
   | "quick-sort"
   | "merge-sort";
@@ -34,6 +35,11 @@ const sortingAlgorithmDefinitions: Record<SortingAlgorithmId, SortingAlgorithmDe
   "bubble-sort": {
     id: "bubble-sort",
     label: "Bubble Sort",
+    implementationVersion: "sorting-engine-0.1.0"
+  },
+  "insertion-sort": {
+    id: "insertion-sort",
+    label: "Insertion Sort",
     implementationVersion: "sorting-engine-0.1.0"
   },
   "selection-sort": {
@@ -332,6 +338,169 @@ function buildBubbleSortTrace(numbers: number[]): TraceEnvelope<SortingExecution
     highlights: [
       {
         key: "bubble-final-state",
+        path: "state.array",
+        kind: "collection",
+        intent: "result",
+        label: "Final sorted order"
+      }
+    ]
+  });
+
+  return buildSortingEnvelope(definition, numbers, recorder);
+}
+
+function buildInsertionSortTrace(numbers: number[]): TraceEnvelope<SortingExecutionState> {
+  const definition = sortingAlgorithmDefinitions["insertion-sort"];
+  const values = numbers.slice();
+  const recorder = createSortingRecorder(definition.id);
+  const metrics: SortingMetricState = {
+    comparisons: 0,
+    writes: 0
+  };
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Replay begins from the seeded array snapshot so each later insertion step can be restored without re-running the prefix scan.",
+    explanation: {
+      summary: "Capture the input array before the insertion frontier starts moving.",
+      details:
+        "Insertion sort grows an ordered prefix one comparison at a time, but the replay still restores each frame directly from the recorded state.",
+      tags: ["snapshot", "input"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: [],
+      swapPair: [],
+      sortedIndices: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "seed-array",
+        path: "state.array",
+        kind: "range",
+        intent: "focus",
+        label: "Loaded seed array",
+        metadata: {
+          start: 0,
+          end: values.length - 1
+        }
+      }
+    ]
+  });
+
+  for (let boundary = 1; boundary < values.length; boundary += 1) {
+    let current = boundary;
+
+    while (current > 0) {
+      const leftIndex = current - 1;
+      const rightIndex = current;
+      const leftValue = values[leftIndex]!;
+      const rightValue = values[rightIndex]!;
+      const requiresSwap = leftValue > rightValue;
+
+      metrics.comparisons += 1;
+
+      recorder.push({
+        phase: "Compare",
+        description: requiresSwap
+          ? `Value ${rightValue} must move left past ${leftValue}, so the replay records the inversion before swapping the adjacent pair.`
+          : `Value ${leftValue} is already less than or equal to ${rightValue}, so the current insertion frontier can stop shifting left.`,
+        explanation: {
+          summary: "Compare the active adjacent pair inside the insertion frontier.",
+          details: requiresSwap
+            ? "This adjacent swap variant keeps the candidate value visible in the array while it walks left through the ordered prefix."
+            : "Once the pair is ordered, insertion sort knows the candidate has reached its deterministic resting place for this prefix.",
+          tags: ["comparison", requiresSwap ? "mutation" : "focus"]
+        },
+        runtimeState: {
+          array: values,
+          activeIndices: [leftIndex, rightIndex],
+          swapPair: [],
+          sortedIndices: []
+        },
+        metrics,
+        highlights: [
+          {
+            key: `insertion-compare-${boundary}-${current}`,
+            path: "state.activeIndices",
+            kind: "range",
+            intent: requiresSwap ? "candidate" : "focus",
+            label: `Inspect lanes ${leftIndex} and ${rightIndex}`,
+            metadata: {
+              start: leftIndex,
+              end: rightIndex
+            }
+          }
+        ]
+      });
+
+      if (!requiresSwap) {
+        break;
+      }
+
+      [values[leftIndex], values[rightIndex]] = [rightValue, leftValue];
+      metrics.writes += 2;
+
+      recorder.push({
+        phase: "Swap",
+        description:
+          "The replay records the adjacent swap immediately so the candidate's leftward movement never depends on replaying earlier compares.",
+        explanation: {
+          summary: "Swap the inverted pair so the insertion candidate shifts one lane left.",
+          details:
+            "Adjacent swaps keep the runtime state serialization-safe because the candidate value always stays inside the visible array snapshot.",
+          tags: ["mutation", "swap"]
+        },
+        runtimeState: {
+          array: values,
+          activeIndices: [leftIndex, rightIndex],
+          swapPair: [leftIndex, rightIndex],
+          sortedIndices: []
+        },
+        metrics,
+        highlights: [
+          {
+            key: `insertion-swap-${boundary}-${current}`,
+            path: "state.swapPair",
+            kind: "range",
+            intent: "mutation",
+            label: `Shift candidate through lanes ${leftIndex} and ${rightIndex}`,
+            metadata: {
+              start: leftIndex,
+              end: rightIndex
+            }
+          }
+        ]
+      });
+
+      current -= 1;
+    }
+  }
+
+  const allSorted = createInclusiveRange(0, values.length - 1);
+
+  recorder.push({
+    phase: "Done",
+    description:
+      "The ordered array is recorded as the terminal snapshot so comparison views can line up insertion sort with the other shared sorting traces.",
+    explanation: {
+      summary: "Publish the final sorted snapshot and terminal insertion-sort metrics.",
+      details:
+        "Insertion sort's metric profile emphasizes how many adjacent fixes were needed to keep the growing prefix ordered.",
+      tags: ["result", "metrics"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: [],
+      swapPair: [],
+      sortedIndices: allSorted
+    },
+    metrics,
+    highlights: [
+      {
+        key: "insertion-final-state",
         path: "state.array",
         kind: "collection",
         intent: "result",
@@ -1201,6 +1370,8 @@ export function buildSortingTrace(
   switch (algorithmId) {
     case "bubble-sort":
       return buildBubbleSortTrace(numbers);
+    case "insertion-sort":
+      return buildInsertionSortTrace(numbers);
     case "selection-sort":
       return buildSelectionSortTrace(numbers);
     case "quick-sort":

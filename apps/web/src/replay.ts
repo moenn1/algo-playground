@@ -373,6 +373,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "sorting"
   },
   {
+    id: "insertion-sort",
+    name: "Insertion Sort",
+    badge: "Sorting",
+    accent: "teal",
+    description:
+      "Prefix-building replay surfaces adjacent candidate swaps and the exact point where each insertion frontier settles.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
     id: "selection-sort",
     name: "Selection Sort",
     badge: "Sorting",

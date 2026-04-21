@@ -120,6 +120,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("top-k-frequent-elements");
   });
 
+  it("surfaces insertion-sort study paths through prefix-growth metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "prefix growth adjacent candidate shifts"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("insertion-sort");
+  });
+
   it("surfaces min-stack study paths through minimum-ledger metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

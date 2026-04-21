@@ -23,8 +23,10 @@ npm run dev:demo
 The demo seed currently materializes:
 
 - Bubble Sort on `sorting.baseline`
+- Insertion Sort on `sorting.baseline`
 - Selection Sort on `sorting.baseline`
 - Bubble Sort on `sorting.reverse-sorted`
+- Insertion Sort on `sorting.reverse-sorted`
 - Selection Sort on `sorting.reverse-sorted`
 - Binary Search on `search.reference-hit`
 - Binary Search on `search.missing-target`
@@ -69,7 +71,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 22 algorithms with runs, 44 runs total, and 2 saved comparisons.
+That seed currently produces 23 algorithms with runs, 46 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

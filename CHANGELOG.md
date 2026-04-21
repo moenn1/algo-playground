@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared sorting replay for Insertion Sort, including deterministic adjacent-pair insertion checks, explicit candidate-shift swaps, and reuse of the shared `comparisons` and `writes` metrics.
+- Wired Insertion Sort through the input-service presets and validation, replay shell, library catalog, seeded demo data, and sorting-family documentation so TraceDeck now covers a fifth shared sorting replay without widening the sorting state contract.
 - Added a shared heap replay for Top K Frequent Elements, including deterministic first-seen frequency counting, explicit size-`k` cutoff replacement, stable tie-break ordering, and reuse of the shared `inspections`, `pushes`, and `pops` metrics.
 - Wired Top K Frequent Elements through the input-service presets and validation, replay shell, library catalog, seeded demo data, and heap-family documentation so TraceDeck now covers a second reusable heap story alongside kth-largest cutoff replay.
 - Added a second shared window runtime for Longest Substring Without Repeating Characters, including deterministic duplicate checkpoints, explicit shrink steps, and stable reuse of the `expansions`, `shrinks`, and `bestUpdates` metrics.

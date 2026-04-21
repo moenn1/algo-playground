@@ -149,7 +149,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons and writes show how local fixes accumulate into a finished array.",
     skills: ["swap signals", "pass invariants", "timeline basics"],
     spotlight: "Best first stop when you want to learn how TraceDeck encodes deterministic state changes.",
-    nextAlgorithmIds: ["selection-sort", "binary-search"]
+    nextAlgorithmIds: ["insertion-sort", "binary-search"]
+  },
+  "insertion-sort": {
+    stage: "foundation",
+    focus: "state-tracking",
+    order: 1.5,
+    timeToExplore: "5 min",
+    complexity: "The active candidate only moves one lane at a time, so the trace stays compact while still showing more structure than bubble-style passes.",
+    outcome: "See exactly when an inversion forces another adjacent fix and when the insertion frontier finally settles.",
+    metricsLens: "Comparisons and writes show how a mostly ordered prefix can still absorb expensive late insertions.",
+    skills: ["prefix growth", "adjacent candidate shifts", "settling points"],
+    spotlight: "A clean second sorting stop when you want deterministic prefix-building without jumping into recursive state yet.",
+    nextAlgorithmIds: ["selection-sort", "merge-sort"]
   },
   "binary-search": {
     stage: "foundation",

@@ -48,7 +48,7 @@ docs/             Architecture and developer workflow
 ### `packages/execution-engine`
 
 - Owns deterministic sorting, search, two-pointers, window, hash, heap, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
-- Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
+- Shares one replay-safe sorting state shape across Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, and Merge Sort
 - Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
 - Shares replay-safe two-pointer state shapes across Container With Most Water and Trapping Rain Water so active walls, boundary maxima, basin fills, pruning moves, and terminal results stay readable across replay and persistence
 - Shares a replay-safe sliding-window runtime family for Minimum Size Subarray Sum and Longest Substring Without Repeating Characters so active bounds, running sums or substrings, duplicate pressure, and best-window updates stay readable across replay and persistence

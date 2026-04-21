@@ -33,6 +33,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Bubble Sort",
     domain: "sorting"
   },
+  "insertion-sort": {
+    id: "insertion-sort",
+    label: "Insertion Sort",
+    domain: "sorting"
+  },
   "selection-sort": {
     id: "selection-sort",
     label: "Selection Sort",
@@ -157,6 +162,7 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
 
 const sortingAlgorithms = [
   supportedAlgorithms["bubble-sort"],
+  supportedAlgorithms["insertion-sort"],
   supportedAlgorithms["selection-sort"],
   supportedAlgorithms["quick-sort"],
   supportedAlgorithms["merge-sort"]

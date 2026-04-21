@@ -59,7 +59,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Single replay now gives the visualization stage the full main width and moves the transport-and-timeline dock below it on desktop, which keeps playback controls visible without forcing the page wider than a laptop frame.
 - Overview, library, and history now lean on directories and ledger-style lists instead of large hero sections or repeated card grids.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
-- Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
+- Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, Merge Sort, the main interface, and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, ordered-half signals for rotated-array search, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The two-pointer stage renders the active walls, container-area or basin-fill summaries, boundary maxima, per-index trapped water, and final best-result state directly from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum or active substring, candidate or duplicate-hit signals, and best-window overlays directly from the shared execution-engine snapshots.

@@ -643,6 +643,27 @@ describe("TraceDeck API foundation", () => {
 
     expect(repeatedResolve.statusCode).toBe(200);
     expect(repeatedResolve.json().input).toEqual(resolveResponse.json().input);
+
+    const insertionPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/sorting.baseline/resolve",
+      payload: {
+        algorithmId: "insertion-sort"
+      }
+    });
+
+    expect(insertionPreset.statusCode).toBe(200);
+    expect(insertionPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "sorting.baseline"
+      },
+      algorithm: {
+        id: "insertion-sort",
+        domain: "sorting"
+      },
+      footprint: "7 lanes"
+    });
   });
 
   it("resolves graph and window presets and validates custom inputs", async () => {
