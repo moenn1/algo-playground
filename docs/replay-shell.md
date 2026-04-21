@@ -51,6 +51,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, calmer borders, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
 - Library styling should favor continuous browse hierarchy over nested boxed sections: a quieter domain rail, one shared control band, and two-column result rows communicate the catalog more clearly than more framed cards.
+- Library result interiors should prefer reference patterns over decorative sub-cards: labeled replay-focus notes, plain signal lines, and ledger-style metadata keep the index readable when many entries are visible together.
 - Library, reference, and history now share one neutral workspace-header system with metadata ledgers instead of banner-style intros, which keeps cross-route hierarchy consistent without making the pages feel identical.
 - Reference, comparison, and history interiors now lean on lighter ledger rows, quieter metric treatments, and flatter controls so internal sections feel deliberate instead of visually busy.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.

@@ -2414,15 +2414,15 @@ function LibraryPage({
                   />
                 </label>
                 <div className="library-results-summary">
-                  <div className="metric-inline">
+                  <div className="library-summary-item">
                     <span>Sort</span>
                     <strong>{activeSortMode.label}</strong>
                   </div>
-                  <div className="metric-inline">
+                  <div className="library-summary-item">
                     <span>Saved runs</span>
                     <strong>{visibleSavedRuns}</strong>
                   </div>
-                  <div className="metric-inline">
+                  <div className="library-summary-item">
                     <span>Current path</span>
                     <strong>{activePathway?.label ?? "Custom browse state"}</strong>
                   </div>
@@ -2432,17 +2432,14 @@ function LibraryPage({
 
             <div className="library-toolbar">
               <div className="library-toolbar-meta">
-                <div className="library-active-filters">
-                  {activeFilterTokens.length > 0 ? (
-                    activeFilterTokens.map((token) => (
-                      <span className="library-active-filter" key={token}>
-                        {token}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="library-active-filter">No narrow filters applied</span>
-                  )}
-                </div>
+                <p className="library-active-filter-line">
+                  <span>Showing</span>
+                  <strong>
+                    {activeFilterTokens.length > 0
+                      ? activeFilterTokens.join(" · ")
+                      : "all domains, stages, and learning goals"}
+                  </strong>
+                </p>
                 <button
                   className="segmented"
                   onClick={() => {
@@ -2544,23 +2541,26 @@ function LibraryPage({
                           <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
                             {algorithm.badge}
                           </span>
-                          <span className="library-stage-pill">{stage.label}</span>
                           <span className="library-result-domain">
                             {domainLabels[algorithm.domain]}
                           </span>
                         </div>
                         <div className="library-result-title-row">
                           <h3>{algorithm.name}</h3>
-                          <strong>{focus.label}</strong>
                         </div>
+                        <p className="library-result-kicker">
+                          {stage.label} stage · {focus.label}
+                        </p>
                         <p>{algorithm.description}</p>
-                        <p className="library-card-highlight">{profile.outcome}</p>
-                        <div className="library-skill-row">
-                          {profile.skills.map((skill) => (
-                            <span className="library-skill-pill" key={`${algorithm.id}-${skill}`}>
-                              {skill}
-                            </span>
-                          ))}
+                        <div className="library-reference-list">
+                          <div className="library-reference-row">
+                            <span>Replay focus</span>
+                            <p>{profile.outcome}</p>
+                          </div>
+                          <div className="library-reference-row">
+                            <span>Signals to watch</span>
+                            <p>{profile.skills.join(" · ")}</p>
+                          </div>
                         </div>
                       </div>
 
@@ -2585,7 +2585,7 @@ function LibraryPage({
                         </div>
 
                         <div className="library-result-actions">
-                          <p>{profile.spotlight}</p>
+                          <p className="library-reference-note">{profile.spotlight}</p>
                           <div className="library-card-actions">
                             <a
                               className="segmented"

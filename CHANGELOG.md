@@ -18,6 +18,7 @@
 - Tightened desktop and tablet framing for the main replay surface so laptop-width layouts avoid rightward page scrolling, reduce above-the-fold sprawl, and keep core controls visible without promotional banner treatment.
 - Reworked the library into a calmer browse tool with a docked filter rail, quieter toolbar hierarchy, and dense result-ledger rows so the catalog reads like a practical study index instead of stacked promo cards.
 - Refined the library hierarchy again so search, active filters, and sort controls now live in one continuous control band, the rail stays navigation-focused, and result rows read as a two-column browsing ledger instead of fragmented boxed modules.
+- Simplified the library internals further by replacing decorative result pills and highlight boxes with flatter reference notes, summary lines, and quieter metadata ledgers.
 - Added a shared stack-validation runtime for Valid Parentheses, including deterministic push, match, reject, and unclosed terminal checkpoints with stable `comparisons`, `pushes`, and `pops` metrics.
 - Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new stack domain so TraceDeck now includes a famous stack-based interview problem alongside search, sliding window, and dynamic programming.
 - Reworked the algorithm library into a browseable discovery surface with route-backed filters, curated progression paths, saved-run-aware ordering, richer catalog cards, and reference pages that carry progression cues forward.
