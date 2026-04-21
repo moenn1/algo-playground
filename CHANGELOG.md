@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Course Schedule II, including deterministic zero-indegree queue extraction, explicit committed-order checkpoints, and replay-safe terminal course-order publication without hidden topological recomputation.
+- Wired Course Schedule II through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct returned-order dependency problem alongside feasibility-only scheduling, component counting, largest-island area, coastline measurement, bridge expansion, weighted broadcast, Union-Find, infection, blocked-grid pathfinding, capture, and room-filling replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 40 algorithms with runs, 80 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Island Perimeter, including deterministic row-major land inspection, explicit exposed-edge ledgers, and replay-safe perimeter accumulation without hidden neighbor recounts.
 - Wired Island Perimeter through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct boundary-measurement problem alongside component counting, largest-island area, bridge expansion, weighted broadcast, Union-Find, scheduling, infection, blocked-grid pathfinding, capture, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 39 algorithms with runs, 78 total runs, and 2 saved comparisons.

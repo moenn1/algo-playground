@@ -425,7 +425,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates expose how much dependency work happened before the order resolved or failed.",
     skills: ["indegree ledgers", "topological order", "cycle detection"],
     spotlight: "A clean bridge from pathfinding into graph dependencies because the same graph metrics now explain a very different runtime story.",
-    nextAlgorithmIds: ["longest-common-subsequence", "dijkstra"]
+    nextAlgorithmIds: ["course-schedule-ii", "longest-common-subsequence"]
+  },
+  "course-schedule-ii": {
+    stage: "core",
+    focus: "dependencies",
+    order: 13.6,
+    timeToExplore: "7 min",
+    complexity: "The same indegree ledger and deterministic ready queue now have to preserve a replay-safe returned order instead of just a boolean feasibility verdict.",
+    outcome: "See exactly when each course locks into the returned topological order, how converging prerequisites still unlock deterministically, and where cycles force the order to collapse to empty.",
+    metricsLens: "Settled, frontier, inspections, and updates expose how much dependency work happened before the returned order stabilized or the cycle ledger stayed blocked.",
+    skills: ["indegree ledgers", "topological order", "deterministic queueing"],
+    spotlight: "A strong immediate follow-up to Course Schedule because it reuses the same runtime model while making the committed order itself the product surface.",
+    nextAlgorithmIds: ["course-schedule", "longest-common-subsequence"]
   },
   "rotting-oranges": {
     stage: "core",
@@ -437,7 +449,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much neighbor scanning and spread work happened before the orchard resolved or stalled.",
     skills: ["grid bfs", "minute waves", "frontier contagion"],
     spotlight: "A strong graph follow-up because it keeps the BFS queue semantics while shifting the replay surface from abstract nodes to a changing grid.",
-    nextAlgorithmIds: ["number-of-islands", "course-schedule"]
+    nextAlgorithmIds: ["number-of-islands", "course-schedule-ii"]
   },
   "walls-and-gates": {
     stage: "core",
@@ -449,7 +461,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates expose how much queue churn and distance-filling work happened before the map resolved or stalled.",
     skills: ["multi-source bfs", "distance fills", "blocked room ledgers"],
     spotlight: "A strong graph continuation because it reuses the grid BFS surface from Rotting Oranges while switching the outcome from contagion timing to stable shortest-distance fills.",
-    nextAlgorithmIds: ["number-of-islands", "course-schedule"]
+    nextAlgorithmIds: ["number-of-islands", "course-schedule-ii"]
   },
   "number-of-islands": {
     stage: "core",
@@ -461,7 +473,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much scan and flood-fill work happened before the final island count locked in.",
     skills: ["connected components", "grid traversal", "flood fill"],
     spotlight: "A strong graph continuation because it reuses the grid replay surface from contagion-style BFS while shifting the goal to deterministic component counting.",
-    nextAlgorithmIds: ["rotting-oranges", "course-schedule"]
+    nextAlgorithmIds: ["rotting-oranges", "course-schedule-ii"]
   },
   "max-area-of-island": {
     stage: "core",
@@ -605,7 +617,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, inspections, and updates show how much weighted frontier churn was required to cover the network.",
     skills: ["weighted broadcast", "arrival ledgers", "unreachable-node reporting"],
     spotlight: "A useful follow-up to Dijkstra because it reuses weighted relaxations while changing the runtime contract from path recovery to full-network coverage.",
-    nextAlgorithmIds: ["course-schedule", "longest-common-subsequence"]
+    nextAlgorithmIds: ["course-schedule-ii", "longest-common-subsequence"]
   }
 };
 

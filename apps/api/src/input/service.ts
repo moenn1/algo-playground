@@ -183,6 +183,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Course Schedule",
     domain: "graph"
   },
+  "course-schedule-ii": {
+    id: "course-schedule-ii",
+    label: "Course Schedule II",
+    domain: "graph"
+  },
   "rotting-oranges": {
     id: "rotting-oranges",
     label: "Rotting Oranges",
@@ -271,7 +276,10 @@ const networkDelayAlgorithms = [supportedAlgorithms["network-delay-time"]] as co
 const cloneGraphAlgorithms = [supportedAlgorithms["clone-graph"]] as const;
 const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
 const redundantConnectionAlgorithms = [supportedAlgorithms["redundant-connection"]] as const;
-const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
+const courseScheduleAlgorithms = [
+  supportedAlgorithms["course-schedule"],
+  supportedAlgorithms["course-schedule-ii"]
+] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
 const maxAreaOfIslandAlgorithms = [supportedAlgorithms["max-area-of-island"]] as const;
@@ -2289,6 +2297,7 @@ function normalizeGraphInput(
     case "redundant-connection":
       return normalizeGraphValidTreeInput(payload);
     case "course-schedule":
+    case "course-schedule-ii":
       return normalizeCourseScheduleInput(payload);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(payload);

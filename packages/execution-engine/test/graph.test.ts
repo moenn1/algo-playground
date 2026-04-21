@@ -4,6 +4,7 @@ import {
   buildBreadthFirstSearchTrace,
   buildCloneGraphTrace,
   buildCourseScheduleTrace,
+  buildCourseScheduleIiTrace,
   buildDepthFirstSearchTrace,
   buildDijkstraTrace,
   buildNetworkDelayTimeTrace,
@@ -317,6 +318,9 @@ describe("graph execution engine", () => {
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
     );
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule-ii")
+    ).toEqual(defaultCourseScheduleInput);
     expect(parseGraphInputText(serializeGraphInput(defaultCloneGraphInput), "clone-graph")).toEqual(
       defaultCloneGraphInput
     );
@@ -400,6 +404,47 @@ describe("graph execution engine", () => {
     }
     expect(cyclicFinalStep.state.schedulable).toBe(false);
     expect(cyclicFinalStep.state.cycleNodes).toEqual(["0", "1"]);
+  });
+
+  it("reuses deterministic scheduling state for Course Schedule II while publishing its own algorithm id", () => {
+    const orderTrace = buildCourseScheduleIiTrace({
+      courseCount: 4,
+      prerequisites: [
+        [1, 0],
+        [2, 0],
+        [3, 1],
+        [3, 2]
+      ]
+    });
+    const blockedTrace = buildCourseScheduleIiTrace({
+      courseCount: 3,
+      prerequisites: [
+        [1, 0],
+        [2, 1],
+        [0, 2]
+      ]
+    });
+    const orderFinalStep = orderTrace.steps[orderTrace.steps.length - 1]!;
+    const blockedFinalStep = blockedTrace.steps[blockedTrace.steps.length - 1]!;
+
+    expect(orderTrace.algorithm.id).toBe("course-schedule-ii");
+    expect(orderFinalStep.phase).toBe("Resolution");
+    expect(orderFinalStep.state.kind).toBe("course-schedule");
+    if (orderFinalStep.state.kind !== "course-schedule") {
+      throw new Error("Expected the course-schedule state.");
+    }
+    expect(orderFinalStep.state.schedulable).toBe(true);
+    expect(orderFinalStep.state.order).toEqual(["0", "1", "2", "3"]);
+
+    expect(blockedTrace.algorithm.id).toBe("course-schedule-ii");
+    expect(blockedFinalStep.phase).toBe("Cycle");
+    expect(blockedFinalStep.state.kind).toBe("course-schedule");
+    if (blockedFinalStep.state.kind !== "course-schedule") {
+      throw new Error("Expected the course-schedule state.");
+    }
+    expect(blockedFinalStep.state.schedulable).toBe(false);
+    expect(blockedFinalStep.state.order).toEqual([]);
+    expect(blockedFinalStep.state.cycleNodes).toEqual(["0", "1", "2"]);
   });
 
   it("records deterministic infection waves and stalled fresh cells for Rotting Oranges", () => {

@@ -36,6 +36,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `graph-valid-tree`
 - `redundant-connection`
 - `course-schedule`
+- `course-schedule-ii`
 - `rotting-oranges`
 - `number-of-islands`
 - `max-area-of-island`
@@ -349,7 +350,7 @@ Clone Graph records:
 - `state.unreachableNodes`: original nodes that never entered the queue from the chosen start node
 - `state.fullyCloned`: `true`, `false`, or `null` while clone construction is still in progress
 
-Course Schedule records:
+Course Schedule and Course Schedule II record:
 
 - `state.kind`: `"course-schedule"`
 - `state.courseCount` and `state.prerequisites`: the normalized dependency fixture
@@ -538,7 +539,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
 - Clone Graph records input-order neighbor inspection, explicit clone allocation, deduplicated clone-link commits, and terminal unreachable-node ledgers so replay never depends on live object references or browser-side copy reconstruction.
 - Graph Valid Tree records input-order edge inspection, deterministic union-by-rank merges with lower-root tie-breaks, explicit cycle rejection, and terminal component ledgers so replay never depends on path-compression side effects or live Union-Find recomputation.
-- Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
+- Course Schedule and Course Schedule II record initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both feasibility verdicts and returned topological orders without re-running Kahn's algorithm.
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 - Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
 - Max Area of Island records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, max-area checkpoints, and terminal largest-island reporting explicitly so replay can explain both flood-fill growth and the winning area ledger without re-running the traversal.
@@ -551,6 +552,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Surrounded Regions replay, and Walls and Gates replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Course Schedule II replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Surrounded Regions replay, and Walls and Gates replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, dual-ocean reachability, shortest-bridge expansion, blocked-cell shortest-path search, border-capture, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

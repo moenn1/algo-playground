@@ -15,6 +15,7 @@ export type GraphAlgorithmId =
   | "graph-valid-tree"
   | "redundant-connection"
   | "course-schedule"
+  | "course-schedule-ii"
   | "rotting-oranges"
   | "number-of-islands"
   | "max-area-of-island"
@@ -34,6 +35,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "graph-valid-tree",
   "redundant-connection",
   "course-schedule",
+  "course-schedule-ii",
   "rotting-oranges",
   "number-of-islands",
   "max-area-of-island",
@@ -641,6 +643,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "course-schedule",
     label: "Course Schedule",
     implementationVersion: "graph-engine-0.2.0"
+  },
+  "course-schedule-ii": {
+    id: "course-schedule-ii",
+    label: "Course Schedule II",
+    implementationVersion: "graph-engine-0.16.0"
   },
   "rotting-oranges": {
     id: "rotting-oranges",
@@ -1778,6 +1785,7 @@ export function parseGraphInputText(
     case "redundant-connection":
       return normalizeGraphValidTreeInput(parsed);
     case "course-schedule":
+    case "course-schedule-ii":
       return normalizeCourseScheduleInput(parsed);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(parsed);
@@ -1815,6 +1823,7 @@ export function normalizeGraphInput(
     case "redundant-connection":
       return normalizeGraphValidTreeInput(input);
     case "course-schedule":
+    case "course-schedule-ii":
       return normalizeCourseScheduleInput(input);
     case "rotting-oranges":
       return normalizeRottingOrangesInput(input);
@@ -2096,9 +2105,12 @@ function createNetworkDelayTimeRecorder(graph: PathfindingGraphInput) {
   });
 }
 
-function createCourseScheduleRecorder(input: CourseScheduleInput) {
+function createCourseScheduleRecorder(
+  input: CourseScheduleInput,
+  algorithmId: "course-schedule" | "course-schedule-ii"
+) {
   return createTraceRecorder<CourseScheduleRuntimeState, GraphExecutionState, GraphMetricState>({
-    algorithmId: "course-schedule",
+    algorithmId,
     projectState(runtimeState) {
       return cloneGraphState({
         kind: "course-schedule",
@@ -4289,10 +4301,11 @@ function insertSortedCourse(frontier: string[], course: string) {
   frontier.sort(compareCourseIds);
 }
 
-export function buildCourseScheduleTrace(
-  input: CourseScheduleInput
+function buildCourseScheduleReplayTrace(
+  input: CourseScheduleInput,
+  algorithmId: "course-schedule" | "course-schedule-ii"
 ): TraceEnvelope<GraphExecutionState> {
-  const definition = graphAlgorithmDefinitions["course-schedule"];
+  const definition = graphAlgorithmDefinitions[algorithmId];
   const normalizedInput = normalizeCourseScheduleInput(input);
   const courses = Array.from({ length: normalizedInput.courseCount }, (_, index) => `${index}`);
   const adjacency = new Map(courses.map((course) => [course, [] as string[]]));
@@ -4315,7 +4328,7 @@ export function buildCourseScheduleTrace(
   const frontier = courses.filter((course) => indegrees[course] === 0).sort(compareCourseIds);
   const settled: string[] = [];
   const order: string[] = [];
-  const recorder = createCourseScheduleRecorder(normalizedInput);
+  const recorder = createCourseScheduleRecorder(normalizedInput, algorithmId);
   const metrics: GraphMetricState = {
     settled: 0,
     frontier: frontier.length,
@@ -4503,6 +4516,18 @@ export function buildCourseScheduleTrace(
   });
 
   return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
+export function buildCourseScheduleTrace(
+  input: CourseScheduleInput
+): TraceEnvelope<GraphExecutionState> {
+  return buildCourseScheduleReplayTrace(input, "course-schedule");
+}
+
+export function buildCourseScheduleIiTrace(
+  input: CourseScheduleInput
+): TraceEnvelope<GraphExecutionState> {
+  return buildCourseScheduleReplayTrace(input, "course-schedule-ii");
 }
 
 export function buildRottingOrangesTrace(
@@ -8018,6 +8043,8 @@ export function buildGraphTrace(
       return buildRedundantConnectionTrace(graph as GraphValidTreeInput);
     case "course-schedule":
       return buildCourseScheduleTrace(graph as CourseScheduleInput);
+    case "course-schedule-ii":
+      return buildCourseScheduleIiTrace(graph as CourseScheduleInput);
     case "rotting-oranges":
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
     case "number-of-islands":

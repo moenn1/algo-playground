@@ -930,6 +930,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 courses / 5 prerequisites"
     });
 
+    const courseOrderPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-schedule/resolve",
+      payload: {
+        algorithmId: "course-schedule-ii"
+      }
+    });
+
+    expect(courseOrderPreset.statusCode).toBe(200);
+    expect(courseOrderPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-schedule"
+      },
+      algorithm: {
+        id: "course-schedule-ii",
+        domain: "graph"
+      },
+      footprint: "5 courses / 5 prerequisites"
+    });
+
+    const blockedCourseOrderPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.blocked-cycle/resolve",
+      payload: {
+        algorithmId: "course-schedule-ii"
+      }
+    });
+
+    expect(blockedCourseOrderPreset.statusCode).toBe(200);
+    expect(blockedCourseOrderPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.blocked-cycle"
+      },
+      algorithm: {
+        id: "course-schedule-ii",
+        domain: "graph"
+      },
+      footprint: "5 courses / 5 prerequisites"
+    });
+
     const rottingOrangesPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-oranges/resolve",
@@ -2010,6 +2052,40 @@ describe("TraceDeck API foundation", () => {
       source: "custom",
       algorithm: {
         id: "course-schedule",
+        domain: "graph"
+      },
+      input: {
+        courseCount: 4,
+        prerequisites: [
+          [1, 0],
+          [2, 0],
+          [3, 1]
+        ]
+      },
+      footprint: "4 courses / 3 prerequisites"
+    });
+
+    const validateCourseOrderInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "course-schedule-ii",
+        payload: {
+          courseCount: 4,
+          prerequisites: [
+            [1, 0],
+            [2, 0],
+            [3, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateCourseOrderInput.statusCode).toBe(200);
+    expect(validateCourseOrderInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "course-schedule-ii",
         domain: "graph"
       },
       input: {

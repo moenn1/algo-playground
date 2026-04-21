@@ -445,6 +445,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "blocked-cycle"]
   },
   {
+    key: "graph-reference-course-order",
+    algorithmId: "course-schedule-ii",
+    presetId: "graph.reference-schedule",
+    recordedAt: "2026-04-20T09:12:15.000Z",
+    tags: ["seeded-demo", "graph", "reference-course-order"]
+  },
+  {
+    key: "graph-blocked-course-order",
+    algorithmId: "course-schedule-ii",
+    presetId: "graph.blocked-cycle",
+    recordedAt: "2026-04-20T09:12:20.000Z",
+    tags: ["seeded-demo", "graph", "blocked-course-order"]
+  },
+  {
     key: "graph-reference-oranges",
     algorithmId: "rotting-oranges",
     presetId: "graph.reference-oranges",

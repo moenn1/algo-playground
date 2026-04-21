@@ -31,6 +31,7 @@ export const supportedAlgorithmIds = [
   "graph-valid-tree",
   "redundant-connection",
   "course-schedule",
+  "course-schedule-ii",
   "rotting-oranges",
   "number-of-islands",
   "max-area-of-island",

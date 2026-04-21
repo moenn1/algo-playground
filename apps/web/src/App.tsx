@@ -866,14 +866,20 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       }
 
       if (step.state.order.length > 0) {
-        return `Order ${truncateText(step.state.order.join(" -> "), 44)}`;
+        return run.algorithm.id === "course-schedule-ii"
+          ? `Returned order ${truncateText(step.state.order.join(" -> "), 36)}`
+          : `Order ${truncateText(step.state.order.join(" -> "), 44)}`;
       }
 
       if (step.state.current) {
-        return `Schedule course ${step.state.current}`;
+        return run.algorithm.id === "course-schedule-ii"
+          ? `Place course ${step.state.current}`
+          : `Schedule course ${step.state.current}`;
       }
 
-      return `${run.input.courseCount} courses queued for scheduling`;
+      return run.algorithm.id === "course-schedule-ii"
+        ? `${run.input.courseCount} courses awaiting order`
+        : `${run.input.courseCount} courses queued for scheduling`;
     }
 
     if (
@@ -1269,7 +1275,9 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
             }
 
             if (graphStep.state.kind === "course-schedule") {
-              return `${graphStep.state.order.length} courses scheduled`;
+              return run.algorithm.id === "course-schedule-ii"
+                ? `${graphStep.state.order.length} courses in order`
+                : `${graphStep.state.order.length} courses scheduled`;
             }
 
             return `${graphStep.state.settled.length} nodes settled`;
@@ -1825,6 +1833,8 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
     }
 
     if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
+      const isCourseOrderRun = run.algorithm.id === "course-schedule-ii";
+
       return (
         <>
           <div className="search-summary-grid">
@@ -1837,16 +1847,20 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
               <strong>{step.state.frontier.length}</strong>
             </div>
             <div className="distance-row">
-              <span>Committed</span>
+              <span>{isCourseOrderRun ? "Returned order" : "Committed"}</span>
               <strong>{step.state.order.length}</strong>
             </div>
             <div className="distance-row">
               <span>Outcome</span>
               <strong>
                 {step.state.schedulable === null
-                  ? "Scheduling"
+                  ? isCourseOrderRun
+                    ? "Ordering"
+                    : "Scheduling"
                   : step.state.schedulable
-                    ? "Schedulable"
+                    ? isCourseOrderRun
+                      ? "Order ready"
+                      : "Schedulable"
                     : "Cycle"}
               </strong>
             </div>

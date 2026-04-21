@@ -215,6 +215,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("course-schedule");
   });
 
+  it("surfaces course-schedule-ii study paths through ordering metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "dependencies",
+        q: "returned topological order"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("course-schedule-ii");
+  });
+
   it("surfaces rotting-oranges study paths through grid-bfs metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

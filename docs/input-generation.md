@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 
@@ -157,7 +157,7 @@ The tree-validation presets resolve for Graph Valid Tree and use `{ "nodeCount":
 
 The redundant-edge presets resolve for Redundant Connection and use that same `{ "nodeCount": number, "edges": [[from, to], ...] }` contract. Edge order is the result contract: replay returns the first same-component edge encountered in input order.
 
-The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
+The scheduling presets resolve for Course Schedule and Course Schedule II and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 
 The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] }` as the normalized contract, where `0` is empty, `1` is fresh, and `2` is rotten.
 
@@ -280,7 +280,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Largest Rectangle in Histogram payloads must define between 1 and 24 integer heights in the inclusive range `0` through `150`.
 - Min Stack payloads must define between 1 and 24 operations using `push`, `pop`, `top`, and `getMin`; `push` values must be integers in the inclusive range `-999` through `999`; and non-push operations cannot run on an empty stack.
 - Pathfinding graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
-- Course Schedule payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
+- Course Schedule and Course Schedule II payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Rotting Oranges payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `0`, `1`, or `2`.
 - Number of Islands payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.
 - Max Area of Island payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.

@@ -82,6 +82,8 @@ The demo seed currently materializes:
 - Redundant Connection on `graph.late-redundant`
 - Course Schedule on `graph.reference-schedule`
 - Course Schedule on `graph.blocked-cycle`
+- Course Schedule II on `graph.reference-schedule`
+- Course Schedule II on `graph.blocked-cycle`
 - Rotting Oranges on `graph.reference-oranges`
 - Rotting Oranges on `graph.isolated-fresh`
 - Number of Islands on `graph.reference-islands`
@@ -103,7 +105,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 39 algorithms with runs, 78 runs total, and 2 saved comparisons.
+That seed currently produces 40 algorithms with runs, 80 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

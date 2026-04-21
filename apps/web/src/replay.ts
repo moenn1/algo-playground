@@ -787,6 +787,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "course-schedule-ii",
+    name: "Course Schedule II",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Topological ordering replay records deterministic zero-indegree queue updates, committed course-order checkpoints, and explicit cycle failure when no valid order exists.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with courseCount and prerequisite pairs as [course, prerequisite].",
+    defaultInput: serializeGraphInput(defaultCourseScheduleInput),
+    domain: "graph"
+  },
+  {
     id: "rotting-oranges",
     name: "Rotting Oranges",
     badge: "Graph",
