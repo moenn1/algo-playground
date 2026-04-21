@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Clone Graph, including deterministic clone-map allocation, explicit clone-link commits, partial component coverage ledgers, and replay-safe clone state without live object references.
+- Wired Clone Graph through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a recognizable graph-copy problem alongside traversal, Union-Find, scheduling, and grid replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 31 algorithms with runs, 62 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Graph Valid Tree, including deterministic Union-Find edge inspection, stable union-by-rank merges with lower-root tie-breaks, explicit cycle rejection, and replay-safe parent and rank ledgers without path-compression side effects.
 - Wired Graph Valid Tree through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a reusable Union-Find tree-validation problem alongside pathfinding, scheduling, and grid traversal replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 30 algorithms with runs, 60 total runs, and 2 saved comparisons.

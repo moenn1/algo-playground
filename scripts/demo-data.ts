@@ -375,6 +375,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "weighted-detour"]
   },
   {
+    key: "graph-reference-clone",
+    algorithmId: "clone-graph",
+    presetId: "graph.reference-clone",
+    recordedAt: "2026-04-20T09:10:10.000Z",
+    tags: ["seeded-demo", "graph", "reference-clone"]
+  },
+  {
+    key: "graph-disconnected-clone",
+    algorithmId: "clone-graph",
+    presetId: "graph.disconnected-clone",
+    recordedAt: "2026-04-20T09:10:15.000Z",
+    tags: ["seeded-demo", "graph", "disconnected-clone"]
+  },
+  {
     key: "graph-reference-tree",
     algorithmId: "graph-valid-tree",
     presetId: "graph.reference-tree",

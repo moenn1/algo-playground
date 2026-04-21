@@ -12,6 +12,7 @@ import {
   defaultLongestCommonSubsequenceInput,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
+  defaultCloneGraphInput,
   defaultCourseScheduleInput,
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
@@ -666,6 +667,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with nodes, edges, start, and target",
     defaultInput: serializeGraphInput(defaultDijkstraInput),
+    domain: "graph"
+  },
+  {
+    id: "clone-graph",
+    name: "Clone Graph",
+    badge: "Graph",
+    accent: "gold",
+    description:
+      "Reachable-component replay records clone allocation, clone-link commits, and untouched nodes outside the entry component.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodes, edges, start, and target. The start node is the clone entry point.",
+    defaultInput: serializeGraphInput(defaultCloneGraphInput),
     domain: "graph"
   },
   {

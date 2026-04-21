@@ -10,6 +10,7 @@ export type GraphAlgorithmId =
   | "bfs"
   | "dfs"
   | "dijkstra"
+  | "clone-graph"
   | "graph-valid-tree"
   | "course-schedule"
   | "rotting-oranges"
@@ -20,6 +21,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
   "dfs",
   "dijkstra",
+  "clone-graph",
   "graph-valid-tree",
   "course-schedule",
   "rotting-oranges",
@@ -87,6 +89,22 @@ export interface CourseScheduleExecutionState extends JsonObject {
   order: string[];
   schedulable: boolean | null;
   cycleNodes: string[];
+}
+
+export interface CloneGraphExecutionState extends JsonObject {
+  kind: "clone-graph";
+  nodes: string[];
+  edges: Array<[string, string, number]>;
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  cloneMap: Record<string, string>;
+  clonedNodes: string[];
+  clonedEdges: string[];
+  currentClone: string | null;
+  unreachableNodes: string[];
+  fullyCloned: boolean | null;
 }
 
 export interface GraphValidTreeExecutionState extends JsonObject {
@@ -157,6 +175,7 @@ export interface WallsAndGatesExecutionState extends JsonObject {
 
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
+  | CloneGraphExecutionState
   | GraphValidTreeExecutionState
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
@@ -210,6 +229,21 @@ interface CourseScheduleRuntimeState {
   order: string[];
   schedulable: boolean | null;
   cycleNodes: string[];
+}
+
+interface CloneGraphRuntimeState {
+  nodes: string[];
+  edges: Array<[string, string, number]>;
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  cloneMap: Record<string, string>;
+  clonedNodes: string[];
+  clonedEdges: string[];
+  currentClone: string | null;
+  unreachableNodes: string[];
+  fullyCloned: boolean | null;
 }
 
 interface GraphValidTreeRuntimeState {
@@ -288,6 +322,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "dijkstra",
     label: "Dijkstra",
     implementationVersion: "graph-engine-0.1.0"
+  },
+  "clone-graph": {
+    id: "clone-graph",
+    label: "Clone Graph",
+    implementationVersion: "graph-engine-0.7.0"
   },
   "graph-valid-tree": {
     id: "graph-valid-tree",
@@ -385,6 +424,20 @@ export const defaultCourseScheduleInput: CourseScheduleInput = {
   ]
 };
 
+export const defaultCloneGraphInput: PathfindingGraphInput = {
+  nodes: ["A", "B", "C", "D", "E"],
+  edges: [
+    ["A", "B", 1],
+    ["A", "C", 1],
+    ["B", "D", 1],
+    ["C", "D", 1],
+    ["D", "E", 1]
+  ],
+  start: "A",
+  target: null,
+  directed: false
+};
+
 export const defaultGraphValidTreeInput: GraphValidTreeInput = {
   nodeCount: 5,
   edges: [
@@ -428,6 +481,26 @@ function cloneGrid<Value>(grid: Value[][]): Value[][] {
 }
 
 function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
+  if (state.kind === "clone-graph") {
+    return {
+      kind: state.kind,
+      nodes: state.nodes.slice(),
+      edges: state.edges.map((edge) => edge.slice() as [string, string, number]),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      cloneMap: {
+        ...state.cloneMap
+      },
+      clonedNodes: state.clonedNodes.slice(),
+      clonedEdges: state.clonedEdges.slice(),
+      currentClone: state.currentClone,
+      unreachableNodes: state.unreachableNodes.slice(),
+      fullyCloned: state.fullyCloned
+    };
+  }
+
   if (state.kind === "course-schedule") {
     return {
       kind: state.kind,
@@ -919,6 +992,8 @@ export function parseGraphInputText(
   }
 
   switch (algorithmId) {
+    case "clone-graph":
+      return normalizeParsedPathfindingGraph(parsed);
     case "graph-valid-tree":
       return normalizeGraphValidTreeInput(parsed);
     case "course-schedule":
@@ -939,6 +1014,8 @@ export function normalizeGraphInput(
   algorithmId: GraphAlgorithmId = "dijkstra"
 ): GraphInput {
   switch (algorithmId) {
+    case "clone-graph":
+      return normalizeParsedPathfindingGraph(input);
     case "graph-valid-tree":
       return normalizeGraphValidTreeInput(input);
     case "course-schedule":
@@ -1012,6 +1089,25 @@ function buildAdjacency(graph: PathfindingGraphInput): Map<string, GraphEdge[]> 
   }
 
   return adjacency;
+}
+
+function createCloneNodeLabel(node: string): string {
+  return `${node}'`;
+}
+
+function createCloneEdgeLabel(from: string, to: string, directed: boolean): string {
+  if (directed) {
+    return `${from}->${to}`;
+  }
+
+  return [from, to].sort((left, right) => left.localeCompare(right)).join("-");
+}
+
+function findUnreachableGraphNodes(
+  nodes: string[],
+  cloneMap: Record<string, string>
+): string[] {
+  return nodes.filter((node) => !(node in cloneMap));
 }
 
 function createTreeEdgeLabel(edge: [number, number], index: number): string {
@@ -1181,6 +1277,32 @@ function createCourseScheduleRecorder(input: CourseScheduleInput) {
         order: runtimeState.order.slice(),
         schedulable: runtimeState.schedulable,
         cycleNodes: runtimeState.cycleNodes.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
+function createCloneGraphRecorder(input: PathfindingGraphInput) {
+  return createTraceRecorder<CloneGraphRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "clone-graph",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "clone-graph",
+        nodes: input.nodes.slice(),
+        edges: input.edges.map((edge) => edge.slice() as [string, string, number]),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        cloneMap: {
+          ...runtimeState.cloneMap
+        },
+        clonedNodes: runtimeState.clonedNodes.slice(),
+        clonedEdges: runtimeState.clonedEdges.slice(),
+        currentClone: runtimeState.currentClone,
+        unreachableNodes: runtimeState.unreachableNodes.slice(),
+        fullyCloned: runtimeState.fullyCloned
       });
     },
     projectMetrics: projectGraphMetrics
@@ -1361,6 +1483,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createBreadthFirstSearchRecorder>
     | ReturnType<typeof createDepthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
+    | ReturnType<typeof createCloneGraphRecorder>
     | ReturnType<typeof createGraphValidTreeRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
@@ -2129,6 +2252,230 @@ export function buildDijkstraTrace(
         path: "state.path",
         op: "set",
         nextValue: finalPath
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedGraph, recorder);
+}
+
+export function buildCloneGraphTrace(
+  graph: PathfindingGraphInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["clone-graph"];
+  const normalizedGraph = normalizeGraphInput(graph, "clone-graph") as PathfindingGraphInput;
+  const adjacency = buildAdjacency(normalizedGraph);
+  const frontier: string[] = [normalizedGraph.start];
+  const queued = new Set<string>([normalizedGraph.start]);
+  const settled: string[] = [];
+  const cloneMap: Record<string, string> = {
+    [normalizedGraph.start]: createCloneNodeLabel(normalizedGraph.start)
+  };
+  const clonedNodes = [normalizedGraph.start];
+  const clonedEdges: string[] = [];
+  const linkedEdges = new Set<string>();
+  let current: string | null = normalizedGraph.start;
+  let activeEdge: string[] = [];
+  let currentClone: string | null = cloneMap[normalizedGraph.start]!;
+  let fullyCloned: boolean | null = null;
+  const recorder = createCloneGraphRecorder(normalizedGraph);
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 1,
+    inspections: 0,
+    updates: 1
+  };
+
+  const createRuntimeState = (): CloneGraphRuntimeState => ({
+    nodes: normalizedGraph.nodes,
+    edges: normalizedGraph.edges,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    cloneMap,
+    clonedNodes,
+    clonedEdges,
+    currentClone,
+    unreachableNodes: findUnreachableGraphNodes(normalizedGraph.nodes, cloneMap),
+    fullyCloned
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Seed the clone ledger with the entry node so replay can rebuild the reachable component without live object references.",
+    explanation: {
+      summary: "Create the first clone from the start node before any neighbor links are inspected.",
+      details:
+        "Replay records the original-to-clone mapping directly, which keeps clone construction serialization-safe and deterministic frame by frame.",
+      tags: ["snapshot", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "clone-graph-start",
+        path: `state.cloneMap.${normalizedGraph.start}`,
+        kind: "node",
+        intent: "focus",
+        label: `Clone ${normalizedGraph.start}`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    current = frontier.shift()!;
+    queued.delete(current);
+    currentClone = cloneMap[current]!;
+    metrics.frontier = frontier.length;
+    metrics.settled = settled.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `Original node ${current} becomes the active source while replay fills clone ${currentClone}.`,
+      explanation: {
+        summary: "Pop the next reachable original node from the queue and continue building its clone adjacency.",
+        details:
+          "The frontier stores original nodes, not clone instances, so replay can explain traversal and clone construction separately.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `clone-graph-current-${current}`,
+          path: `state.cloneMap.${current}`,
+          kind: "node",
+          intent: "active",
+          label: `Expand ${current}`
+        }
+      ]
+    });
+
+    for (const edge of adjacency.get(current) ?? []) {
+      activeEdge = [current, edge.to];
+      metrics.inspections += 1;
+
+      const createdClone = !(edge.to in cloneMap);
+      if (createdClone) {
+        cloneMap[edge.to] = createCloneNodeLabel(edge.to);
+        clonedNodes.push(edge.to);
+
+        if (!queued.has(edge.to)) {
+          frontier.push(edge.to);
+          queued.add(edge.to);
+        }
+
+        metrics.updates += 1;
+      }
+
+      const linkLabel = createCloneEdgeLabel(current, edge.to, normalizedGraph.directed);
+      const linkedClone = !linkedEdges.has(linkLabel);
+      if (linkedClone) {
+        linkedEdges.add(linkLabel);
+        clonedEdges.push(linkLabel);
+        metrics.updates += 1;
+      }
+
+      currentClone = cloneMap[current]!;
+      metrics.frontier = frontier.length;
+      metrics.settled = settled.length;
+
+      recorder.push({
+        phase: createdClone ? "Clone" : linkedClone ? "Link" : "Inspect",
+        description: createdClone
+          ? `Allocate clone ${cloneMap[edge.to]!} and queue original node ${edge.to} for its own adjacency replay.`
+          : linkedClone
+            ? `Link clone ${currentClone} to ${cloneMap[edge.to]!} without allocating a new clone node.`
+            : `Inspect edge ${current}-${edge.to} without changing the existing clone ledger.`,
+        explanation: {
+          summary: createdClone
+            ? "Allocate a neighbor clone the first time replay reaches that original node."
+            : linkedClone
+              ? "Commit the clone-to-clone edge once both endpoint clones already exist."
+              : "Skip duplicate clone work when both the node and the edge were already recorded earlier.",
+          details: createdClone
+            ? `Replay records both the new clone label and the queued original node in one frame so clone construction never depends on hidden object allocation.`
+            : linkedClone
+              ? `The cloned edge ledger stays explicit, which keeps undirected deduplication and directed edge direction stable across replays.`
+              : `Because ${edge.to} already has a clone and ${linkLabel} is already recorded, this frame stays read-only.`,
+          tags: ["edge", createdClone || linkedClone ? "frontier" : "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `clone-graph-edge-${current}-${edge.to}-${metrics.inspections}`,
+            path: "state.activeEdge",
+            kind: "edge",
+            intent: createdClone || linkedClone ? "frontier" : "focus",
+            label: `${current} -> ${edge.to}`
+          }
+        ]
+      });
+    }
+
+    settled.push(current);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `Node ${current} and clone ${currentClone} now have a fully recorded adjacency ledger.`,
+      explanation: {
+        summary: "Seal the active original node after every neighbor inspection is recorded.",
+        details:
+          "This checkpoint captures the settled originals, queued originals, and accumulated clone map together so replay can jump directly to any finished clone boundary.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `clone-graph-settled-${current}`,
+          path: "state.settled",
+          kind: "node",
+          intent: "visited",
+          label: `Settled ${current}`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  currentClone = null;
+  fullyCloned = Object.keys(cloneMap).length === normalizedGraph.nodes.length;
+  metrics.frontier = 0;
+  metrics.settled = settled.length;
+
+  const unreachableNodes = findUnreachableGraphNodes(normalizedGraph.nodes, cloneMap);
+
+  recorder.push({
+    phase: "Resolution",
+    description: fullyCloned
+      ? `Cloned all ${clonedNodes.length} reachable nodes and ${clonedEdges.length} clone links from the entry component.`
+      : `Cloned the entry component and left ${unreachableNodes.length} unreachable node${unreachableNodes.length === 1 ? "" : "s"} outside the clone ledger.`,
+    explanation: {
+      summary: fullyCloned
+        ? "Publish the completed clone map for the entire graph."
+        : "Publish the completed clone map for the reachable component and the explicit unreachable-node ledger.",
+      details: fullyCloned
+        ? "The terminal frame keeps the original-to-clone mapping and clone-edge ledger explicit, so replay never depends on live references to explain the copied graph."
+        : "Disconnected inputs stay deterministic because replay records both the cloned component and the untouched originals that never entered the queue.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "clone-graph-final",
+        path: fullyCloned ? "state.cloneMap" : "state.unreachableNodes",
+        kind: "collection",
+        intent: "result",
+        label: fullyCloned ? "Clone complete" : "Partial clone coverage"
       }
     ]
   });
@@ -3624,6 +3971,8 @@ export function buildGraphTrace(
       return buildDepthFirstSearchTrace(graph as PathfindingGraphInput);
     case "dijkstra":
       return buildDijkstraTrace(graph as PathfindingGraphInput);
+    case "clone-graph":
+      return buildCloneGraphTrace(graph as PathfindingGraphInput);
     case "graph-valid-tree":
       return buildGraphValidTreeTrace(graph as GraphValidTreeInput);
     case "course-schedule":

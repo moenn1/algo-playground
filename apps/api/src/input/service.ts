@@ -154,6 +154,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Dijkstra",
     domain: "graph"
   },
+  "clone-graph": {
+    id: "clone-graph",
+    label: "Clone Graph",
+    domain: "graph"
+  },
   "graph-valid-tree": {
     id: "graph-valid-tree",
     label: "Graph Valid Tree",
@@ -218,6 +223,7 @@ const pathfindingGraphAlgorithms = [
   supportedAlgorithms.dfs,
   supportedAlgorithms.dijkstra
 ] as const;
+const cloneGraphAlgorithms = [supportedAlgorithms["clone-graph"]] as const;
 const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
@@ -315,6 +321,19 @@ const defaultCourseScheduleInput: CourseScheduleInputPayload = {
     [3, 2],
     [4, 3]
   ]
+};
+const defaultCloneGraphInput: PathfindingGraphInputPayload = {
+  nodes: ["A", "B", "C", "D", "E"],
+  edges: [
+    ["A", "B", 1],
+    ["A", "C", 1],
+    ["B", "D", 1],
+    ["C", "D", 1],
+    ["D", "E", 1]
+  ],
+  start: "A",
+  target: null,
+  directed: false
 };
 const defaultGraphValidTreeInput: GraphValidTreeInputPayload = {
   nodeCount: 5,
@@ -2940,6 +2959,52 @@ const presetDefinitions: InputPresetDefinition[] = [
         ],
         start: "A",
         target: "F",
+        directed: false
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-clone",
+      label: "Reference clone graph",
+      description:
+        "Use one connected graph with a shared neighbor so replay shows clone allocation, clone-link commits, and a fully covered component ledger.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: cloneGraphAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultCloneGraphInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.disconnected-clone",
+      label: "Disconnected clone component",
+      description:
+        "Leave one component unreachable from the entry node so replay can publish both the cloned component and the untouched nodes.",
+      scenario: "disconnected",
+      kind: "curated",
+      domain: "graph",
+      algorithms: cloneGraphAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        nodes: ["A", "B", "C", "D", "E", "F"],
+        edges: [
+          ["A", "B", 1],
+          ["A", "C", 1],
+          ["B", "D", 1],
+          ["C", "D", 1],
+          ["E", "F", 1]
+        ],
+        start: "A",
+        target: null,
         directed: false
       },
       options: {}

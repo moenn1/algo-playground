@@ -223,6 +223,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong pathfinding follow-up because it reuses the same graph surface as BFS while changing the frontier discipline completely.",
     nextAlgorithmIds: ["dijkstra", "course-schedule"]
   },
+  "clone-graph": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13,
+    timeToExplore: "7 min",
+    complexity: "One queue still drives the trace, but replay also has to preserve clone allocation, clone-link deduplication, and partial component coverage.",
+    outcome: "See exactly when replay allocates a new clone, commits a clone-to-clone edge, and leaves disconnected originals outside the copied component.",
+    metricsLens: "Settled, inspections, and updates expose how much graph work went into clone allocation versus read-only edge inspection.",
+    skills: ["clone mapping", "component coverage", "neighbor-link construction"],
+    spotlight: "A useful graph systems problem because it turns object-copy semantics into explicit replay-safe ledgers instead of relying on live references.",
+    nextAlgorithmIds: ["graph-valid-tree", "course-schedule"]
+  },
   "graph-valid-tree": {
     stage: "core",
     focus: "state-tracking",

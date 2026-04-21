@@ -20,6 +20,7 @@ import {
   isCourseScheduleInput,
   isGraphValidTreeInput,
   isNumberOfIslandsInput,
+  isPathfindingGraphInput,
   isRottingOrangesInput,
   isWallsAndGatesInput,
   type SearchRun,
@@ -364,6 +365,74 @@ function formatTreeNodeMeta(
 ): string {
   const component = step.state.components.find((group) => group.includes(node)) ?? [node];
   return `Parent ${step.state.parents[node]} · Rank ${step.state.ranks[node]} · ${component.join(", ")}`;
+}
+
+function createCloneGraphEdgeLabel(from: string, to: string, directed: boolean): string {
+  if (directed) {
+    return `${from}->${to}`;
+  }
+
+  return [from, to].sort((left, right) => left.localeCompare(right)).join("-");
+}
+
+function getCloneNodeTone(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "clone-graph" }>>
+): "current" | "path" | "settled" | "frontier" | "idle" {
+  if (step.state.current === node || step.state.activeEdge.includes(node)) {
+    return "current";
+  }
+
+  if (step.state.settled.includes(node)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(node)) {
+    return "frontier";
+  }
+
+  if (step.state.clonedNodes.includes(node)) {
+    return "path";
+  }
+
+  return "idle";
+}
+
+function formatCloneNodeStatus(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "clone-graph" }>>
+): string {
+  const tone = getCloneNodeTone(node, step);
+
+  switch (tone) {
+    case "current":
+      return "Inspect";
+    case "settled":
+      return "Copied";
+    case "frontier":
+      return "Queued";
+    case "path":
+      return "Cloned";
+    default:
+      return step.state.unreachableNodes.includes(node) ? "Unreached" : "Idle";
+  }
+}
+
+function formatCloneNodeMeta(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "clone-graph" }>>
+): string {
+  const cloneLabel = step.state.cloneMap[node];
+
+  if (cloneLabel) {
+    return `Clone ${cloneLabel}`;
+  }
+
+  if (step.state.unreachableNodes.includes(node)) {
+    return "Outside the entry component";
+  }
+
+  return "Awaiting clone allocation";
 }
 
 function getOrangeCellTone(
@@ -1678,6 +1747,177 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.stalledFresh.length > 0
                 ? `Blocked fresh cells: ${step.state.stalledFresh.join(", ")}`
                 : "Replay records each infection wave directly from the grid snapshot."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "clone-graph" && isPathfindingGraphInput(run.input)) {
+    const nodes = run.input.nodes;
+    const layout = buildGraphLayout(nodes);
+    const clonedEdges = new Set(step.state.clonedEdges);
+    const activeLabel =
+      step.state.activeEdge.length === 2
+        ? createCloneGraphEdgeLabel(
+            step.state.activeEdge[0]!,
+            step.state.activeEdge[1]!,
+            run.input.directed
+          )
+        : null;
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} clone ledger</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Clone Graph status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active inspection</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Queued originals</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Copied originals</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Allocated clones</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Clone Graph replay">
+              {run.input.edges.map(([from, to, weight], index) => {
+                const edgeLabel = createCloneGraphEdgeLabel(from, to, run.input.directed);
+                const start = layout[from]!;
+                const end = layout[to]!;
+                const classNames = [
+                  "graph-edge",
+                  activeLabel === edgeLabel ? "graph-edge-active" : "",
+                  clonedEdges.has(edgeLabel) ? "graph-edge-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g key={`${edgeLabel}-${index}`}>
+                    <line
+                      className={classNames}
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                    />
+                    <text
+                      className="graph-weight"
+                      x={(start.x + end.x) / 2}
+                      y={(start.y + end.y) / 2 - 8}
+                    >
+                      {clonedEdges.has(edgeLabel) ? "c" : weight}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {nodes.map((node) => {
+                const { x, y } = layout[node]!;
+                const tone = getCloneNodeTone(node, step);
+                const classNames = [
+                  "graph-node",
+                  tone === "current" ? "graph-node-current" : "",
+                  tone === "settled" ? "graph-node-settled" : "",
+                  tone === "frontier" ? "graph-node-frontier" : "",
+                  tone === "path" ? "graph-node-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g className={classNames} key={node}>
+                    <circle cx={x} cy={y} r="26" />
+                    <text className="graph-label" x={x} y={y - 2}>
+                      {node}
+                    </text>
+                    <text className="graph-distance" x={x} y={y + 16}>
+                      {step.state.cloneMap[node] ?? "--"}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Clone focus</span>
+              <strong>{step.state.currentClone ?? "Clone ledger"}</strong>
+              <p>
+                {step.state.current
+                  ? `Original ${step.state.current}`
+                  : step.state.fullyCloned
+                    ? "Every node reached the clone map"
+                    : `${step.state.unreachableNodes.length} nodes stayed outside the entry component`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              {nodes.map((node) => {
+                const tone = getCloneNodeTone(node, step);
+
+                return (
+                  <article className={`graph-node-card graph-node-card-${tone}`} key={`clone-${node}`}>
+                    <div className="graph-node-card-header">
+                      <strong>{node}</strong>
+                      <span className="graph-node-status">{formatCloneNodeStatus(node, step)}</span>
+                    </div>
+                    <span className="graph-node-distance">
+                      {step.state.cloneMap[node] ? `Clone ${step.state.cloneMap[node]}` : "No clone yet"}
+                    </span>
+                    <span className="graph-node-meta">{formatCloneNodeMeta(node, step)}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Queued originals</span>
+            <div className="pill-row">
+              {step.state.frontier.length > 0 ? (
+                step.state.frontier.map((node) => (
+                  <span className="pill" key={node}>
+                    {node}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">Queue empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Clone map</span>
+            <strong>{step.state.clonedNodes.length}</strong>
+            <p>
+              {step.state.clonedNodes.length > 0
+                ? step.state.clonedNodes
+                    .map((node) => `${node} -> ${step.state.cloneMap[node]}`)
+                    .join(", ")
+                : "No clones allocated yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Clone links</span>
+            <strong>{step.state.clonedEdges.length}</strong>
+            <p>
+              {step.state.clonedEdges.length > 0
+                ? step.state.clonedEdges.join(", ")
+                : "No clone links committed"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Coverage</span>
+            <strong>{step.state.fullyCloned ? "Full" : "Partial"}</strong>
+            <p>
+              {step.state.unreachableNodes.length > 0
+                ? `Outside component: ${step.state.unreachableNodes.join(", ")}`
+                : "Every node reached from the entry clone"}
             </p>
           </div>
         </div>

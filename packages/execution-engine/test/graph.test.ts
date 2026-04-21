@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildBreadthFirstSearchTrace,
+  buildCloneGraphTrace,
   buildCourseScheduleTrace,
   buildDepthFirstSearchTrace,
   buildDijkstraTrace,
@@ -10,6 +11,7 @@ import {
   buildRottingOrangesTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
+  defaultCloneGraphInput,
   defaultCourseScheduleInput,
   defaultGraphValidTreeInput,
   defaultNumberOfIslandsInput,
@@ -159,8 +161,53 @@ describe("graph execution engine", () => {
     expect(invalidFinalStep.state.componentCount).toBe(2);
   });
 
+  it("records clone-ledger progress and unreachable nodes for Clone Graph", () => {
+    const referenceTrace = buildCloneGraphTrace(defaultCloneGraphInput);
+    const disconnectedTrace = buildCloneGraphTrace({
+      nodes: ["A", "B", "C", "D", "E", "F"],
+      edges: [
+        ["A", "B", 1],
+        ["A", "C", 1],
+        ["B", "D", 1],
+        ["C", "D", 1],
+        ["E", "F", 1]
+      ],
+      start: "A",
+      target: null,
+      directed: false
+    });
+    const referenceFinalStep = referenceTrace.steps[referenceTrace.steps.length - 1]!;
+    const disconnectedFinalStep = disconnectedTrace.steps[disconnectedTrace.steps.length - 1]!;
+
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("clone-graph");
+    if (referenceFinalStep.state.kind !== "clone-graph") {
+      throw new Error("Expected the clone-graph state.");
+    }
+    expect(referenceFinalStep.state.fullyCloned).toBe(true);
+    expect(referenceFinalStep.state.clonedNodes).toEqual(["A", "B", "C", "D", "E"]);
+    expect(referenceFinalStep.state.unreachableNodes).toEqual([]);
+    expect(referenceFinalStep.state.cloneMap).toMatchObject({
+      A: "A'",
+      B: "B'",
+      C: "C'",
+      D: "D'",
+      E: "E'"
+    });
+
+    expect(disconnectedFinalStep.phase).toBe("Resolution");
+    expect(disconnectedFinalStep.state.kind).toBe("clone-graph");
+    if (disconnectedFinalStep.state.kind !== "clone-graph") {
+      throw new Error("Expected the clone-graph state.");
+    }
+    expect(disconnectedFinalStep.state.fullyCloned).toBe(false);
+    expect(disconnectedFinalStep.state.unreachableNodes).toEqual(["E", "F"]);
+    expect(disconnectedFinalStep.state.clonedNodes).toEqual(["A", "B", "C", "D"]);
+  });
+
   it("formats graph helpers for replay-safe input and distance rendering", () => {
     expect(serializeGraphInput(defaultBreadthFirstSearchInput)).toContain('"start": "A"');
+    expect(serializeGraphInput(defaultCloneGraphInput)).toContain('"target": null');
     expect(serializeGraphInput(defaultGraphValidTreeInput)).toContain('"nodeCount": 5');
     expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
     expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
@@ -170,6 +217,9 @@ describe("graph execution engine", () => {
     ).toEqual(defaultGraphValidTreeInput);
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
+    );
+    expect(parseGraphInputText(serializeGraphInput(defaultCloneGraphInput), "clone-graph")).toEqual(
+      defaultCloneGraphInput
     );
     expect(
       parseGraphInputText(serializeGraphInput(defaultRottingOrangesInput), "rotting-oranges")

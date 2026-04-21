@@ -117,6 +117,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.reference-route`: fixed weighted graph aligned with the replay shell
 - `graph.disconnected-target`: curated no-route scenario
 - `graph.weighted-detour`: curated pathfinding case with a cheaper multi-hop route
+- `graph.reference-clone`: curated connected graph where clone allocation and clone-link commits both stay visible
+- `graph.disconnected-clone`: curated graph where one component stays unreachable from the clone entry node
 - `graph.reference-tree`: curated valid tree with deterministic Union-Find merges
 - `graph.cycle-closing-tree`: curated invalid graph with one rejected cycle-closing edge and a disconnected component
 - `graph.reference-schedule`: curated prerequisite graph with a deterministic topological order
@@ -130,6 +132,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
 The route presets plus `graph.random-network` resolve for Breadth-First Search, Depth-First Search, or Dijkstra through the same `algorithmId` field. BFS and DFS ignore edge weights but preserve the shared graph input contract so pathfinding fixtures can be replayed across all three algorithms.
+
+The clone-construction presets resolve for Clone Graph and use the shared pathfinding-style contract `{ "nodes": string[], "edges": [[from, to, weight], ...], "start": string, "target": null, "directed": boolean }`. Replay treats `start` as the clone entry node and publishes any unreachable nodes outside that entry component explicitly.
 
 The tree-validation presets resolve for Graph Valid Tree and use `{ "nodeCount": number, "edges": [[from, to], ...] }` as the normalized contract. Edge order is preserved exactly so Union-Find inspection, acceptance, and rejection checkpoints stay deterministic in replay.
 

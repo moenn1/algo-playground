@@ -173,6 +173,49 @@ describe("buildRun", () => {
     expect(finalStep.state.rejectedEdges).toEqual([]);
   });
 
+  it("builds clone-graph replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "clone-graph",
+      JSON.stringify(
+        {
+          nodes: ["A", "B", "C", "D", "E"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 1],
+            ["B", "D", 1],
+            ["C", "D", 1],
+            ["D", "E", 1]
+          ],
+          start: "A",
+          target: null,
+          directed: false
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("clone-graph");
+    expect(finalStep.state.kind).toBe("clone-graph");
+    if (finalStep.state.kind !== "clone-graph") {
+      throw new Error("Expected the Clone Graph state.");
+    }
+    expect(finalStep.state.fullyCloned).toBe(true);
+    expect(finalStep.state.cloneMap).toMatchObject({
+      A: "A'",
+      B: "B'",
+      C: "C'",
+      D: "D'",
+      E: "E'"
+    });
+    expect(finalStep.state.unreachableNodes).toEqual([]);
+  });
+
   it("builds course-schedule replay runs from the shared graph engine", () => {
     const run = buildRun(
       "course-schedule",

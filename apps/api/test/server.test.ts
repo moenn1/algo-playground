@@ -762,6 +762,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 nodes / 9 edges"
     });
 
+    const clonePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-clone/resolve",
+      payload: {
+        algorithmId: "clone-graph"
+      }
+    });
+
+    expect(clonePreset.statusCode).toBe(200);
+    expect(clonePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-clone"
+      },
+      algorithm: {
+        id: "clone-graph",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 5 edges"
+    });
+
     const treePreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-tree/resolve",
@@ -1538,6 +1559,50 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "5 ops"
+    });
+
+    const validateCloneGraphInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "clone-graph",
+        payload: {
+          nodes: ["A", "B", "C", "D", "E"],
+          edges: [
+            ["A", "B", 1],
+            ["A", "C", 1],
+            ["B", "D", 1],
+            ["C", "D", 1],
+            ["D", "E", 1]
+          ],
+          start: "A",
+          target: null,
+          directed: false
+        }
+      }
+    });
+
+    expect(validateCloneGraphInput.statusCode).toBe(200);
+    expect(validateCloneGraphInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "clone-graph",
+        domain: "graph"
+      },
+      input: {
+        nodes: ["A", "B", "C", "D", "E"],
+        edges: [
+          ["A", "B", 1],
+          ["A", "C", 1],
+          ["B", "D", 1],
+          ["C", "D", 1],
+          ["D", "E", 1]
+        ],
+        start: "A",
+        target: null,
+        directed: false
+      },
+      footprint: "5 nodes / 5 edges"
     });
 
     const validateCourseScheduleInput = await server.inject({
