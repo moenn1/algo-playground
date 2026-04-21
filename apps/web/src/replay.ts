@@ -16,6 +16,7 @@ import {
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
+  defaultGraphValidTreeInput,
   defaultLongestSubstringInput,
   defaultKthLargestElementInput,
   defaultTopKFrequentElementsInput,
@@ -256,6 +257,12 @@ export function isCourseScheduleInput(
   input: GraphInput
 ): input is Extract<GraphInput, { courseCount: number }> {
   return "courseCount" in input;
+}
+
+export function isGraphValidTreeInput(
+  input: GraphInput
+): input is Extract<GraphInput, { nodeCount: number }> {
+  return "nodeCount" in input;
 }
 
 export function isPathfindingGraphInput(
@@ -659,6 +666,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with nodes, edges, start, and target",
     defaultInput: serializeGraphInput(defaultDijkstraInput),
+    domain: "graph"
+  },
+  {
+    id: "graph-valid-tree",
+    name: "Graph Valid Tree",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Union-Find replay with deterministic component merges, rejected cycle edges, and explicit connectivity proofs.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with nodeCount and integer edge pairs as [from, to].",
+    defaultInput: serializeGraphInput(defaultGraphValidTreeInput),
     domain: "graph"
   },
   {

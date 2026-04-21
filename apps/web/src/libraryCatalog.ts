@@ -223,6 +223,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong pathfinding follow-up because it reuses the same graph surface as BFS while changing the frontier discipline completely.",
     nextAlgorithmIds: ["dijkstra", "course-schedule"]
   },
+  "graph-valid-tree": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.25,
+    timeToExplore: "7 min",
+    complexity: "The edge queue stays linear, but every frame has to preserve component ledgers, representative roots, and accepted-versus-rejected edges.",
+    outcome: "See exactly when replay merges two components, rejects a cycle-closing edge, and proves whether the graph collapses into one connected tree.",
+    metricsLens: "Settled, inspections, and updates expose how much edge work and component churn happened before the tree verdict locked.",
+    skills: ["union-find", "component merging", "cycle rejection"],
+    spotlight: "A strong graph systems problem because it adds a reusable Union-Find replay model instead of another queue-driven traversal.",
+    nextAlgorithmIds: ["course-schedule", "dijkstra"]
+  },
   "valid-parentheses": {
     stage: "foundation",
     focus: "state-tracking",

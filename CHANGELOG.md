@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Graph Valid Tree, including deterministic Union-Find edge inspection, stable union-by-rank merges with lower-root tie-breaks, explicit cycle rejection, and replay-safe parent and rank ledgers without path-compression side effects.
+- Wired Graph Valid Tree through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a reusable Union-Find tree-validation problem alongside pathfinding, scheduling, and grid traversal replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 30 algorithms with runs, 60 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Depth-First Search, including deterministic stack checkpoints, first-discovery predecessor locking, top-first frontier serialization, and stable reuse of the graph `settled`, `frontier`, `inspections`, and `updates` metrics.
 - Wired Depth-First Search through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a third reusable pathfinding story alongside BFS and Dijkstra without widening the shared pathfinding state contract.
 - Expanded the deterministic demo seed so Quick Sort, Merge Sort, and Breadth-First Search now ship with persisted replay runs alongside the rest of the supported catalog.

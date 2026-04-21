@@ -26,6 +26,7 @@ export const supportedAlgorithmIds = [
   "bfs",
   "dfs",
   "dijkstra",
+  "graph-valid-tree",
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
@@ -53,6 +54,11 @@ export interface CourseScheduleInputPayload extends JsonObject {
   prerequisites: Array<[number, number]>;
 }
 
+export interface GraphValidTreeInputPayload extends JsonObject {
+  nodeCount: number;
+  edges: Array<[number, number]>;
+}
+
 export interface RottingOrangesInputPayload extends JsonObject {
   grid: number[][];
 }
@@ -67,6 +73,7 @@ export interface WallsAndGatesInputPayload extends JsonObject {
 
 export type GraphInputPayload =
   | PathfindingGraphInputPayload
+  | GraphValidTreeInputPayload
   | CourseScheduleInputPayload
   | RottingOrangesInputPayload
   | NumberOfIslandsInputPayload

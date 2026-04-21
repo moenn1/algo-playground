@@ -375,6 +375,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "weighted-detour"]
   },
   {
+    key: "graph-reference-tree",
+    algorithmId: "graph-valid-tree",
+    presetId: "graph.reference-tree",
+    recordedAt: "2026-04-20T09:10:20.000Z",
+    tags: ["seeded-demo", "graph", "reference-tree"]
+  },
+  {
+    key: "graph-cycle-closing-tree",
+    algorithmId: "graph-valid-tree",
+    presetId: "graph.cycle-closing-tree",
+    recordedAt: "2026-04-20T09:10:40.000Z",
+    tags: ["seeded-demo", "graph", "cycle-closing-tree"]
+  },
+  {
     key: "graph-reference-schedule",
     algorithmId: "course-schedule",
     presetId: "graph.reference-schedule",

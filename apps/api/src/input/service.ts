@@ -5,6 +5,7 @@ import { HttpError } from "../lib/http.js";
 import type {
   CourseScheduleInputPayload,
   DynamicProgrammingInputPayload,
+  GraphValidTreeInputPayload,
   GraphInputPayload,
   HashInputPayload,
   HeapInputPayload,
@@ -153,6 +154,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Dijkstra",
     domain: "graph"
   },
+  "graph-valid-tree": {
+    id: "graph-valid-tree",
+    label: "Graph Valid Tree",
+    domain: "graph"
+  },
   "course-schedule": {
     id: "course-schedule",
     label: "Course Schedule",
@@ -212,6 +218,7 @@ const pathfindingGraphAlgorithms = [
   supportedAlgorithms.dfs,
   supportedAlgorithms.dijkstra
 ] as const;
+const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as const;
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
@@ -307,6 +314,15 @@ const defaultCourseScheduleInput: CourseScheduleInputPayload = {
     [3, 1],
     [3, 2],
     [4, 3]
+  ]
+};
+const defaultGraphValidTreeInput: GraphValidTreeInputPayload = {
+  nodeCount: 5,
+  edges: [
+    [0, 1],
+    [0, 2],
+    [1, 3],
+    [1, 4]
   ]
 };
 const defaultRottingOrangesInput: RottingOrangesInputPayload = {
@@ -1576,6 +1592,81 @@ function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayl
   };
 }
 
+function normalizeGraphValidTreeInput(payload: unknown): GraphValidTreeInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Graph Valid Tree input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Graph Valid Tree input must be an object with nodeCount and edges.");
+  }
+
+  const value = candidate as {
+    nodeCount?: unknown;
+    edges?: unknown;
+  };
+
+  if (
+    typeof value.nodeCount !== "number" ||
+    !Number.isInteger(value.nodeCount) ||
+    value.nodeCount < 2
+  ) {
+    throw new HttpError(400, "Graph Valid Tree input nodeCount must be an integer of at least 2.");
+  }
+
+  if (value.nodeCount > 12) {
+    throw new HttpError(400, "Graph Valid Tree input nodeCount must be 12 or fewer.");
+  }
+
+  if (!Array.isArray(value.edges) || value.edges.length === 0) {
+    throw new HttpError(400, "Graph Valid Tree input must include at least one edge.");
+  }
+
+  if (value.edges.length > 24) {
+    throw new HttpError(400, "Graph Valid Tree input must use 24 edges or fewer.");
+  }
+
+  const edges = value.edges.map((edge, index) => {
+    if (!Array.isArray(edge) || edge.length !== 2) {
+      throw new HttpError(400, `edges[${index}] must contain [from, to].`);
+    }
+
+    const [from, to] = edge;
+
+    if (typeof from !== "number" || !Number.isInteger(from)) {
+      throw new HttpError(400, `edges[${index}][0] must be an integer.`);
+    }
+
+    if (typeof to !== "number" || !Number.isInteger(to)) {
+      throw new HttpError(400, `edges[${index}][1] must be an integer.`);
+    }
+
+    if (from < 0 || from >= value.nodeCount || to < 0 || to >= value.nodeCount) {
+      throw new HttpError(
+        400,
+        `edges[${index}] must reference node ids between 0 and ${value.nodeCount - 1}.`
+      );
+    }
+
+    return [from, to] as [number, number];
+  });
+
+  return {
+    nodeCount: value.nodeCount,
+    edges
+  };
+}
+
 function normalizeRottingOrangesInput(payload: unknown): RottingOrangesInputPayload {
   const candidate =
     typeof payload === "string"
@@ -1772,6 +1863,8 @@ function normalizeGraphInput(
   algorithmId: SupportedAlgorithmId
 ): GraphInputPayload {
   switch (algorithmId) {
+    case "graph-valid-tree":
+      return normalizeGraphValidTreeInput(payload);
     case "course-schedule":
       return normalizeCourseScheduleInput(payload);
     case "rotting-oranges":
@@ -1789,6 +1882,10 @@ function isCourseScheduleGraphPayload(graph: GraphInputPayload): graph is Course
   return "courseCount" in graph && Array.isArray(graph.prerequisites);
 }
 
+function isGraphValidTreePayload(graph: GraphInputPayload): graph is GraphValidTreeInputPayload {
+  return "nodeCount" in graph && Array.isArray(graph.edges);
+}
+
 function isGridGraphPayload(
   graph: GraphInputPayload
 ): graph is RottingOrangesInputPayload | NumberOfIslandsInputPayload | WallsAndGatesInputPayload {
@@ -1796,6 +1893,17 @@ function isGridGraphPayload(
 }
 
 function serializeGraphInput(input: GraphInputPayload) {
+  if (isGraphValidTreePayload(input)) {
+    return JSON.stringify(
+      {
+        nodeCount: input.nodeCount,
+        edges: input.edges
+      },
+      null,
+      2
+    );
+  }
+
   if ("courseCount" in input) {
     return JSON.stringify(
       {
@@ -1957,7 +2065,9 @@ function normalizeAlgorithmInput(
     input: graph,
     normalizedInputText: serializeGraphInput(graph),
     footprint:
-      isCourseScheduleGraphPayload(graph)
+      isGraphValidTreePayload(graph)
+        ? `${graph.nodeCount} nodes / ${graph.edges.length} edges`
+        : isCourseScheduleGraphPayload(graph)
         ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
         : isGridGraphPayload(graph)
           ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
@@ -2831,6 +2941,48 @@ const presetDefinitions: InputPresetDefinition[] = [
         start: "A",
         target: "F",
         directed: false
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-tree",
+      label: "Reference valid tree",
+      description:
+        "Use a branching acyclic graph so replay shows deterministic Union-Find merges and one final connected component.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: treeValidationAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultGraphValidTreeInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.cycle-closing-tree",
+      label: "Cycle-closing graph",
+      description:
+        "Close one early cycle and leave a second component isolated so replay can publish both the rejected edge and the remaining disconnected components.",
+      scenario: "cycle",
+      kind: "curated",
+      domain: "graph",
+      algorithms: treeValidationAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        nodeCount: 5,
+        edges: [
+          [0, 1],
+          [1, 2],
+          [2, 0],
+          [3, 4]
+        ]
       },
       options: {}
     })

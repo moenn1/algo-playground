@@ -18,6 +18,7 @@ import {
   type HeapRun,
   type IntervalRun,
   isCourseScheduleInput,
+  isGraphValidTreeInput,
   isNumberOfIslandsInput,
   isRottingOrangesInput,
   isWallsAndGatesInput,
@@ -310,6 +311,59 @@ function formatCourseNodeMeta(
   }
 
   return `Indegree ${step.state.indegrees[course] ?? 0}`;
+}
+
+function getTreeNodeTone(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+): "current" | "path" | "settled" | "frontier" | "idle" {
+  if (step.state.activeEdge.includes(node)) {
+    return "current";
+  }
+
+  if (step.state.currentRoots.includes(node)) {
+    return "frontier";
+  }
+
+  if (step.state.parents[node] === Number(node)) {
+    return "settled";
+  }
+
+  if (step.state.isTree === true) {
+    return "path";
+  }
+
+  return "idle";
+}
+
+function formatTreeNodeStatus(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+): string {
+  const tone = getTreeNodeTone(node, step);
+
+  switch (tone) {
+    case "current":
+      return "Inspect";
+    case "frontier":
+      return "Root";
+    case "settled":
+      return "Representative";
+    case "path":
+      return "Connected";
+    default: {
+      const component = step.state.components.find((group) => group.includes(node));
+      return component && component.length === 1 ? "Isolated" : "Attached";
+    }
+  }
+}
+
+function formatTreeNodeMeta(
+  node: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "graph-valid-tree" }>>
+): string {
+  const component = step.state.components.find((group) => group.includes(node)) ?? [node];
+  return `Parent ${step.state.parents[node]} · Rank ${step.state.ranks[node]} · ${component.join(", ")}`;
 }
 
 function getOrangeCellTone(
@@ -1624,6 +1678,168 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.stalledFresh.length > 0
                 ? `Blocked fresh cells: ${step.state.stalledFresh.join(", ")}`
                 : "Replay records each infection wave directly from the grid snapshot."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "graph-valid-tree" && isGraphValidTreeInput(run.input)) {
+    const nodes = Array.from({ length: run.input.nodeCount }, (_, index) => `${index}`);
+    const layout = buildGraphLayout(nodes);
+    const currentLabel = step.state.current;
+    const acceptedSet = new Set(step.state.acceptedEdges);
+    const rejectedSet = new Set(step.state.rejectedEdges);
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} union-find graph</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Graph valid tree status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active edge</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Current roots</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Representatives</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Accepted forest</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Graph valid tree replay">
+              {run.input.edges.map(([from, to], index) => {
+                const edgeLabel = `#${index + 1} ${from}-${to}`;
+                const start = layout[`${from}`]!;
+                const end = layout[`${to}`]!;
+                const classNames = [
+                  "graph-edge",
+                  currentLabel === edgeLabel ? "graph-edge-active" : "",
+                  acceptedSet.has(edgeLabel) ? "graph-edge-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g key={edgeLabel}>
+                    <line
+                      className={classNames}
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                    />
+                    <text
+                      className="graph-weight"
+                      x={(start.x + end.x) / 2}
+                      y={(start.y + end.y) / 2 - 8}
+                    >
+                      {rejectedSet.has(edgeLabel) ? "x" : index + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {nodes.map((node) => {
+                const { x, y } = layout[node]!;
+                const tone = getTreeNodeTone(node, step);
+                const classNames = [
+                  "graph-node",
+                  tone === "current" ? "graph-node-current" : "",
+                  tone === "settled" ? "graph-node-settled" : "",
+                  tone === "frontier" ? "graph-node-frontier" : "",
+                  tone === "path" ? "graph-node-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g className={classNames} key={node}>
+                    <circle cx={x} cy={y} r="26" />
+                    <text className="graph-label" x={x} y={y - 2}>
+                      {node}
+                    </text>
+                    <text className="graph-distance" x={x} y={y + 16}>
+                      p {step.state.parents[node]}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Validation focus</span>
+              <strong>{step.state.current ?? "Final ledger"}</strong>
+              <p>
+                {step.state.currentRoots.length === 2
+                  ? `Roots ${step.state.currentRoots.join(" · ")}`
+                  : `${step.state.componentCount} component${step.state.componentCount === 1 ? "" : "s"} remain`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              {nodes.map((node) => {
+                const tone = getTreeNodeTone(node, step);
+
+                return (
+                  <article className={`graph-node-card graph-node-card-${tone}`} key={`tree-${node}`}>
+                    <div className="graph-node-card-header">
+                      <strong>{node}</strong>
+                      <span className="graph-node-status">{formatTreeNodeStatus(node, step)}</span>
+                    </div>
+                    <span className="graph-node-distance">
+                      Parent {step.state.parents[node]} · Rank {step.state.ranks[node]}
+                    </span>
+                    <span className="graph-node-meta">{formatTreeNodeMeta(node, step)}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Pending edges</span>
+            <div className="pill-row">
+              {step.state.frontier.length > 0 ? (
+                step.state.frontier.map((edgeLabel) => (
+                  <span className="pill" key={edgeLabel}>
+                    {edgeLabel}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">Edge queue empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Accepted forest</span>
+            <strong>{step.state.acceptedEdges.length}</strong>
+            <p>
+              {step.state.acceptedEdges.length > 0
+                ? step.state.acceptedEdges.join(", ")
+                : "No accepted edges yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Rejected edges</span>
+            <strong>{step.state.rejectedEdges.length}</strong>
+            <p>
+              {step.state.rejectedEdges.length > 0
+                ? step.state.rejectedEdges.join(", ")
+                : "No rejected edges"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>
+              {step.state.isTree === null ? "Validating" : step.state.isTree ? "Valid tree" : "Invalid"}
+            </strong>
+            <p>
+              {step.state.failureReason ??
+                step.state.components.map((group) => group.join(" · ")).join(" | ")}
             </p>
           </div>
         </div>

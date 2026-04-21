@@ -117,6 +117,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.reference-route`: fixed weighted graph aligned with the replay shell
 - `graph.disconnected-target`: curated no-route scenario
 - `graph.weighted-detour`: curated pathfinding case with a cheaper multi-hop route
+- `graph.reference-tree`: curated valid tree with deterministic Union-Find merges
+- `graph.cycle-closing-tree`: curated invalid graph with one rejected cycle-closing edge and a disconnected component
 - `graph.reference-schedule`: curated prerequisite graph with a deterministic topological order
 - `graph.blocked-cycle`: curated prerequisite graph where a dependency cycle blocks completion
 - `graph.reference-oranges`: curated infection grid that resolves after several minute waves
@@ -127,7 +129,9 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.isolated-rooms`: curated room map where a wall barrier leaves part of the infinity ledger unreachable
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
-The first three graph presets plus `graph.random-network` resolve for Breadth-First Search, Depth-First Search, or Dijkstra through the same `algorithmId` field. BFS and DFS ignore edge weights but preserve the shared graph input contract so pathfinding fixtures can be replayed across all three algorithms.
+The route presets plus `graph.random-network` resolve for Breadth-First Search, Depth-First Search, or Dijkstra through the same `algorithmId` field. BFS and DFS ignore edge weights but preserve the shared graph input contract so pathfinding fixtures can be replayed across all three algorithms.
+
+The tree-validation presets resolve for Graph Valid Tree and use `{ "nodeCount": number, "edges": [[from, to], ...] }` as the normalized contract. Edge order is preserved exactly so Union-Find inspection, acceptance, and rejection checkpoints stay deterministic in replay.
 
 The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 

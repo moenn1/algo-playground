@@ -139,6 +139,40 @@ describe("buildRun", () => {
     expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
   });
 
+  it("builds graph-valid-tree replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "graph-valid-tree",
+      JSON.stringify(
+        {
+          nodeCount: 5,
+          edges: [
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [1, 4]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("graph-valid-tree");
+    expect(finalStep.state.kind).toBe("graph-valid-tree");
+    if (finalStep.state.kind !== "graph-valid-tree") {
+      throw new Error("Expected the Graph Valid Tree state.");
+    }
+    expect(finalStep.state.isTree).toBe(true);
+    expect(finalStep.state.componentCount).toBe(1);
+    expect(finalStep.state.acceptedEdges).toHaveLength(4);
+    expect(finalStep.state.rejectedEdges).toEqual([]);
+  });
+
   it("builds course-schedule replay runs from the shared graph engine", () => {
     const run = buildRun(
       "course-schedule",

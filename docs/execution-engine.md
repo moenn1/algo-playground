@@ -262,7 +262,7 @@ The runtime records explicit `Initialization` and `Push` checkpoints for all sta
 
 ## Graph Runtime Model
 
-The graph runtime family now uses a discriminated replay-safe union so pathfinding and dependency scheduling can share one metric vocabulary without collapsing into one overloaded state payload.
+The graph runtime family now uses a discriminated replay-safe union so pathfinding, tree validation, dependency scheduling, and grid traversal can share one metric vocabulary without collapsing into one overloaded state payload.
 
 Pathfinding state for Breadth-First Search, Depth-First Search, and Dijkstra records:
 
@@ -273,6 +273,24 @@ Pathfinding state for Breadth-First Search, Depth-First Search, and Dijkstra rec
 - `state.current`: the node currently being expanded
 - `state.activeEdge`: the edge under inspection or relaxation
 - `state.path`: the current recovered path overlay
+
+Graph Valid Tree records:
+
+- `state.kind`: `"graph-valid-tree"`
+- `state.nodeCount` and `state.edges`: the normalized Union-Find validation fixture
+- `state.parents`: the representative-parent ledger per node id
+- `state.ranks`: the union-by-rank ledger per node id
+- `state.components`: the projected connected components derived from the recorded parent ledger
+- `state.settled`: the processed edge labels already sealed into the replay ledger
+- `state.frontier`: the remaining input-order edge queue
+- `state.current`: the edge label currently being inspected
+- `state.activeEdge`: the active edge endpoints as node-id strings
+- `state.currentRoots`: the representatives being compared for the active edge
+- `state.acceptedEdges`: the accepted forest edges in deterministic input order
+- `state.rejectedEdges`: the cycle-closing edges rejected so far
+- `state.componentCount`: the remaining connected-component count
+- `state.isTree`: `true`, `false`, or `null` while validation is still in progress
+- `state.failureReason`: the explicit cycle or disconnected-component reason when validation fails
 
 Course Schedule records:
 
@@ -336,12 +354,12 @@ Walls and Gates records:
 
 Shared graph metrics keep the runtime readable across all graph-family algorithms:
 
-- `settled`: nodes finalized so far
-- `frontier`: queue or weighted-frontier size at the recorded frame
-- `inspections`: edges inspected so far
-- `updates`: predecessor or distance updates committed so far
+- `settled`: finalized work items so far, such as expanded nodes, committed courses, or processed edges
+- `frontier`: queue, weighted-frontier, or remaining-edge count at the recorded frame
+- `inspections`: edges or neighbor relationships inspected so far
+- `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 
@@ -364,6 +382,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - DFS records stack extraction and first-discovery checkpoints explicitly so replay can restore depth-first branch order without hidden recursion state.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
+- Graph Valid Tree records input-order edge inspection, deterministic union-by-rank merges with lower-root tie-breaks, explicit cycle rejection, and terminal component ledgers so replay never depends on path-compression side effects or live Union-Find recomputation.
 - Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 - Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
@@ -371,6 +390,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, and Walls and Gates replay from this package.
-- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the shared graph-family grid contracts for Rotting Oranges, Number of Islands, and Walls and Gates.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, and Walls and Gates replay from this package.
+- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, tree-validation, schedule, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

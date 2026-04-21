@@ -5,11 +5,13 @@ import {
   buildCourseScheduleTrace,
   buildDepthFirstSearchTrace,
   buildDijkstraTrace,
+  buildGraphValidTreeTrace,
   buildNumberOfIslandsTrace,
   buildRottingOrangesTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
   defaultCourseScheduleInput,
+  defaultGraphValidTreeInput,
   defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
   defaultWallsAndGatesInput,
@@ -123,11 +125,49 @@ describe("graph execution engine", () => {
     ]);
   });
 
+  it("records deterministic union-find merges and cycle rejection for graph valid tree", () => {
+    const validTrace = buildGraphValidTreeTrace(defaultGraphValidTreeInput);
+    const invalidTrace = buildGraphValidTreeTrace({
+      nodeCount: 5,
+      edges: [
+        [0, 1],
+        [1, 2],
+        [2, 0],
+        [3, 4]
+      ]
+    });
+    const validFinalStep = validTrace.steps[validTrace.steps.length - 1]!;
+    const invalidFinalStep = invalidTrace.steps[invalidTrace.steps.length - 1]!;
+
+    expect(validFinalStep.phase).toBe("Resolution");
+    expect(validFinalStep.state.kind).toBe("graph-valid-tree");
+    if (validFinalStep.state.kind !== "graph-valid-tree") {
+      throw new Error("Expected the graph-valid-tree state.");
+    }
+    expect(validFinalStep.state.isTree).toBe(true);
+    expect(validFinalStep.state.componentCount).toBe(1);
+    expect(validFinalStep.state.acceptedEdges).toHaveLength(4);
+    expect(validFinalStep.state.rejectedEdges).toEqual([]);
+
+    expect(invalidFinalStep.phase).toBe("Invalid");
+    expect(invalidFinalStep.state.kind).toBe("graph-valid-tree");
+    if (invalidFinalStep.state.kind !== "graph-valid-tree") {
+      throw new Error("Expected the graph-valid-tree state.");
+    }
+    expect(invalidFinalStep.state.isTree).toBe(false);
+    expect(invalidFinalStep.state.rejectedEdges).toEqual(["#3 2-0"]);
+    expect(invalidFinalStep.state.componentCount).toBe(2);
+  });
+
   it("formats graph helpers for replay-safe input and distance rendering", () => {
     expect(serializeGraphInput(defaultBreadthFirstSearchInput)).toContain('"start": "A"');
+    expect(serializeGraphInput(defaultGraphValidTreeInput)).toContain('"nodeCount": 5');
     expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
     expect(serializeGraphInput(defaultRottingOrangesInput)).toContain('"grid"');
     expect(serializeGraphInput(defaultNumberOfIslandsInput)).toContain('"1"');
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultGraphValidTreeInput), "graph-valid-tree")
+    ).toEqual(defaultGraphValidTreeInput);
     expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
       defaultCourseScheduleInput
     );

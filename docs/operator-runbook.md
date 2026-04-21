@@ -72,6 +72,8 @@ The demo seed currently materializes:
 - Depth-First Search on `graph.disconnected-target`
 - Dijkstra on `graph.reference-route`
 - Dijkstra on `graph.weighted-detour`
+- Graph Valid Tree on `graph.reference-tree`
+- Graph Valid Tree on `graph.cycle-closing-tree`
 - Course Schedule on `graph.reference-schedule`
 - Course Schedule on `graph.blocked-cycle`
 - Rotting Oranges on `graph.reference-oranges`
@@ -83,7 +85,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 29 algorithms with runs, 58 runs total, and 2 saved comparisons.
+That seed currently produces 30 algorithms with runs, 60 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

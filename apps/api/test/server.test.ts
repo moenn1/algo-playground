@@ -762,6 +762,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "6 nodes / 9 edges"
     });
 
+    const treePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-tree/resolve",
+      payload: {
+        algorithmId: "graph-valid-tree"
+      }
+    });
+
+    expect(treePreset.statusCode).toBe(200);
+    expect(treePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-tree"
+      },
+      algorithm: {
+        id: "graph-valid-tree",
+        domain: "graph"
+      },
+      footprint: "5 nodes / 4 edges"
+    });
+
     const courseSchedulePreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-schedule/resolve",
@@ -1650,6 +1671,42 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "4 x 4 grid"
     });
+
+    const validateGraphValidTreeInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "graph-valid-tree",
+        payload: {
+          nodeCount: 5,
+          edges: [
+            [0, 1],
+            [0, 2],
+            [1, 3],
+            [1, 4]
+          ]
+        }
+      }
+    });
+
+    expect(validateGraphValidTreeInput.statusCode).toBe(200);
+    expect(validateGraphValidTreeInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "graph-valid-tree",
+        domain: "graph"
+      },
+      input: {
+        nodeCount: 5,
+        edges: [
+          [0, 1],
+          [0, 2],
+          [1, 3],
+          [1, 4]
+        ]
+      },
+      footprint: "5 nodes / 4 edges"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1673,6 +1730,30 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Every graph edge endpoint must exist in nodes."
+    });
+  });
+
+  it("rejects graph-valid-tree payloads whose edges reference missing nodes", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "graph-valid-tree",
+        payload: {
+          nodeCount: 4,
+          edges: [
+            [0, 1],
+            [1, 4]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "edges[1] must reference node ids between 0 and 3."
     });
   });
 

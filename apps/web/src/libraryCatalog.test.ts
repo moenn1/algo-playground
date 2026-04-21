@@ -242,6 +242,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("dfs");
   });
 
+  it("surfaces graph-valid-tree study paths through union-find metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "state-tracking",
+        q: "union find cycle rejection"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("graph-valid-tree");
+  });
+
   it("sorts by persisted activity when requested", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms.filter((algorithm) => algorithm.domain === "sorting"),

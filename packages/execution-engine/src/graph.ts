@@ -10,6 +10,7 @@ export type GraphAlgorithmId =
   | "bfs"
   | "dfs"
   | "dijkstra"
+  | "graph-valid-tree"
   | "course-schedule"
   | "rotting-oranges"
   | "number-of-islands"
@@ -19,6 +20,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
   "dfs",
   "dijkstra",
+  "graph-valid-tree",
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
@@ -38,6 +40,11 @@ export interface CourseScheduleInput extends JsonObject {
   prerequisites: Array<[number, number]>;
 }
 
+export interface GraphValidTreeInput extends JsonObject {
+  nodeCount: number;
+  edges: Array<[number, number]>;
+}
+
 export interface RottingOrangesInput extends JsonObject {
   grid: number[][];
 }
@@ -52,6 +59,7 @@ export interface WallsAndGatesInput extends JsonObject {
 
 export type GraphInput =
   | PathfindingGraphInput
+  | GraphValidTreeInput
   | CourseScheduleInput
   | RottingOrangesInput
   | NumberOfIslandsInput
@@ -79,6 +87,25 @@ export interface CourseScheduleExecutionState extends JsonObject {
   order: string[];
   schedulable: boolean | null;
   cycleNodes: string[];
+}
+
+export interface GraphValidTreeExecutionState extends JsonObject {
+  kind: "graph-valid-tree";
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: Record<string, number>;
+  ranks: Record<string, number>;
+  components: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
+  isTree: boolean | null;
+  failureReason: string | null;
 }
 
 export interface RottingOrangesExecutionState extends JsonObject {
@@ -130,6 +157,7 @@ export interface WallsAndGatesExecutionState extends JsonObject {
 
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
+  | GraphValidTreeExecutionState
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
@@ -182,6 +210,23 @@ interface CourseScheduleRuntimeState {
   order: string[];
   schedulable: boolean | null;
   cycleNodes: string[];
+}
+
+interface GraphValidTreeRuntimeState {
+  nodeCount: number;
+  edges: Array<[number, number]>;
+  parents: number[];
+  ranks: number[];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  currentRoots: string[];
+  acceptedEdges: string[];
+  rejectedEdges: string[];
+  componentCount: number;
+  isTree: boolean | null;
+  failureReason: string | null;
 }
 
 interface RottingOrangesRuntimeState {
@@ -243,6 +288,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "dijkstra",
     label: "Dijkstra",
     implementationVersion: "graph-engine-0.1.0"
+  },
+  "graph-valid-tree": {
+    id: "graph-valid-tree",
+    label: "Graph Valid Tree",
+    implementationVersion: "graph-engine-0.6.0"
   },
   "course-schedule": {
     id: "course-schedule",
@@ -335,6 +385,16 @@ export const defaultCourseScheduleInput: CourseScheduleInput = {
   ]
 };
 
+export const defaultGraphValidTreeInput: GraphValidTreeInput = {
+  nodeCount: 5,
+  edges: [
+    [0, 1],
+    [0, 2],
+    [1, 3],
+    [1, 4]
+  ]
+};
+
 export const defaultRottingOrangesInput: RottingOrangesInput = {
   grid: [
     [2, 1, 1],
@@ -383,6 +443,31 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       order: state.order.slice(),
       schedulable: state.schedulable,
       cycleNodes: state.cycleNodes.slice()
+    };
+  }
+
+  if (state.kind === "graph-valid-tree") {
+    return {
+      kind: state.kind,
+      nodeCount: state.nodeCount,
+      edges: state.edges.map((edge) => edge.slice() as [number, number]),
+      parents: {
+        ...state.parents
+      },
+      ranks: {
+        ...state.ranks
+      },
+      components: state.components.map((component) => component.slice()),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      currentRoots: state.currentRoots.slice(),
+      acceptedEdges: state.acceptedEdges.slice(),
+      rejectedEdges: state.rejectedEdges.slice(),
+      componentCount: state.componentCount,
+      isTree: state.isTree,
+      failureReason: state.failureReason
     };
   }
 
@@ -611,6 +696,68 @@ function normalizeCourseScheduleInput(candidate: unknown): CourseScheduleInput {
   };
 }
 
+function normalizeGraphValidTreeInput(candidate: unknown): GraphValidTreeInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Graph Valid Tree input must be an object with nodeCount and edges.");
+  }
+
+  const value = candidate as {
+    nodeCount?: unknown;
+    edges?: unknown;
+  };
+
+  if (
+    typeof value.nodeCount !== "number" ||
+    !Number.isInteger(value.nodeCount) ||
+    value.nodeCount < 2
+  ) {
+    throw new Error("Graph Valid Tree input nodeCount must be an integer of at least 2.");
+  }
+
+  if (value.nodeCount > 12) {
+    throw new Error("Graph Valid Tree input nodeCount must be 12 or fewer.");
+  }
+
+  const nodeCount = value.nodeCount;
+
+  if (!Array.isArray(value.edges) || value.edges.length === 0) {
+    throw new Error("Graph Valid Tree input must include at least one edge.");
+  }
+
+  if (value.edges.length > 24) {
+    throw new Error("Graph Valid Tree input must use 24 edges or fewer.");
+  }
+
+  const edges = value.edges.map((edge, index) => {
+    if (!Array.isArray(edge) || edge.length !== 2) {
+      throw new Error(`edges[${index}] must contain [from, to].`);
+    }
+
+    const [from, to] = edge;
+
+    if (typeof from !== "number" || !Number.isInteger(from)) {
+      throw new Error(`edges[${index}][0] must be an integer.`);
+    }
+
+    if (typeof to !== "number" || !Number.isInteger(to)) {
+      throw new Error(`edges[${index}][1] must be an integer.`);
+    }
+
+    if (from < 0 || from >= nodeCount || to < 0 || to >= nodeCount) {
+      throw new Error(
+        `edges[${index}] must reference node ids between 0 and ${nodeCount - 1}.`
+      );
+    }
+
+    return [from, to] as [number, number];
+  });
+
+  return {
+    nodeCount,
+    edges
+  };
+}
+
 function normalizeRottingOrangesInput(candidate: unknown): RottingOrangesInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Rotting Oranges input must be an object with a grid field.");
@@ -772,6 +919,8 @@ export function parseGraphInputText(
   }
 
   switch (algorithmId) {
+    case "graph-valid-tree":
+      return normalizeGraphValidTreeInput(parsed);
     case "course-schedule":
       return normalizeCourseScheduleInput(parsed);
     case "rotting-oranges":
@@ -790,6 +939,8 @@ export function normalizeGraphInput(
   algorithmId: GraphAlgorithmId = "dijkstra"
 ): GraphInput {
   switch (algorithmId) {
+    case "graph-valid-tree":
+      return normalizeGraphValidTreeInput(input);
     case "course-schedule":
       return normalizeCourseScheduleInput(input);
     case "rotting-oranges":
@@ -804,6 +955,17 @@ export function normalizeGraphInput(
 }
 
 export function serializeGraphInput(graph: GraphInput): string {
+  if ("nodeCount" in graph) {
+    return JSON.stringify(
+      {
+        nodeCount: graph.nodeCount,
+        edges: graph.edges
+      },
+      null,
+      2
+    );
+  }
+
   if ("courseCount" in graph) {
     return JSON.stringify(
       {
@@ -850,6 +1012,39 @@ function buildAdjacency(graph: PathfindingGraphInput): Map<string, GraphEdge[]> 
   }
 
   return adjacency;
+}
+
+function createTreeEdgeLabel(edge: [number, number], index: number): string {
+  return `#${index + 1} ${edge[0]}-${edge[1]}`;
+}
+
+function findTreeRoot(parents: number[], node: number): number {
+  let cursor = node;
+
+  while (parents[cursor] !== cursor) {
+    cursor = parents[cursor]!;
+  }
+
+  return cursor;
+}
+
+function serializeTreeNodeLedger(values: number[]): Record<string, number> {
+  return Object.fromEntries(values.map((value, index) => [String(index), value]));
+}
+
+function projectTreeComponents(nodeCount: number, parents: number[]): string[][] {
+  const groups = new Map<number, number[]>();
+
+  for (let node = 0; node < nodeCount; node += 1) {
+    const root = findTreeRoot(parents, node);
+    const members = groups.get(root) ?? [];
+    members.push(node);
+    groups.set(root, members);
+  }
+
+  return Array.from(groups.values())
+    .map((members) => members.sort((left, right) => left - right).map(String))
+    .sort((left, right) => Number(left[0]) - Number(right[0]));
 }
 
 function serializeDistances(
@@ -986,6 +1181,37 @@ function createCourseScheduleRecorder(input: CourseScheduleInput) {
         order: runtimeState.order.slice(),
         schedulable: runtimeState.schedulable,
         cycleNodes: runtimeState.cycleNodes.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
+function createGraphValidTreeRecorder() {
+  return createTraceRecorder<
+    GraphValidTreeRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "graph-valid-tree",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "graph-valid-tree",
+        nodeCount: runtimeState.nodeCount,
+        edges: runtimeState.edges.map((edge) => edge.slice() as [number, number]),
+        parents: serializeTreeNodeLedger(runtimeState.parents),
+        ranks: serializeTreeNodeLedger(runtimeState.ranks),
+        components: projectTreeComponents(runtimeState.nodeCount, runtimeState.parents),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        currentRoots: runtimeState.currentRoots.slice(),
+        acceptedEdges: runtimeState.acceptedEdges.slice(),
+        rejectedEdges: runtimeState.rejectedEdges.slice(),
+        componentCount: runtimeState.componentCount,
+        isTree: runtimeState.isTree,
+        failureReason: runtimeState.failureReason
       });
     },
     projectMetrics: projectGraphMetrics
@@ -1135,6 +1361,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createBreadthFirstSearchRecorder>
     | ReturnType<typeof createDepthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
+    | ReturnType<typeof createGraphValidTreeRecorder>
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
@@ -1907,6 +2134,257 @@ export function buildDijkstraTrace(
   });
 
   return buildGraphEnvelope(definition, normalizedGraph, recorder);
+}
+
+export function buildGraphValidTreeTrace(
+  input: GraphValidTreeInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["graph-valid-tree"];
+  const normalizedInput = normalizeGraphInput(input, "graph-valid-tree") as GraphValidTreeInput;
+  const edgeLabels = normalizedInput.edges.map((edge, index) => createTreeEdgeLabel(edge, index));
+  const frontier = edgeLabels.slice();
+  const parents = Array.from({ length: normalizedInput.nodeCount }, (_, index) => index);
+  const ranks = Array.from({ length: normalizedInput.nodeCount }, () => 0);
+  const settled: string[] = [];
+  const acceptedEdges: string[] = [];
+  const rejectedEdges: string[] = [];
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let currentRoots: string[] = [];
+  let componentCount = normalizedInput.nodeCount;
+  let isTree: boolean | null = null;
+  let failureReason: string | null = null;
+  const recorder = createGraphValidTreeRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+
+  const createRuntimeState = (): GraphValidTreeRuntimeState => ({
+    nodeCount: normalizedInput.nodeCount,
+    edges: normalizedInput.edges,
+    parents,
+    ranks,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    currentRoots,
+    acceptedEdges,
+    rejectedEdges,
+    componentCount,
+    isTree,
+    failureReason
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Each node starts as its own representative and the edge queue stays in input order for deterministic tree validation replay.",
+    explanation: {
+      summary: "Seed the Union-Find ledger with one singleton component per node.",
+      details:
+        "Replay stores the parent and rank ledgers directly, so union decisions stay serializable and deterministic without hidden mutable state.",
+      tags: ["snapshot", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "graph-valid-tree-init",
+        path: "state.components",
+        kind: "collection",
+        intent: "focus",
+        label: `${normalizedInput.nodeCount} singleton components`
+      }
+    ]
+  });
+
+  for (let index = 0; index < normalizedInput.edges.length; index += 1) {
+    const edge = normalizedInput.edges[index]!;
+    const edgeLabel = edgeLabels[index]!;
+    current = edgeLabel;
+    activeEdge = [String(edge[0]), String(edge[1])];
+    frontier.shift();
+    const leftRoot = findTreeRoot(parents, edge[0]);
+    const rightRoot = findTreeRoot(parents, edge[1]);
+    currentRoots = [String(leftRoot), String(rightRoot)];
+    metrics.inspections += 1;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Inspect",
+      description: `Inspect edge ${edge[0]}-${edge[1]} and compare roots ${leftRoot} and ${rightRoot}.`,
+      explanation: {
+        summary: "Read both representatives before deciding whether the edge preserves tree validity.",
+        details:
+          "Because the edge queue is deterministic and root comparisons are recorded explicitly, replay can explain every union or rejection without rerunning Union-Find.",
+        tags: ["edge", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `graph-valid-tree-inspect-${index}`,
+          path: "state.activeEdge",
+          kind: "edge",
+          intent: "active",
+          label: edgeLabel
+        }
+      ]
+    });
+
+    if (leftRoot === rightRoot) {
+      rejectedEdges.push(edgeLabel);
+      failureReason ??= `Cycle closes on edge ${edge[0]}-${edge[1]}.`;
+      isTree = false;
+
+      recorder.push({
+        phase: "Reject",
+        description: `Reject edge ${edge[0]}-${edge[1]} because both endpoints already share component ${leftRoot}.`,
+        explanation: {
+          summary: "A same-component edge would create a cycle, so it stays out of the accepted forest.",
+          details:
+            "Rejected edges remain explicit in the state payload so replay can explain invalidity with recorded evidence instead of inferred cycle detection.",
+          tags: ["edge", "candidate"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `graph-valid-tree-reject-${index}`,
+            path: "state.rejectedEdges",
+            kind: "collection",
+            intent: "candidate",
+            label: `Rejected ${edge[0]}-${edge[1]}`
+          }
+        ]
+      });
+    } else {
+      let parentRoot = leftRoot;
+      let childRoot = rightRoot;
+
+      if (
+        ranks[leftRoot]! < ranks[rightRoot]! ||
+        (ranks[leftRoot] === ranks[rightRoot] && leftRoot > rightRoot)
+      ) {
+        parentRoot = rightRoot;
+        childRoot = leftRoot;
+      }
+
+      parents[childRoot] = parentRoot;
+      if (ranks[leftRoot] === ranks[rightRoot]) {
+        ranks[parentRoot] = ranks[parentRoot]! + 1;
+      }
+      acceptedEdges.push(edgeLabel);
+      componentCount -= 1;
+      metrics.updates += 1;
+      currentRoots = [String(findTreeRoot(parents, edge[0])), String(findTreeRoot(parents, edge[1]))];
+
+      recorder.push({
+        phase: "Union",
+        description: `Accept edge ${edge[0]}-${edge[1]} and merge component ${childRoot} into representative ${parentRoot}.`,
+        explanation: {
+          summary: "Commit one union because the edge connects two separate components.",
+          details:
+            "The updated parent and rank ledgers are recorded in the same frame as the accepted edge so replay can reopen the merged component structure directly.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `graph-valid-tree-union-${index}`,
+            path: "state.acceptedEdges",
+            kind: "collection",
+            intent: "frontier",
+            label: `Accepted ${edge[0]}-${edge[1]}`
+          }
+        ]
+      });
+    }
+
+    settled.push(edgeLabel);
+    metrics.settled = settled.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `Edge ${edge[0]}-${edge[1]} is fully recorded in the validation ledger.`,
+      explanation: {
+        summary: "Seal the accepted or rejected edge decision before moving to the next queued edge.",
+        details:
+          "This checkpoint stores the remaining edge queue, component groups, and Union-Find ledgers together so replay can scrub edge by edge without hidden transitions.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `graph-valid-tree-settled-${index}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: edgeLabel
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  currentRoots = [];
+
+  if (
+    rejectedEdges.length === 0 &&
+    componentCount === 1 &&
+    acceptedEdges.length === normalizedInput.nodeCount - 1
+  ) {
+    isTree = true;
+    failureReason = null;
+  } else if (failureReason === null) {
+    failureReason =
+      acceptedEdges.length < normalizedInput.nodeCount - 1
+        ? `Accepted ${acceptedEdges.length} edges across ${componentCount} components, so the graph stays disconnected.`
+        : `Accepted ${acceptedEdges.length} edges but the components never collapsed into one tree.`;
+    isTree = false;
+  } else {
+    isTree = false;
+  }
+
+  recorder.push({
+    phase: isTree ? "Resolution" : "Invalid",
+    description: isTree
+      ? `Accepted ${acceptedEdges.length} edges and connected all ${normalizedInput.nodeCount} nodes without a cycle.`
+      : failureReason!,
+    explanation: {
+      summary: isTree
+        ? "Publish the accepted forest once it proves one connected acyclic tree."
+        : "Publish the rejected edges or remaining components that prove the graph is not a valid tree.",
+      details: isTree
+        ? "The terminal frame stores the merged component ledger directly, so replay never needs to recompute connectivity to justify the result."
+        : "The terminal frame keeps both the component ledger and the accepted-versus-rejected edge lists explicit so replay can explain the failure source without recomputation.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "graph-valid-tree-final",
+        path: isTree
+          ? "state.acceptedEdges"
+          : rejectedEdges.length > 0
+            ? "state.rejectedEdges"
+            : "state.components",
+        kind: "collection",
+        intent: "result",
+        label: isTree ? "Valid tree" : "Invalid tree"
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
 function compareCourseIds(left: string, right: string): number {
@@ -3146,6 +3624,8 @@ export function buildGraphTrace(
       return buildDepthFirstSearchTrace(graph as PathfindingGraphInput);
     case "dijkstra":
       return buildDijkstraTrace(graph as PathfindingGraphInput);
+    case "graph-valid-tree":
+      return buildGraphValidTreeTrace(graph as GraphValidTreeInput);
     case "course-schedule":
       return buildCourseScheduleTrace(graph as CourseScheduleInput);
     case "rotting-oranges":
