@@ -599,6 +599,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "trapped-obstacle-budget"]
   },
   {
+    key: "graph-reference-minimum-obstacle-removal",
+    algorithmId: "minimum-obstacle-removal-to-reach-corner",
+    presetId: "graph.reference-minimum-obstacle-removal",
+    recordedAt: "2026-04-21T19:05:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-minimum-obstacle-removal"]
+  },
+  {
+    key: "graph-zero-removal-detour",
+    algorithmId: "minimum-obstacle-removal-to-reach-corner",
+    presetId: "graph.zero-removal-detour",
+    recordedAt: "2026-04-21T19:06:00.000Z",
+    tags: ["seeded-demo", "graph", "zero-removal-detour"]
+  },
+  {
     key: "graph-reference-food-path",
     algorithmId: "shortest-path-to-get-food",
     presetId: "graph.reference-food-path",

@@ -35,6 +35,7 @@ import {
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
   defaultShortestPathGridWithObstaclesEliminationInput,
+  defaultMinimumObstacleRemovalToReachCornerInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -364,6 +365,19 @@ export function isShortestPathGridWithObstaclesEliminationInput(
     "eliminations" in input &&
     typeof input.eliminations === "number" &&
     Number.isInteger(input.eliminations) &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
+    )
+  );
+}
+
+export function isMinimumObstacleRemovalToReachCornerInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    !("entrance" in input) &&
+    !("eliminations" in input) &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
     )
@@ -1005,6 +1019,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "minimum-obstacle-removal-to-reach-corner",
+    name: "Minimum Obstacle Removal to Reach Corner",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "Weighted blocked-grid replay records deterministic 0-1 BFS deque moves, minimum-removal relaxations, and explicit traceback into the cheapest route.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for open cells and 1 for removable obstacles.",
+    defaultInput: serializeGraphInput(defaultMinimumObstacleRemovalToReachCornerInput),
+    domain: "graph"
+  },
+  {
     id: "shortest-path-to-get-food",
     name: "Shortest Path to Get Food",
     badge: "Graph",
@@ -1340,6 +1366,8 @@ export function describeInputFootprint(run: ReplayRun): string {
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
     : isShortestPathGridWithObstaclesEliminationInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid / k ${run.input.eliminations}`
+    : isMinimumObstacleRemovalToReachCornerInput(run.input)
+      ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
     : isRottingOrangesInput(run.input) ||
         isNumberOfIslandsInput(run.input) ||
         isPacificAtlanticWaterFlowInput(run.input) ||

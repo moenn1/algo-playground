@@ -16,6 +16,7 @@ import type {
   PathfindingGraphInputPayload,
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
+  MinimumObstacleRemovalToReachCornerInputPayload,
   NearestExitFromEntranceInMazeInputPayload,
   ShortestPathGridWithObstaclesEliminationInputPayload,
   ShortestPathToGetFoodInputPayload,
@@ -244,6 +245,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Shortest Path in a Grid with Obstacles Elimination",
     domain: "graph"
   },
+  "minimum-obstacle-removal-to-reach-corner": {
+    id: "minimum-obstacle-removal-to-reach-corner",
+    label: "Minimum Obstacle Removal to Reach Corner",
+    domain: "graph"
+  },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
     label: "Shortest Path to Get Food",
@@ -338,6 +344,9 @@ const nearestExitFromEntranceInMazeAlgorithms = [
 ] as const;
 const shortestPathGridWithObstaclesEliminationAlgorithms = [
   supportedAlgorithms["shortest-path-in-a-grid-with-obstacles-elimination"]
+] as const;
+const minimumObstacleRemovalToReachCornerAlgorithms = [
+  supportedAlgorithms["minimum-obstacle-removal-to-reach-corner"]
 ] as const;
 const shortestPathToGetFoodAlgorithms = [supportedAlgorithms["shortest-path-to-get-food"]] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
@@ -572,6 +581,14 @@ const defaultShortestPathGridWithObstaclesEliminationInput: ShortestPathGridWith
       [0, 0, 0]
     ],
     eliminations: 1
+  };
+const defaultMinimumObstacleRemovalToReachCornerInput: MinimumObstacleRemovalToReachCornerInputPayload =
+  {
+    grid: [
+      [0, 1, 1],
+      [1, 1, 0],
+      [1, 1, 0]
+    ]
   };
 const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInputPayload = {
   grid: [
@@ -2482,6 +2499,77 @@ function normalizeShortestPathGridWithObstaclesEliminationInput(
   };
 }
 
+function normalizeMinimumObstacleRemovalToReachCornerInput(
+  payload: unknown
+): MinimumObstacleRemovalToReachCornerInputPayload {
+  if (typeof payload === "string") {
+    try {
+      return normalizeMinimumObstacleRemovalToReachCornerInput(JSON.parse(payload));
+    } catch {
+      throw new HttpError(
+        400,
+        "Minimum Obstacle Removal to Reach Corner input strings must contain valid JSON."
+      );
+    }
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new HttpError(
+      400,
+      "Minimum Obstacle Removal to Reach Corner input must be an object with a grid field."
+    );
+  }
+
+  const value = payload as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(
+      400,
+      "Minimum Obstacle Removal to Reach Corner input must include a non-empty grid."
+    );
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(
+      400,
+      "Minimum Obstacle Removal to Reach Corner input must use 8 rows or fewer."
+    );
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(
+      400,
+      "Minimum Obstacle Removal to Reach Corner input rows must all be the same length."
+    );
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(payload: unknown): ShortestPathToGetFoodInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2914,6 +3002,8 @@ function normalizeGraphInput(
       return normalizeNearestExitFromEntranceInMazeInput(payload);
     case "shortest-path-in-a-grid-with-obstacles-elimination":
       return normalizeShortestPathGridWithObstaclesEliminationInput(payload);
+    case "minimum-obstacle-removal-to-reach-corner":
+      return normalizeMinimumObstacleRemovalToReachCornerInput(payload);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(payload);
     case "01-matrix":
@@ -2949,6 +3039,7 @@ function isGridGraphPayload(
   | ShortestPathBinaryMatrixInputPayload
   | NearestExitFromEntranceInMazeInputPayload
   | ShortestPathGridWithObstaclesEliminationInputPayload
+  | MinimumObstacleRemovalToReachCornerInputPayload
   | ShortestPathToGetFoodInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
@@ -4651,6 +4742,47 @@ const presetDefinitions: InputPresetDefinition[] = [
           [1, 0, 0]
         ],
         eliminations: 1
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-minimum-obstacle-removal",
+      label: "Reference minimum obstacle removal",
+      description:
+        "Use a compact blocked grid where the cheapest route still removes obstacles so replay can show deterministic 0-1 BFS deque ordering, cost improvements, and traceback into the optimal route.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: minimumObstacleRemovalToReachCornerAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultMinimumObstacleRemovalToReachCornerInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.zero-removal-detour",
+      label: "Zero-removal detour",
+      description:
+        "Offer a longer open corridor that beats the shorter obstacle-heavy route so replay can show 0-1 BFS preferring lower removal cost over fewer geometric steps.",
+      scenario: "detour",
+      kind: "curated",
+      domain: "graph",
+      algorithms: minimumObstacleRemovalToReachCornerAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [0, 1, 1, 1],
+          [0, 0, 0, 1],
+          [1, 1, 0, 1],
+          [1, 1, 0, 0]
+        ]
       },
       options: {}
     })

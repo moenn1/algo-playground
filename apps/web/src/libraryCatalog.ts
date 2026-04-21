@@ -611,7 +611,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much queue churn and dominance pruning happened before the budget-feasible shortest path locked in.",
     skills: ["augmented-state bfs", "dominance pruning", "budget traceback"],
     spotlight: "A strong follow-up to maze exit replay because it keeps the same blocked-grid stage while exposing the extra state dimension that turns obstacle budgets into a deterministic runtime model.",
-    nextAlgorithmIds: ["shortest-path-to-get-food", "01-matrix"]
+    nextAlgorithmIds: ["minimum-obstacle-removal-to-reach-corner", "01-matrix"]
+  },
+  "minimum-obstacle-removal-to-reach-corner": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.947,
+    timeToExplore: "7 min",
+    complexity: "The replay keeps the same blocked grid, but the frontier becomes a deterministic 0-1 BFS deque where open moves cut forward and obstacle moves wait in the higher-cost tail.",
+    outcome: "See exactly when a zero-cost corridor overtakes a shorter demolition route, which cell costs improve, and how traceback publishes the cheapest obstacle-removal path into the target corner.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much weighted deque churn happened before the minimum obstacle-removal answer stabilized.",
+    skills: ["0-1 bfs", "weighted deque ordering", "cost traceback"],
+    spotlight: "A strong follow-up to obstacle-elimination replay because it keeps the same blocked-grid surface while replacing fixed-budget feasibility with a deterministic minimum-cost runtime.",
+    nextAlgorithmIds: ["01-matrix", "dijkstra"]
   },
   "shortest-path-to-get-food": {
     stage: "core",

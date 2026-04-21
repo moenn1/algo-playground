@@ -15,7 +15,7 @@ The service currently covers the supported algorithms already present in the wor
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
-- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `nearest-exit-from-entrance-in-maze`, `shortest-path-in-a-grid-with-obstacles-elimination`, `shortest-path-to-get-food`, `01-matrix`, `as-far-from-land-as-possible`, `map-of-highest-peak`, `surrounded-regions`, `walls-and-gates`
+- Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `nearest-exit-from-entrance-in-maze`, `shortest-path-in-a-grid-with-obstacles-elimination`, `minimum-obstacle-removal-to-reach-corner`, `shortest-path-to-get-food`, `01-matrix`, `as-far-from-land-as-possible`, `map-of-highest-peak`, `surrounded-regions`, `walls-and-gates`
 
 ## Endpoints
 

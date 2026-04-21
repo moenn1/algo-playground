@@ -324,6 +324,40 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds minimum-obstacle-removal replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "minimum-obstacle-removal-to-reach-corner",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 1, 1],
+            [1, 1, 0],
+            [1, 1, 0]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("minimum-obstacle-removal-to-reach-corner");
+    expect(finalStep.state.kind).toBe("minimum-obstacle-removal-to-reach-corner");
+    if (finalStep.state.kind !== "minimum-obstacle-removal-to-reach-corner") {
+      throw new Error("Expected the minimum-obstacle-removal graph state.");
+    }
+    expect(finalStep.state.minimumRemovals).toBe(2);
+    expect(finalStep.state.path).toEqual(["0,0", "0,1", "0,2", "1,2", "2,2"]);
+    expect(finalStep.state.removedObstacleCells).toEqual(["0,1", "0,2"]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds count-connected-components replay runs from the shared graph engine", () => {
     const run = buildRun(
       "count-connected-components",

@@ -55,6 +55,7 @@ import {
   isZeroOneMatrixInput,
   isNearestExitFromEntranceInMazeInput,
   isShortestPathGridWithObstaclesEliminationInput,
+  isMinimumObstacleRemovalToReachCornerInput,
   isShortestPathToGetFoodInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
@@ -847,6 +848,21 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.frontierStates.length} budget state${step.state.frontierStates.length === 1 ? "" : "s"} queued`;
     }
 
+    if (
+      step.state.kind === "minimum-obstacle-removal-to-reach-corner" &&
+      isMinimumObstacleRemovalToReachCornerInput(run.input)
+    ) {
+      if (step.state.minimumRemovals !== null) {
+        return `Min removals ${step.state.minimumRemovals}`;
+      }
+
+      if (step.state.current) {
+        return `0-1 wave from ${step.state.current} · cost ${step.state.currentRemovalCost ?? 0}`;
+      }
+
+      return `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} queued`;
+    }
+
     if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
       if (step.state.reachable === false && step.state.stepsToFood === -1) {
         return "No food path · return -1";
@@ -1028,6 +1044,21 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       }
 
       return `${step.state.frontierStates.length} budget state${step.state.frontierStates.length === 1 ? "" : "s"} awaiting expansion`;
+    }
+
+    if (
+      step.state.kind === "minimum-obstacle-removal-to-reach-corner" &&
+      isMinimumObstacleRemovalToReachCornerInput(run.input)
+    ) {
+      if (step.state.current) {
+        return `0-1 wave from ${step.state.current} · cost ${step.state.currentRemovalCost ?? 0}`;
+      }
+
+      if (step.state.minimumRemovals !== null) {
+        return `Minimum removals ${step.state.minimumRemovals}`;
+      }
+
+      return `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} awaiting expansion`;
     }
 
     if (
@@ -1503,6 +1534,10 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               return graphStep.state.reachable === false
                 ? "Budget path returns -1"
                 : `Target in ${graphStep.state.stepsToTarget ?? 0} step${graphStep.state.stepsToTarget === 1 ? "" : "s"} · k=${graphStep.state.remainingEliminations ?? 0}`;
+            }
+
+            if (graphStep.state.kind === "minimum-obstacle-removal-to-reach-corner") {
+              return `Min removals ${graphStep.state.minimumRemovals ?? 0}`;
             }
 
             if (graphStep.state.kind === "shortest-path-to-get-food") {
@@ -2414,6 +2449,67 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (
+      step.state.kind === "minimum-obstacle-removal-to-reach-corner" &&
+      isMinimumObstacleRemovalToReachCornerInput(run.input)
+    ) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Processed</span>
+              <strong>{step.state.settled.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Obstacles</span>
+              <strong>{step.state.obstacleCells.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.minimumRemovals !== null ? step.state.minimumRemovals : "Searching"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) =>
+              row.map((cell, columnIndex) => {
+                const coordinate = `${rowIndex},${columnIndex}`;
+                const bestRemoval = step.state.bestRemovalsByCell[coordinate];
+                const label =
+                  coordinate === step.state.start
+                    ? "Start"
+                    : coordinate === step.state.target
+                      ? "Target"
+                      : step.state.path.includes(coordinate)
+                        ? "Path"
+                        : step.state.frontier.includes(coordinate)
+                          ? `Queued ${bestRemoval ?? 0}`
+                          : step.state.removedObstacleCells.includes(coordinate)
+                            ? "Removed"
+                            : cell === 1
+                              ? `Obs ${bestRemoval ?? "?"}`
+                              : bestRemoval !== undefined
+                                ? `Seen ${bestRemoval}`
+                                : "Open";
+
+                return (
+                  <div className="distance-row" key={coordinate}>
+                    <span>{coordinate}</span>
+                    <strong>{label}</strong>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
       return (
         <>
@@ -2477,9 +2573,10 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       <div className="distance-grid">
         {Object.entries(
           step.state.kind === "course-schedule" ||
-            step.state.kind === "nearest-exit-from-entrance-in-maze" ||
-            step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
-            step.state.kind === "shortest-path-to-get-food" ||
+          step.state.kind === "nearest-exit-from-entrance-in-maze" ||
+          step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
+          step.state.kind === "minimum-obstacle-removal-to-reach-corner" ||
+          step.state.kind === "shortest-path-to-get-food" ||
             step.state.kind === "01-matrix" ||
             step.state.kind === "as-far-from-land-as-possible" ||
             step.state.kind === "map-of-highest-peak" ||

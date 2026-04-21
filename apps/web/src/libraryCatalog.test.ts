@@ -192,6 +192,21 @@ describe("libraryCatalog", () => {
     );
   });
 
+  it("surfaces minimum-obstacle-removal study paths through 0-1 bfs metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "0-1 bfs weighted deque"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain(
+      "minimum-obstacle-removal-to-reach-corner"
+    );
+  });
+
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

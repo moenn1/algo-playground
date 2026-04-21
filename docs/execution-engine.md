@@ -47,6 +47,7 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `shortest-path-binary-matrix`
 - `nearest-exit-from-entrance-in-maze`
 - `shortest-path-in-a-grid-with-obstacles-elimination`
+- `minimum-obstacle-removal-to-reach-corner`
 - `shortest-path-to-get-food`
 - `01-matrix`
 - `as-far-from-land-as-possible`
@@ -542,6 +543,26 @@ Shortest Path in a Grid with Obstacles Elimination records:
 - `state.remainingEliminations`: the budget left on the winning target state, or `null` when no route exists
 - `state.stepsToTarget`: the returned shortest route length in steps, or `-1` when the target is unreachable
 - `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
+
+Minimum Obstacle Removal to Reach Corner records:
+
+- `state.kind`: `"minimum-obstacle-removal-to-reach-corner"`
+- `state.grid`: the open-vs-obstacle grid snapshot for the current weighted search or traceback frame
+- `state.settled`: cells whose minimum obstacle-removal cost is already final
+- `state.frontier`: the ordered 0-1 BFS deque of cells still waiting to expand
+- `state.current`: the cell currently acting as the weighted search focus or traceback cursor
+- `state.currentRemovalCost`: the current extracted or traceback cost attached to the active cell
+- `state.activeEdge`: the active source-to-neighbor inspection or predecessor traceback edge
+- `state.phaseMode`: `"search"`, `"traceback"`, or `"resolved"` so replay can distinguish live deque expansion from route reconstruction
+- `state.start`: the fixed top-left source cell
+- `state.target`: the fixed bottom-right destination cell
+- `state.path`: the explicit minimum-removal route ledger published during traceback
+- `state.obstacleCells`: the deterministic row-major ledger of every removable obstacle in the grid
+- `state.visitedOpen`: reachable open cells that have already received a recorded minimum-removal cost
+- `state.visitedObstacles`: obstacle cells that have already received a recorded minimum-removal cost
+- `state.bestRemovalsByCell`: the cheapest removal-count ledger recorded so far for each discovered cell
+- `state.removedObstacleCells`: the subset of obstacle cells that belong to the published optimal route
+- `state.minimumRemovals`: the returned minimum number of removed obstacles once the target is extracted from the deque
 
 Shortest Path to Get Food records:
 

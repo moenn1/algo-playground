@@ -26,6 +26,7 @@ export type GraphAlgorithmId =
   | "shortest-path-binary-matrix"
   | "nearest-exit-from-entrance-in-maze"
   | "shortest-path-in-a-grid-with-obstacles-elimination"
+  | "minimum-obstacle-removal-to-reach-corner"
   | "shortest-path-to-get-food"
   | "01-matrix"
   | "as-far-from-land-as-possible"
@@ -53,6 +54,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "shortest-path-binary-matrix",
   "nearest-exit-from-entrance-in-maze",
   "shortest-path-in-a-grid-with-obstacles-elimination",
+  "minimum-obstacle-removal-to-reach-corner",
   "shortest-path-to-get-food",
   "01-matrix",
   "as-far-from-land-as-possible",
@@ -109,6 +111,10 @@ export interface ShortestPathGridWithObstaclesEliminationInput extends JsonObjec
   eliminations: number;
 }
 
+export interface MinimumObstacleRemovalToReachCornerInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface ShortestPathToGetFoodInput extends JsonObject {
   grid: string[][];
 }
@@ -144,6 +150,7 @@ export type GraphInput =
   | ShortestPathBinaryMatrixInput
   | NearestExitFromEntranceInMazeInput
   | ShortestPathGridWithObstaclesEliminationInput
+  | MinimumObstacleRemovalToReachCornerInput
   | ShortestPathToGetFoodInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
@@ -417,6 +424,26 @@ export interface ShortestPathGridWithObstaclesEliminationExecutionState extends 
   reachable: boolean | null;
 }
 
+export interface MinimumObstacleRemovalToReachCornerExecutionState extends JsonObject {
+  kind: "minimum-obstacle-removal-to-reach-corner";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  currentRemovalCost: number | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  obstacleCells: string[];
+  visitedOpen: string[];
+  visitedObstacles: string[];
+  bestRemovalsByCell: Record<string, number>;
+  removedObstacleCells: string[];
+  minimumRemovals: number | null;
+}
+
 export interface ShortestPathToGetFoodExecutionState extends JsonObject {
   kind: "shortest-path-to-get-food";
   grid: string[][];
@@ -529,6 +556,7 @@ export type GraphExecutionState =
   | ShortestPathBinaryMatrixExecutionState
   | NearestExitFromEntranceInMazeExecutionState
   | ShortestPathGridWithObstaclesEliminationExecutionState
+  | MinimumObstacleRemovalToReachCornerExecutionState
   | ShortestPathToGetFoodExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
@@ -804,6 +832,25 @@ interface ShortestPathGridWithObstaclesEliminationRuntimeState {
   reachable: boolean | null;
 }
 
+interface MinimumObstacleRemovalToReachCornerRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  currentRemovalCost: number | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  target: string;
+  path: string[];
+  obstacleCells: string[];
+  visitedOpen: Set<string>;
+  visitedObstacles: Set<string>;
+  bestRemovalsByCell: Record<string, number>;
+  removedObstacleCells: string[];
+  minimumRemovals: number | null;
+}
+
 interface ZeroOneMatrixRuntimeState {
   grid: number[][];
   settled: string[];
@@ -991,6 +1038,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "shortest-path-in-a-grid-with-obstacles-elimination",
     label: "Shortest Path in a Grid with Obstacles Elimination",
     implementationVersion: "graph-engine-0.21.0"
+  },
+  "minimum-obstacle-removal-to-reach-corner": {
+    id: "minimum-obstacle-removal-to-reach-corner",
+    label: "Minimum Obstacle Removal to Reach Corner",
+    implementationVersion: "graph-engine-0.22.0"
   },
   "shortest-path-to-get-food": {
     id: "shortest-path-to-get-food",
@@ -1238,6 +1290,15 @@ export const defaultShortestPathGridWithObstaclesEliminationInput: ShortestPathG
       [0, 0, 0]
     ],
     eliminations: 1
+  };
+
+export const defaultMinimumObstacleRemovalToReachCornerInput: MinimumObstacleRemovalToReachCornerInput =
+  {
+    grid: [
+      [0, 1, 1],
+      [1, 1, 0],
+      [1, 1, 0]
+    ]
   };
 
 export const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInput = {
@@ -1713,6 +1774,30 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       remainingEliminations: state.remainingEliminations,
       stepsToTarget: state.stepsToTarget,
       reachable: state.reachable
+    };
+  }
+
+  if (state.kind === "minimum-obstacle-removal-to-reach-corner") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      currentRemovalCost: state.currentRemovalCost,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      start: state.start,
+      target: state.target,
+      path: state.path.slice(),
+      obstacleCells: state.obstacleCells.slice(),
+      visitedOpen: state.visitedOpen.slice(),
+      visitedObstacles: state.visitedObstacles.slice(),
+      bestRemovalsByCell: {
+        ...state.bestRemovalsByCell
+      },
+      removedObstacleCells: state.removedObstacleCells.slice(),
+      minimumRemovals: state.minimumRemovals
     };
   }
 
@@ -2361,6 +2446,56 @@ function normalizeShortestPathGridWithObstaclesEliminationInput(
   };
 }
 
+function normalizeMinimumObstacleRemovalToReachCornerInput(
+  candidate: unknown
+): MinimumObstacleRemovalToReachCornerInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error(
+      "Minimum Obstacle Removal to Reach Corner input must be an object with a grid field."
+    );
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Minimum Obstacle Removal to Reach Corner input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Minimum Obstacle Removal to Reach Corner input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Minimum Obstacle Removal to Reach Corner input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeShortestPathToGetFoodInput(candidate: unknown): ShortestPathToGetFoodInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Shortest Path to Get Food input must be an object with a grid field.");
@@ -2723,6 +2858,8 @@ export function parseGraphInputText(
       return normalizeNearestExitFromEntranceInMazeInput(parsed);
     case "shortest-path-in-a-grid-with-obstacles-elimination":
       return normalizeShortestPathGridWithObstaclesEliminationInput(parsed);
+    case "minimum-obstacle-removal-to-reach-corner":
+      return normalizeMinimumObstacleRemovalToReachCornerInput(parsed);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(parsed);
     case "01-matrix":
@@ -2774,6 +2911,8 @@ export function normalizeGraphInput(
       return normalizeNearestExitFromEntranceInMazeInput(input);
     case "shortest-path-in-a-grid-with-obstacles-elimination":
       return normalizeShortestPathGridWithObstaclesEliminationInput(input);
+    case "minimum-obstacle-removal-to-reach-corner":
+      return normalizeMinimumObstacleRemovalToReachCornerInput(input);
     case "shortest-path-to-get-food":
       return normalizeShortestPathToGetFoodInput(input);
     case "01-matrix":
@@ -3272,6 +3411,36 @@ function collapseBudgetStateCells(states: string[]): string[] {
   return cells;
 }
 
+function updateZeroOneFrontier(
+  frontier: string[],
+  cell: string,
+  bestRemovalsByCell: Record<string, number>,
+  mode: "front" | "back"
+) {
+  const existingIndex = frontier.indexOf(cell);
+
+  if (existingIndex >= 0) {
+    frontier.splice(existingIndex, 1);
+  }
+
+  if (mode === "back") {
+    frontier.push(cell);
+    return;
+  }
+
+  const cellCost = bestRemovalsByCell[cell] ?? Number.POSITIVE_INFINITY;
+  let insertIndex = 0;
+
+  while (
+    insertIndex < frontier.length &&
+    (bestRemovalsByCell[frontier[insertIndex]!] ?? Number.POSITIVE_INFINITY) <= cellCost
+  ) {
+    insertIndex += 1;
+  }
+
+  frontier.splice(insertIndex, 0, cell);
+}
+
 function getNeighborCellIds(
   row: number,
   column: number,
@@ -3583,6 +3752,40 @@ function createShortestPathGridWithObstaclesEliminationRecorder() {
   });
 }
 
+function createMinimumObstacleRemovalToReachCornerRecorder() {
+  return createTraceRecorder<
+    MinimumObstacleRemovalToReachCornerRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "minimum-obstacle-removal-to-reach-corner",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "minimum-obstacle-removal-to-reach-corner",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        currentRemovalCost: runtimeState.currentRemovalCost,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        start: runtimeState.start,
+        target: runtimeState.target,
+        path: runtimeState.path.slice(),
+        obstacleCells: runtimeState.obstacleCells.slice(),
+        visitedOpen: Array.from(runtimeState.visitedOpen).sort(compareCellIds),
+        visitedObstacles: Array.from(runtimeState.visitedObstacles).sort(compareCellIds),
+        bestRemovalsByCell: {
+          ...runtimeState.bestRemovalsByCell
+        },
+        removedObstacleCells: runtimeState.removedObstacleCells.slice(),
+        minimumRemovals: runtimeState.minimumRemovals
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createShortestPathToGetFoodRecorder() {
   return createTraceRecorder<
     ShortestPathToGetFoodRuntimeState,
@@ -3764,6 +3967,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createNearestExitFromEntranceInMazeRecorder>
     | ReturnType<typeof createShortestPathGridWithObstaclesEliminationRecorder>
+    | ReturnType<typeof createMinimumObstacleRemovalToReachCornerRecorder>
     | ReturnType<typeof createShortestPathToGetFoodRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
@@ -9756,6 +9960,375 @@ export function buildShortestPathGridWithObstaclesEliminationTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildMinimumObstacleRemovalToReachCornerTrace(
+  input: MinimumObstacleRemovalToReachCornerInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["minimum-obstacle-removal-to-reach-corner"];
+  const normalizedInput = normalizeMinimumObstacleRemovalToReachCornerInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const startCell = makeCellId(0, 0);
+  const targetCell = makeCellId(rowCount - 1, columnCount - 1);
+  const settled: string[] = [];
+  const frontier: string[] = [startCell];
+  const visitedOpen = new Set<string>();
+  const visitedObstacles = new Set<string>();
+  const path: string[] = [];
+  const obstacleCells = grid
+    .flatMap((row, rowIndex) =>
+      row.flatMap((cell, columnIndex) =>
+        cell === 1 ? [makeCellId(rowIndex, columnIndex)] : []
+      )
+    )
+    .sort(compareCellIds);
+  const bestRemovalsByCell: Record<string, number> = {
+    [startCell]: 0
+  };
+  const removedObstacleCells: string[] = [];
+  const predecessors = new Map<string, string>();
+  const recorder = createMinimumObstacleRemovalToReachCornerRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let currentRemovalCost: number | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let minimumRemovals: number | null = null;
+
+  if (grid[0]![0] === 1) {
+    visitedObstacles.add(startCell);
+  } else {
+    visitedOpen.add(startCell);
+  }
+
+  const createRuntimeState = (): MinimumObstacleRemovalToReachCornerRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    currentRemovalCost,
+    activeEdge,
+    phaseMode,
+    start: startCell,
+    target: targetCell,
+    path,
+    obstacleCells,
+    visitedOpen,
+    visitedObstacles,
+    bestRemovalsByCell,
+    removedObstacleCells,
+    minimumRemovals
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description: `${formatCellLabel(startCell)} seeds the 0-1 BFS deque while replay targets ${formatCellLabel(targetCell)} through ${obstacleCells.length} removable obstacle cell${obstacleCells.length === 1 ? "" : "s"}.`,
+    explanation: {
+      summary: "Publish the blocked grid, start cell, and target before the weighted deque search begins.",
+      details:
+        "The opening frame keeps the obstacle ledger and zero-removal baseline explicit so later front-of-deque versus back-of-deque moves stay explainable without browser-side recomputation.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "minimum-obstacle-removal-initial",
+        path: "state.target",
+        kind: "node",
+        intent: "focus",
+        label: `Target ${formatCellLabel(targetCell)}`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const extractedCell = frontier.shift();
+
+    if (!extractedCell) {
+      break;
+    }
+
+    current = extractedCell;
+    currentRemovalCost = bestRemovalsByCell[extractedCell] ?? null;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(extractedCell)} leaves the front of the deque with removal cost ${currentRemovalCost ?? 0}.`,
+      explanation: {
+        summary: "Expand the next minimum-removal cell from the 0-1 BFS deque.",
+        details:
+          "The deque ordering stays deterministic: zero-cost relaxations join the front band behind older equal-cost work, while obstacle relaxations wait at the back.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `minimum-obstacle-removal-current-${extractedCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `${formatCellLabel(extractedCell)} · cost=${currentRemovalCost ?? 0}`
+        }
+      ]
+    });
+
+    if (extractedCell === targetCell) {
+      settled.push(extractedCell);
+      metrics.settled = settled.length;
+      minimumRemovals = currentRemovalCost ?? 0;
+
+      recorder.push({
+        phase: "Target",
+        description: `${formatCellLabel(extractedCell)} is extracted with the minimum removal cost of ${minimumRemovals}, so replay can stop search and switch to traceback.`,
+        explanation: {
+          summary: "Stop when the target reaches the front of the deque because its removal cost is now final.",
+          details:
+            "0-1 BFS gives the same optimality guarantee as Dijkstra on binary edge weights, so the extracted target cost is the answer replay will return.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: "minimum-obstacle-removal-target",
+            path: "state.target",
+            kind: "node",
+            intent: "result",
+            label: `Target ${formatCellLabel(extractedCell)}`
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row, column } = parseCellId(extractedCell);
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const isObstacle = grid[neighborRow]![neighborColumn] === 1;
+      const candidateRemovals = (currentRemovalCost ?? 0) + (isObstacle ? 1 : 0);
+      const bestSeen = bestRemovalsByCell[neighbor];
+
+      activeEdge = [extractedCell, neighbor];
+      metrics.inspections += 1;
+
+      if (typeof bestSeen === "number" && candidateRemovals >= bestSeen) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the recorded cost ${bestSeen} because the candidate route would cost ${candidateRemovals}.`,
+          explanation: {
+            summary: "Skip a non-improving 0-1 BFS relaxation.",
+            details:
+              "The best-removal ledger is stored directly in the trace so replay can justify every skipped revisit without replaying the deque mechanics offline.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `minimum-obstacle-removal-skip-${extractedCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.bestRemovalsByCell",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} stays at ${bestSeen}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      bestRemovalsByCell[neighbor] = candidateRemovals;
+      predecessors.set(neighbor, extractedCell);
+      updateZeroOneFrontier(
+        frontier,
+        neighbor,
+        bestRemovalsByCell,
+        isObstacle ? "back" : "front"
+      );
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      if (isObstacle) {
+        visitedObstacles.add(neighbor);
+      } else {
+        visitedOpen.add(neighbor);
+      }
+
+      const queuedTarget = neighbor === targetCell;
+
+      recorder.push({
+        phase: queuedTarget ? "Target Candidate" : "Relax",
+        description: queuedTarget
+          ? `${formatCellLabel(neighbor)} becomes a target candidate at removal cost ${candidateRemovals}, but replay still waits for deque extraction before sealing the answer.`
+          : isObstacle
+            ? `${formatCellLabel(neighbor)} is an obstacle, so replay records one extra removal and appends it to the back of the deque at cost ${candidateRemovals}.`
+            : `${formatCellLabel(neighbor)} stays open, so replay promotes it into the front band of the deque at cost ${candidateRemovals}.`,
+        explanation: {
+          summary: queuedTarget
+            ? "Queue the target as a weighted candidate without publishing the answer early."
+            : isObstacle
+              ? "Append a one-cost relaxation to the back of the 0-1 BFS deque."
+              : "Insert a zero-cost relaxation into the front band of the 0-1 BFS deque.",
+          details:
+            "Each relax frame stores the updated best-removal ledger and deque order directly so replay can explain why some routes cut ahead of others even on the same grid.",
+          tags: ["frontier", "candidate"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `minimum-obstacle-removal-relax-${extractedCell}-${neighbor}-${metrics.updates}`,
+            path: queuedTarget ? "state.target" : "state.frontier",
+            kind: queuedTarget ? "node" : "collection",
+            intent: queuedTarget ? "candidate" : "frontier",
+            label: queuedTarget
+              ? `Target cost ${candidateRemovals}`
+              : `${formatCellLabel(neighbor)} · cost=${candidateRemovals}`
+          }
+        ]
+      });
+    }
+
+    settled.push(extractedCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(extractedCell)} is settled with minimum removal cost ${currentRemovalCost ?? 0}.`,
+      explanation: {
+        summary: "Seal one deque extraction once every improving neighbor relaxation is recorded.",
+        details:
+          "The settled ledger marks cells whose minimum removal cost is final, which lets replay jump between checkpoints without re-running the deque search.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `minimum-obstacle-removal-settled-${extractedCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(extractedCell)} · cost=${currentRemovalCost ?? 0}`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "traceback";
+  current = targetCell;
+  currentRemovalCost = minimumRemovals;
+  activeEdge = [];
+
+  recorder.push({
+    phase: "Traceback",
+    description:
+      "Switch from deque search to predecessor traceback so replay can publish the exact minimum-removal route and the obstacles removed along it.",
+    explanation: {
+      summary: "Begin reconstructing the winning route from the target back to the start.",
+      details:
+        "The traceback frames build both the path ledger and the removed-obstacle ledger directly into the trace, so the browser never has to infer which obstacle entries actually belong to the optimal route.",
+      tags: ["checkpoint", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "minimum-obstacle-removal-traceback-start",
+        path: "state.phaseMode",
+        kind: "value",
+        intent: "focus",
+        label: "Traceback"
+      }
+    ]
+  });
+
+  let tracebackCell: string | null = targetCell;
+
+  while (tracebackCell) {
+    const previousCell: string | null = predecessors.get(tracebackCell) ?? null;
+    const { row, column } = parseCellId(tracebackCell);
+
+    current = tracebackCell;
+    currentRemovalCost = bestRemovalsByCell[tracebackCell] ?? null;
+    activeEdge = previousCell ? [previousCell, tracebackCell] : [];
+    path.unshift(tracebackCell);
+
+    if (tracebackCell !== startCell && grid[row]![column] === 1) {
+      removedObstacleCells.unshift(tracebackCell);
+    }
+
+    recorder.push({
+      phase: "Traceback",
+      description: previousCell
+        ? `${formatCellLabel(tracebackCell)} joins the optimal route at removal cost ${currentRemovalCost ?? 0}, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+        : `${formatCellLabel(tracebackCell)} closes the route as the starting corner.`,
+      explanation: {
+        summary: previousCell
+          ? "Prepend one predecessor-linked cell to the minimum-removal route."
+          : "Finish the route at the start cell.",
+        details:
+          "Each traceback frame stores the running path and removal count directly, which keeps the final route deterministic even when many equal-length geometric paths exist.",
+        tags: ["path", "checkpoint"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `minimum-obstacle-removal-path-${tracebackCell}-${path.length}`,
+          path: "state.path",
+          kind: "collection",
+          intent: "result",
+          label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+        }
+      ]
+    });
+
+    tracebackCell = previousCell;
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  currentRemovalCost = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The optimal route reaches ${formatCellLabel(targetCell)} after removing ${minimumRemovals ?? 0} obstacle${minimumRemovals === 1 ? "" : "s"}.`,
+    explanation: {
+      summary: "Publish the final minimum-removal route and obstacle ledger.",
+      details:
+        "The terminal frame stores the answer, path, and removed-obstacle subset directly so replay can justify the returned minimum without replaying the 0-1 BFS search.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "minimum-obstacle-removal-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `${minimumRemovals ?? 0} removal${minimumRemovals === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildShortestPathToGetFoodTrace(
   input: ShortestPathToGetFoodInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -11840,6 +12413,10 @@ export function buildGraphTrace(
     case "shortest-path-in-a-grid-with-obstacles-elimination":
       return buildShortestPathGridWithObstaclesEliminationTrace(
         graph as ShortestPathGridWithObstaclesEliminationInput
+      );
+    case "minimum-obstacle-removal-to-reach-corner":
+      return buildMinimumObstacleRemovalToReachCornerTrace(
+        graph as MinimumObstacleRemovalToReachCornerInput
       );
     case "shortest-path-to-get-food":
       return buildShortestPathToGetFoodTrace(graph as ShortestPathToGetFoodInput);

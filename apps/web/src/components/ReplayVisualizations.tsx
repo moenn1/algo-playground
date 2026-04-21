@@ -27,6 +27,7 @@ import {
   isShortestPathBinaryMatrixInput,
   isNearestExitFromEntranceInMazeInput,
   isShortestPathGridWithObstaclesEliminationInput,
+  isMinimumObstacleRemovalToReachCornerInput,
   isShortestPathToGetFoodInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
@@ -191,6 +192,7 @@ function formatGraphNodeStatus(
     step.state.kind === "shortest-bridge" ||
     step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "shortest-path-in-a-grid-with-obstacles-elimination" ||
+    step.state.kind === "minimum-obstacle-removal-to-reach-corner" ||
     step.state.kind === "01-matrix" ||
     step.state.kind === "as-far-from-land-as-possible" ||
     step.state.kind === "map-of-highest-peak" ||
@@ -203,6 +205,7 @@ function formatGraphNodeStatus(
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isShortestPathGridWithObstaclesEliminationInput(run.input) ||
+    isMinimumObstacleRemovalToReachCornerInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -254,6 +257,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     isShortestBridgeInput(run.input) ||
     isShortestPathBinaryMatrixInput(run.input) ||
     isShortestPathGridWithObstaclesEliminationInput(run.input) ||
+    isMinimumObstacleRemovalToReachCornerInput(run.input) ||
     isZeroOneMatrixInput(run.input) ||
     isAsFarFromLandAsPossibleInput(run.input) ||
     isMapOfHighestPeakInput(run.input) ||
@@ -1120,6 +1124,90 @@ function formatObstacleEliminationCellStatus(
 
   if (step.state.visitedOpen.includes(cell)) {
     return typeof bestBudget === "number" ? `Seen open · k=${bestBudget}` : "Seen open";
+  }
+
+  if (step.state.obstacleCells.includes(cell)) {
+    return "Obstacle";
+  }
+
+  return "Open";
+}
+
+function getMinimumObstacleRemovalCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "minimum-obstacle-removal-to-reach-corner" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.visitedOpen.includes(cell) || step.state.visitedObstacles.includes(cell)) {
+    return "active";
+  }
+
+  if (step.state.obstacleCells.includes(cell)) {
+    return "water";
+  }
+
+  return "land";
+}
+
+function formatMinimumObstacleRemovalCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "minimum-obstacle-removal-to-reach-corner" }>>
+): string {
+  const bestRemoval = step.state.bestRemovalsByCell[cell];
+
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback"
+      ? `Traceback focus · cost=${step.state.currentRemovalCost ?? 0}`
+      : `Search focus · cost=${step.state.currentRemovalCost ?? 0}`;
+  }
+
+  if (step.state.path.includes(cell)) {
+    if (cell === step.state.start) {
+      return "Start";
+    }
+
+    if (cell === step.state.target) {
+      return "Target";
+    }
+
+    if (step.state.removedObstacleCells.includes(cell)) {
+      return "Removed obstacle";
+    }
+
+    return "Optimal route";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return typeof bestRemoval === "number" ? `Queued · cost=${bestRemoval}` : "Queued";
+  }
+
+  if (cell === step.state.start) {
+    return "Start";
+  }
+
+  if (cell === step.state.target) {
+    return "Target";
+  }
+
+  if (step.state.visitedObstacles.includes(cell)) {
+    return typeof bestRemoval === "number"
+      ? `Obstacle reached · cost=${bestRemoval}`
+      : "Obstacle reached";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return typeof bestRemoval === "number" ? `Seen open · cost=${bestRemoval}` : "Seen open";
   }
 
   if (step.state.obstacleCells.includes(cell)) {
@@ -4213,6 +4301,207 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 : step.state.reachable === false
                   ? "Replay stores the strongest discovered state per cell even when the target cannot be reached."
                   : "The budget-aware BFS frontier is still exploring stronger states."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "minimum-obstacle-removal-to-reach-corner" &&
+    isMinimumObstacleRemovalToReachCornerInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} weighted grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div
+          className="graph-legend"
+          aria-label="Minimum Obstacle Removal to Reach Corner status legend"
+        >
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Deque frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Optimal route</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Relaxed cost map</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>{step.state.obstacleCells.length} removable obstacle cell{step.state.obstacleCells.length === 1 ? "" : "s"}</span>
+              <strong>
+                {step.state.minimumRemovals !== null
+                  ? `Minimum removals ${step.state.minimumRemovals}`
+                  : `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `${step.state.current} · cost=${step.state.currentRemovalCost ?? 0}`
+                    : step.state.start}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getMinimumObstacleRemovalCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+                  const bestRemoval = step.state.bestRemovalsByCell[cell];
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === 1
+                          ? "Obstacle"
+                          : cell === step.state.start
+                            ? "Start"
+                            : cell === step.state.target
+                              ? "Target"
+                              : "Open"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatMinimumObstacleRemovalCellStatus(cell, step)}
+                        {typeof bestRemoval === "number" ? ` · best ${bestRemoval}` : ""}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Cost focus</span>
+              <strong>
+                {step.state.current
+                  ? `${step.state.current} · cost=${step.state.currentRemovalCost ?? 0}`
+                  : "Awaiting next deque extract"}
+              </strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} path cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.frontier.length} weighted cell${step.state.frontier.length === 1 ? "" : "s"} remain in the deque`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Deque frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Ordered by current removal cost</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier
+                        .map((cell) => `${cell}:${step.state.bestRemovalsByCell[cell] ?? 0}`)
+                        .join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Best cell costs</strong>
+                  <span className="graph-node-status">
+                    {Object.keys(step.state.bestRemovalsByCell).length}
+                  </span>
+                </div>
+                <span className="graph-node-distance">Cheapest recorded removal count per cell</span>
+                <span className="graph-node-meta">
+                  {Object.entries(step.state.bestRemovalsByCell)
+                    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+                    .map(([cell, removalCount]) => `${cell}:${removalCount}`)
+                    .join(" · ")}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Optimal route</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.minimumRemovals !== null
+                    ? `${step.state.minimumRemovals} removal${step.state.minimumRemovals === 1 ? "" : "s"}`
+                    : "No route published yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.minimumRemovals !== null
+                      ? step.state.minimumRemovals
+                      : step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.minimumRemovals !== null
+                    ? `${step.state.removedObstacleCells.length} obstacle${step.state.removedObstacleCells.length === 1 ? "" : "s"} removed on the route`
+                    : `${step.state.visitedObstacles.length} obstacle cell${step.state.visitedObstacles.length === 1 ? "" : "s"} seen so far`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Removed on route</span>
+            <div className="pill-row">
+              {step.state.removedObstacleCells.length > 0 ? (
+                step.state.removedObstacleCells.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No obstacle on the published route yet</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Settled cells</span>
+            <strong>{step.state.settled.length}</strong>
+            <p>
+              {step.state.settled.length > 0
+                ? step.state.settled
+                    .map((cell) => `${cell}:${step.state.bestRemovalsByCell[cell] ?? 0}`)
+                    .join(", ")
+                : "No finalized cells yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Removal outcome</span>
+            <strong>
+              {step.state.minimumRemovals !== null
+                ? step.state.minimumRemovals
+                : step.state.currentRemovalCost ?? 0}
+            </strong>
+            <p>
+              {step.state.minimumRemovals !== null
+                ? `Replay keeps the minimum removal count and removed-obstacle ledger explicit through ${step.state.target}.`
+                : "The weighted deque is still reordering zero-cost and one-cost relaxations."}
             </p>
           </div>
         </div>

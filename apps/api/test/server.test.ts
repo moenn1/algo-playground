@@ -1098,6 +1098,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid / k 1"
     });
 
+    const minimumObstacleRemovalPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-minimum-obstacle-removal/resolve",
+      payload: {
+        algorithmId: "minimum-obstacle-removal-to-reach-corner"
+      }
+    });
+
+    expect(minimumObstacleRemovalPreset.statusCode).toBe(200);
+    expect(minimumObstacleRemovalPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-minimum-obstacle-removal"
+      },
+      algorithm: {
+        id: "minimum-obstacle-removal-to-reach-corner",
+        domain: "graph"
+      },
+      footprint: "3 x 3 grid"
+    });
+
+    const zeroRemovalDetourPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.zero-removal-detour/resolve",
+      payload: {
+        algorithmId: "minimum-obstacle-removal-to-reach-corner"
+      }
+    });
+
+    expect(zeroRemovalDetourPreset.statusCode).toBe(200);
+    expect(zeroRemovalDetourPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.zero-removal-detour"
+      },
+      algorithm: {
+        id: "minimum-obstacle-removal-to-reach-corner",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const foodPathPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-food-path/resolve",
@@ -2831,6 +2873,38 @@ describe("TraceDeck API foundation", () => {
         eliminations: 1
       },
       footprint: "5 x 3 grid / k 1"
+    });
+
+    const validateMinimumObstacleRemovalInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "minimum-obstacle-removal-to-reach-corner",
+        payload: {
+          grid: [
+            [0, 1, 1],
+            [1, 1, 0],
+            [1, 1, 0]
+          ]
+        }
+      }
+    });
+
+    expect(validateMinimumObstacleRemovalInput.statusCode).toBe(200);
+    expect(validateMinimumObstacleRemovalInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "minimum-obstacle-removal-to-reach-corner",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 1, 1],
+          [1, 1, 0],
+          [1, 1, 0]
+        ]
+      },
+      footprint: "3 x 3 grid"
     });
 
     const validateSurroundedRegionsInput = await server.inject({

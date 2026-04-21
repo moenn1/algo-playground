@@ -20,6 +20,7 @@ import {
   buildShortestPathBinaryMatrixTrace,
   buildNearestExitFromEntranceInMazeTrace,
   buildShortestPathGridWithObstaclesEliminationTrace,
+  buildMinimumObstacleRemovalToReachCornerTrace,
   buildShortestPathToGetFoodTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
@@ -42,6 +43,7 @@ import {
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
   defaultShortestPathGridWithObstaclesEliminationInput,
+  defaultMinimumObstacleRemovalToReachCornerInput,
   defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
@@ -416,6 +418,12 @@ describe("graph execution engine", () => {
         "shortest-path-in-a-grid-with-obstacles-elimination"
       )
     ).toEqual(defaultShortestPathGridWithObstaclesEliminationInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultMinimumObstacleRemovalToReachCornerInput),
+        "minimum-obstacle-removal-to-reach-corner"
+      )
+    ).toEqual(defaultMinimumObstacleRemovalToReachCornerInput);
     expect(parseGraphInputText(serializeGraphInput(defaultZeroOneMatrixInput), "01-matrix")).toEqual(
       defaultZeroOneMatrixInput
     );
@@ -978,6 +986,53 @@ describe("graph execution engine", () => {
     expect(trappedFinalStep.state.path).toEqual([]);
     expect(trappedFinalStep.state.remainingEliminations).toBeNull();
     expect(trappedFinalStep.state.visitedObstacles).toEqual(["0,1", "1,0"]);
+  });
+
+  it("records deterministic minimum-removal paths and zero-removal detours", () => {
+    const firstTrace = buildMinimumObstacleRemovalToReachCornerTrace(
+      defaultMinimumObstacleRemovalToReachCornerInput
+    );
+    const secondTrace = buildMinimumObstacleRemovalToReachCornerTrace(
+      defaultMinimumObstacleRemovalToReachCornerInput
+    );
+    const detourTrace = buildMinimumObstacleRemovalToReachCornerTrace({
+      grid: [
+        [0, 1, 1, 1],
+        [0, 0, 0, 1],
+        [1, 1, 0, 1],
+        [1, 1, 0, 0]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const detourFinalStep = detourTrace.steps[detourTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("minimum-obstacle-removal-to-reach-corner");
+    if (referenceFinalStep.state.kind !== "minimum-obstacle-removal-to-reach-corner") {
+      throw new Error("Expected the minimum-obstacle-removal graph state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.minimumRemovals).toBe(2);
+    expect(referenceFinalStep.state.path).toEqual(["0,0", "0,1", "0,2", "1,2", "2,2"]);
+    expect(referenceFinalStep.state.removedObstacleCells).toEqual(["0,1", "0,2"]);
+
+    expect(detourFinalStep.phase).toBe("Resolution");
+    expect(detourFinalStep.state.kind).toBe("minimum-obstacle-removal-to-reach-corner");
+    if (detourFinalStep.state.kind !== "minimum-obstacle-removal-to-reach-corner") {
+      throw new Error("Expected the minimum-obstacle-removal graph state.");
+    }
+    expect(detourFinalStep.state.minimumRemovals).toBe(0);
+    expect(detourFinalStep.state.path).toEqual([
+      "0,0",
+      "1,0",
+      "1,1",
+      "1,2",
+      "2,2",
+      "3,2",
+      "3,3"
+    ]);
+    expect(detourFinalStep.state.removedObstacleCells).toEqual([]);
   });
 
   it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {
