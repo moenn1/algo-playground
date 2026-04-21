@@ -322,6 +322,42 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds surrounded-regions replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "surrounded-regions",
+      JSON.stringify(
+        {
+          grid: [
+            ["X", "X", "X", "X"],
+            ["X", "O", "O", "X"],
+            ["X", "X", "O", "X"],
+            ["X", "O", "X", "X"]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("surrounded-regions");
+    expect(finalStep.state.kind).toBe("surrounded-regions");
+    if (finalStep.state.kind !== "surrounded-regions") {
+      throw new Error("Expected the surrounded-regions graph state.");
+    }
+    expect(finalStep.state.capturedAny).toBe(true);
+    expect(finalStep.state.safeCells).toEqual(["3,1"]);
+    expect(finalStep.state.capturedCells).toEqual(["1,1", "1,2", "2,2"]);
+    expect(
+      run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.capturedCells"))
+    ).toBe(true);
+  });
+
   it("builds walls-and-gates replay runs from the shared graph engine", () => {
     const run = buildRun(
       "walls-and-gates",

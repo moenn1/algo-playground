@@ -228,6 +228,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("walls-and-gates");
   });
 
+  it("surfaces surrounded-regions study paths through border-capture metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "state-tracking",
+        q: "border flood fill capture queue"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("surrounded-regions");
+  });
+
   it("surfaces dfs study paths through depth-first stack metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

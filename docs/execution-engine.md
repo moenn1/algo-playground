@@ -31,9 +31,12 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `bfs`
 - `dfs`
 - `dijkstra`
+- `clone-graph`
+- `graph-valid-tree`
 - `course-schedule`
 - `rotting-oranges`
 - `number-of-islands`
+- `surrounded-regions`
 - `walls-and-gates`
 
 ## Sorting Runtime Model
@@ -351,6 +354,21 @@ Number of Islands records:
 - `state.cellIslands`: the per-cell island assignment ledger for claimed land
 - `state.remainingLand`: the unresolved land cells that have not yet been claimed by any island
 
+Surrounded Regions records:
+
+- `state.kind`: `"surrounded-regions"`
+- `state.grid`: the capture grid snapshot for the current frame
+- `state.settled`: cells whose safe-flood or capture work is fully sealed into the replay ledger
+- `state.frontier`: the ordered safe-region queue during border discovery or the ordered capture queue during the flip phase
+- `state.current`: the cell currently being expanded or captured
+- `state.activeEdge`: the active source-to-neighbor inspection during the safe flood fill
+- `state.phaseMode`: `"mark-safe"`, `"capture"`, or `"resolved"` so replay can explain which runtime phase owns the current frontier
+- `state.boundarySeeds`: the deterministic row-major ledger of border-connected `O` seeds
+- `state.safeCells`: every `O` cell protected by the border flood fill
+- `state.capturedCells`: every enclosed `O` cell already flipped to `X`
+- `state.remainingOpen`: unresolved enclosed `O` cells that the safe flood fill never reached
+- `state.capturedAny`: `true`, `false`, or `null` while the runtime is still deciding whether any enclosed region will flip
+
 Walls and Gates records:
 
 - `state.kind`: `"walls-and-gates"`
@@ -374,7 +392,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges or neighbor relationships inspected so far
 - `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 
@@ -402,10 +420,11 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 - Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
+- Surrounded Regions records border-seed discovery, safe-flood queue extraction, per-neighbor wall-or-open inspections, explicit safe-region updates, deterministic row-major capture flips, and terminal preserve-versus-capture reporting explicitly so replay can explain both protected border regions and enclosed captures without re-running the flood fill.
 - Walls and Gates records gate seeding, queue extraction, per-neighbor wall-or-room inspections, explicit distance-fill updates, per-source checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete room coverage and blocked infinity rooms without re-running the grid BFS.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, and Walls and Gates replay from this package.
-- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, and grid contracts.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, Surrounded Regions replay, and Walls and Gates replay from this package.
+- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, border-capture, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

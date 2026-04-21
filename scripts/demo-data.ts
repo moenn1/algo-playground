@@ -445,6 +445,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "diagonal-islands"]
   },
   {
+    key: "graph-reference-capture",
+    algorithmId: "surrounded-regions",
+    presetId: "graph.reference-capture",
+    recordedAt: "2026-04-20T09:16:30.000Z",
+    tags: ["seeded-demo", "graph", "reference-capture"]
+  },
+  {
+    key: "graph-border-safe",
+    algorithmId: "surrounded-regions",
+    presetId: "graph.border-safe",
+    recordedAt: "2026-04-20T09:16:45.000Z",
+    tags: ["seeded-demo", "graph", "border-safe"]
+  },
+  {
     key: "graph-reference-gates",
     algorithmId: "walls-and-gates",
     presetId: "graph.reference-gates",

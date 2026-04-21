@@ -9,6 +9,7 @@ import {
   buildGraphValidTreeTrace,
   buildNumberOfIslandsTrace,
   buildRottingOrangesTrace,
+  buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
   defaultCloneGraphInput,
@@ -16,6 +17,7 @@ import {
   defaultGraphValidTreeInput,
   defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
+  defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   formatGraphDistance,
   parseGraphInputText,
@@ -228,6 +230,12 @@ describe("graph execution engine", () => {
       parseGraphInputText(serializeGraphInput(defaultNumberOfIslandsInput), "number-of-islands")
     ).toEqual(defaultNumberOfIslandsInput);
     expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultSurroundedRegionsInput),
+        "surrounded-regions"
+      )
+    ).toEqual(defaultSurroundedRegionsInput);
+    expect(
       parseGraphInputText(serializeGraphInput(defaultWallsAndGatesInput), "walls-and-gates")
     ).toEqual(defaultWallsAndGatesInput);
     expect(formatGraphDistance(null)).toBe("inf");
@@ -342,6 +350,53 @@ describe("graph execution engine", () => {
     expect(diagonalFinalStep.state.islandCount).toBe(5);
     expect(diagonalFinalStep.state.completedIslands).toHaveLength(5);
     expect(diagonalFinalStep.state.cellIslands["1,1"]).toBe(3);
+  });
+
+  it("records deterministic safe-region discovery and enclosed captures for Surrounded Regions", () => {
+    const firstTrace = buildSurroundedRegionsTrace(defaultSurroundedRegionsInput);
+    const secondTrace = buildSurroundedRegionsTrace(defaultSurroundedRegionsInput);
+    const borderSafeTrace = buildSurroundedRegionsTrace({
+      grid: [
+        ["O", "O", "X", "X"],
+        ["X", "O", "X", "O"],
+        ["X", "O", "O", "O"],
+        ["X", "X", "X", "O"]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const borderSafeFinalStep = borderSafeTrace.steps[borderSafeTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("surrounded-regions");
+    if (referenceFinalStep.state.kind !== "surrounded-regions") {
+      throw new Error("Expected the surrounded-regions state.");
+    }
+    expect(referenceFinalStep.state.safeCells).toEqual(["3,1"]);
+    expect(referenceFinalStep.state.capturedCells).toEqual(["1,1", "1,2", "2,2"]);
+    expect(referenceFinalStep.state.capturedAny).toBe(true);
+    expect(referenceFinalStep.state.remainingOpen).toEqual([]);
+    expect(referenceFinalStep.state.grid).toEqual([
+      ["X", "X", "X", "X"],
+      ["X", "X", "X", "X"],
+      ["X", "X", "X", "X"],
+      ["X", "O", "X", "X"]
+    ]);
+
+    expect(borderSafeFinalStep.phase).toBe("Resolution");
+    expect(borderSafeFinalStep.state.kind).toBe("surrounded-regions");
+    if (borderSafeFinalStep.state.kind !== "surrounded-regions") {
+      throw new Error("Expected the surrounded-regions state.");
+    }
+    expect(borderSafeFinalStep.state.capturedAny).toBe(false);
+    expect(borderSafeFinalStep.state.capturedCells).toEqual([]);
+    expect(borderSafeFinalStep.state.remainingOpen).toEqual([]);
+    expect(borderSafeFinalStep.state.grid).toEqual([
+      ["O", "O", "X", "X"],
+      ["X", "O", "X", "O"],
+      ["X", "O", "O", "O"],
+      ["X", "X", "X", "O"]
+    ]);
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {

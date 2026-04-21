@@ -451,6 +451,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong graph continuation because it reuses the grid replay surface from contagion-style BFS while shifting the goal to deterministic component counting.",
     nextAlgorithmIds: ["rotting-oranges", "course-schedule"]
   },
+  "surrounded-regions": {
+    stage: "core",
+    focus: "state-tracking",
+    order: 13.95,
+    timeToExplore: "7 min",
+    complexity: "The replay splits into a border-safe flood fill and a separate capture pass, so the viewer can inspect preserved and flipped O cells without hidden visited state.",
+    outcome: "See exactly when a border-connected O becomes permanently safe, which interior cells stay unresolved, and when enclosed regions flip in deterministic row-major order.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much work went into safe discovery versus actual capture flips.",
+    skills: ["border flood fill", "capture queues", "safe-region ledgers"],
+    spotlight: "A strong graph follow-up because it reuses grid traversal while turning the outcome into an explicit preserve-versus-capture runtime model.",
+    nextAlgorithmIds: ["number-of-islands", "walls-and-gates"]
+  },
   "merge-sort": {
     stage: "core",
     focus: "partitioning",

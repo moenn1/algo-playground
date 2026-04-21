@@ -19,6 +19,7 @@ import type {
   ResolvedInputPreset,
   SearchInputPayload,
   StackInputPayload,
+  SurroundedRegionsInputPayload,
   SupportedAlgorithmDescriptor,
   SupportedAlgorithmId,
   TwoPointersInputPayload,
@@ -179,6 +180,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Number of Islands",
     domain: "graph"
   },
+  "surrounded-regions": {
+    id: "surrounded-regions",
+    label: "Surrounded Regions",
+    domain: "graph"
+  },
   "walls-and-gates": {
     id: "walls-and-gates",
     label: "Walls and Gates",
@@ -228,6 +234,7 @@ const treeValidationAlgorithms = [supportedAlgorithms["graph-valid-tree"]] as co
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
+const surroundedRegionsAlgorithms = [supportedAlgorithms["surrounded-regions"]] as const;
 const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
@@ -357,6 +364,14 @@ const defaultNumberOfIslandsInput: NumberOfIslandsInputPayload = {
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+const defaultSurroundedRegionsInput: SurroundedRegionsInputPayload = {
+  grid: [
+    ["X", "X", "X", "X"],
+    ["X", "O", "O", "X"],
+    ["X", "X", "O", "X"],
+    ["X", "O", "X", "X"]
   ]
 };
 const wallsAndGatesInfinity = 2147483647;
@@ -1810,6 +1825,72 @@ function normalizeNumberOfIslandsInput(payload: unknown): NumberOfIslandsInputPa
   };
 }
 
+function normalizeSurroundedRegionsInput(payload: unknown): SurroundedRegionsInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Surrounded Regions input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Surrounded Regions input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Surrounded Regions input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Surrounded Regions input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty capture grid row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "string") {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be "X" or "O".`);
+      }
+
+      const normalizedCell = cell.trim().toUpperCase();
+
+      if (normalizedCell !== "X" && normalizedCell !== "O") {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be "X" or "O".`);
+      }
+
+      return normalizedCell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Surrounded Regions input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeWallsAndGatesInput(payload: unknown): WallsAndGatesInputPayload {
   const candidate =
     typeof payload === "string"
@@ -1890,6 +1971,8 @@ function normalizeGraphInput(
       return normalizeRottingOrangesInput(payload);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(payload);
+    case "surrounded-regions":
+      return normalizeSurroundedRegionsInput(payload);
     case "walls-and-gates":
       return normalizeWallsAndGatesInput(payload);
     default:
@@ -1907,7 +1990,11 @@ function isGraphValidTreePayload(graph: GraphInputPayload): graph is GraphValidT
 
 function isGridGraphPayload(
   graph: GraphInputPayload
-): graph is RottingOrangesInputPayload | NumberOfIslandsInputPayload | WallsAndGatesInputPayload {
+): graph is
+  | RottingOrangesInputPayload
+  | NumberOfIslandsInputPayload
+  | SurroundedRegionsInputPayload
+  | WallsAndGatesInputPayload {
   return "grid" in graph && Array.isArray(graph.grid);
 }
 
@@ -3170,6 +3257,47 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["1", "0", "1"],
           ["0", "1", "0"],
           ["1", "0", "1"]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-capture",
+      label: "Reference capture grid",
+      description:
+        "Use the canonical enclosed-region grid so replay shows border-safe discovery first and then deterministic row-major capture flips.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: surroundedRegionsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultSurroundedRegionsInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.border-safe",
+      label: "Border-safe region",
+      description:
+        "Keep every O connected to the border so replay can publish a full safe-region ledger without flipping any enclosed cells.",
+      scenario: "no-capture",
+      kind: "curated",
+      domain: "graph",
+      algorithms: surroundedRegionsAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          ["O", "O", "X", "X"],
+          ["X", "O", "X", "O"],
+          ["X", "O", "O", "O"],
+          ["X", "X", "X", "O"]
         ]
       },
       options: {}

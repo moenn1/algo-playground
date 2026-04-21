@@ -22,6 +22,7 @@ import {
   isNumberOfIslandsInput,
   isPathfindingGraphInput,
   isRottingOrangesInput,
+  isSurroundedRegionsInput,
   isWallsAndGatesInput,
   type SearchRun,
   type SortingRun,
@@ -175,10 +176,12 @@ function formatGraphNodeStatus(
     step.state.kind === "course-schedule" ||
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
+    step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isNumberOfIslandsInput(run.input) ||
+    isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
     return "Blocked";
@@ -557,6 +560,70 @@ function formatIslandCellStatus(
     default:
       return "Unclaimed land";
   }
+}
+
+function getSurroundedRegionCellTone(
+  cell: string,
+  value: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "surrounded-regions" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.capturedCells.includes(cell)) {
+    return "settled";
+  }
+
+  if (value === "X") {
+    return "water";
+  }
+
+  if (step.state.safeCells.includes(cell)) {
+    return step.state.settled.includes(cell) ? "scan" : "active";
+  }
+
+  if (step.state.remainingOpen.includes(cell)) {
+    return "land";
+  }
+
+  return "scan";
+}
+
+function formatSurroundedRegionCellStatus(
+  cell: string,
+  value: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "surrounded-regions" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "capture" ? "Capture focus" : "Safe flood focus";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return step.state.phaseMode === "capture" ? "Capture queue" : "Safe frontier";
+  }
+
+  if (step.state.capturedCells.includes(cell)) {
+    return "Captured to X";
+  }
+
+  if (value === "X") {
+    return "Wall";
+  }
+
+  if (step.state.safeCells.includes(cell)) {
+    return step.state.boundarySeeds.includes(cell) ? "Boundary-safe O" : "Protected O";
+  }
+
+  if (step.state.remainingOpen.includes(cell)) {
+    return "Enclosed candidate";
+  }
+
+  return "Resolved";
 }
 
 function formatGateCellValue(value: number): string {
@@ -1578,6 +1645,190 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
+  if (step.state.kind === "surrounded-regions" && isSurroundedRegionsInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} capture grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Surrounded Regions status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Captured cell</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Protected border region</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.phaseMode === "mark-safe"
+                  ? `${step.state.boundarySeeds.length} border seed${step.state.boundarySeeds.length === 1 ? "" : "s"}`
+                  : `${step.state.capturedCells.length} captured cell${step.state.capturedCells.length === 1 ? "" : "s"}`}
+              </span>
+              <strong>
+                {step.state.phaseMode === "mark-safe"
+                  ? `Protecting ${step.state.safeCells.length} border-connected O cell${step.state.safeCells.length === 1 ? "" : "s"}`
+                  : step.state.phaseMode === "capture"
+                    ? `${step.state.remainingOpen.length} enclosed O cell${step.state.remainingOpen.length === 1 ? "" : "s"} still pending capture`
+                    : step.state.capturedAny
+                      ? `Captured ${step.state.capturedCells.length} enclosed region cell${step.state.capturedCells.length === 1 ? "" : "s"}`
+                      : "Every O stayed connected to the border"}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? "No neighbor under inspection"}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getSurroundedRegionCellTone(cell, value, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">{value}</strong>
+                      <span className="island-cell-status">
+                        {formatSurroundedRegionCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Capture focus</span>
+              <strong>{step.state.current ?? "Pending phase shift"}</strong>
+              <p>
+                {step.state.phaseMode === "mark-safe"
+                  ? `${step.state.frontier.length} safe cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`
+                  : `${step.state.remainingOpen.length} enclosed O cell${step.state.remainingOpen.length === 1 ? "" : "s"} unresolved`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.phaseMode === "capture" ? "Capture queue" : "Safe-region queue"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Safe cells</strong>
+                  <span className="graph-node-status">{step.state.safeCells.length}</span>
+                </div>
+                <span className="graph-node-distance">Border-connected O cells</span>
+                <span className="graph-node-meta">
+                  {step.state.safeCells.length > 0
+                    ? step.state.safeCells.join(" · ")
+                    : "No safe cells recorded"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Captured</strong>
+                  <span className="graph-node-status">{step.state.capturedCells.length}</span>
+                </div>
+                <span className="graph-node-distance">Flipped enclosed cells</span>
+                <span className="graph-node-meta">
+                  {step.state.capturedCells.length > 0
+                    ? step.state.capturedCells.join(" · ")
+                    : "No enclosed cells captured"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.capturedAny === null
+                      ? step.state.phaseMode === "capture"
+                        ? "Capturing"
+                        : "Scanning"
+                      : step.state.capturedAny
+                        ? "Captured"
+                        : "No capture"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingOpen.length > 0
+                    ? `Pending: ${step.state.remainingOpen.join(" · ")}`
+                    : "No enclosed O cells remain unresolved"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Boundary seeds</span>
+            <div className="pill-row">
+              {step.state.boundarySeeds.length > 0 ? (
+                step.state.boundarySeeds.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No boundary O cells</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Remaining open</span>
+            <strong>{step.state.remainingOpen.length}</strong>
+            <p>
+              {step.state.remainingOpen.length > 0
+                ? step.state.remainingOpen.join(", ")
+                : "Every O is either safe or already captured"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Resolution</span>
+            <strong>
+              {step.state.capturedAny === null
+                ? step.state.phaseMode
+                : step.state.capturedAny
+                  ? `${step.state.capturedCells.length} captured`
+                  : "No captures"}
+            </strong>
+            <p>
+              {step.state.capturedAny
+                ? `Protected cells remain at ${step.state.safeCells.join(", ")}`
+                : "Replay stores the safe-region ledger directly without recomputing border reachability."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (step.state.kind === "rotting-oranges" && isRottingOrangesInput(run.input)) {
     return (
       <>
@@ -2239,7 +2490,7 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
     );
   }
 
-  if (!isCourseScheduleInput(run.input)) {
+  if (isPathfindingGraphInput(run.input)) {
     const layout = buildGraphLayout(run.input.nodes);
     const settledSet = new Set(step.state.settled);
     const frontierSet = new Set(step.state.frontier);

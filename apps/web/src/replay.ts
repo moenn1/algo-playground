@@ -25,6 +25,7 @@ import {
   defaultMinStackInput,
   defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
+  defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
@@ -286,7 +287,23 @@ export function isRottingOrangesInput(
 export function isNumberOfIslandsInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: string[][] }> {
-  return "grid" in input && input.grid.every((row) => row.every((cell) => typeof cell === "string"));
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "string" && (cell === "0" || cell === "1"))
+    )
+  );
+}
+
+export function isSurroundedRegionsInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: string[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "string" && (cell === "X" || cell === "O"))
+    )
+  );
 }
 
 export function isWallsAndGatesInput(
@@ -727,6 +744,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: 'JSON with a grid using "0" for water and "1" for land.',
     defaultInput: serializeGraphInput(defaultNumberOfIslandsInput),
+    domain: "graph"
+  },
+  {
+    id: "surrounded-regions",
+    name: "Surrounded Regions",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Border-flood replay records safe O discovery first, then deterministic row-major captures for enclosed regions.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "X" for walls and "O" for open cells.',
+    defaultInput: serializeGraphInput(defaultSurroundedRegionsInput),
     domain: "graph"
   },
   {

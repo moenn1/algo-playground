@@ -15,6 +15,7 @@ export type GraphAlgorithmId =
   | "course-schedule"
   | "rotting-oranges"
   | "number-of-islands"
+  | "surrounded-regions"
   | "walls-and-gates";
 
 export const graphAlgorithmIds: GraphAlgorithmId[] = [
@@ -26,6 +27,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "course-schedule",
   "rotting-oranges",
   "number-of-islands",
+  "surrounded-regions",
   "walls-and-gates"
 ];
 
@@ -55,6 +57,10 @@ export interface NumberOfIslandsInput extends JsonObject {
   grid: string[][];
 }
 
+export interface SurroundedRegionsInput extends JsonObject {
+  grid: string[][];
+}
+
 export interface WallsAndGatesInput extends JsonObject {
   grid: number[][];
 }
@@ -65,6 +71,7 @@ export type GraphInput =
   | CourseScheduleInput
   | RottingOrangesInput
   | NumberOfIslandsInput
+  | SurroundedRegionsInput
   | WallsAndGatesInput;
 
 export interface PathfindingGraphExecutionState extends JsonObject {
@@ -157,6 +164,21 @@ export interface NumberOfIslandsExecutionState extends JsonObject {
   remainingLand: string[];
 }
 
+export interface SurroundedRegionsExecutionState extends JsonObject {
+  kind: "surrounded-regions";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "mark-safe" | "capture" | "resolved";
+  boundarySeeds: string[];
+  safeCells: string[];
+  capturedCells: string[];
+  remainingOpen: string[];
+  capturedAny: boolean | null;
+}
+
 export interface WallsAndGatesExecutionState extends JsonObject {
   kind: "walls-and-gates";
   grid: number[][];
@@ -180,6 +202,7 @@ export type GraphExecutionState =
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
+  | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
 interface GraphMetricState {
@@ -292,6 +315,20 @@ interface NumberOfIslandsRuntimeState {
   remainingLand: Set<string>;
 }
 
+interface SurroundedRegionsRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "mark-safe" | "capture" | "resolved";
+  boundarySeeds: string[];
+  safeCells: string[];
+  capturedCells: string[];
+  remainingOpen: Set<string>;
+  capturedAny: boolean | null;
+}
+
 interface WallsAndGatesRuntimeState {
   grid: number[][];
   settled: string[];
@@ -347,6 +384,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "number-of-islands",
     label: "Number of Islands",
     implementationVersion: "graph-engine-0.4.0"
+  },
+  "surrounded-regions": {
+    id: "surrounded-regions",
+    label: "Surrounded Regions",
+    implementationVersion: "graph-engine-0.8.0"
   },
   "walls-and-gates": {
     id: "walls-and-gates",
@@ -465,6 +507,15 @@ export const defaultNumberOfIslandsInput: NumberOfIslandsInput = {
   ]
 };
 
+export const defaultSurroundedRegionsInput: SurroundedRegionsInput = {
+  grid: [
+    ["X", "X", "X", "X"],
+    ["X", "O", "O", "X"],
+    ["X", "X", "O", "X"],
+    ["X", "O", "X", "X"]
+  ]
+};
+
 export const wallsAndGatesInfinity = 2147483647;
 
 export const defaultWallsAndGatesInput: WallsAndGatesInput = {
@@ -578,6 +629,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
         ...state.cellIslands
       },
       remainingLand: state.remainingLand.slice()
+    };
+  }
+
+  if (state.kind === "surrounded-regions") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      boundarySeeds: state.boundarySeeds.slice(),
+      safeCells: state.safeCells.slice(),
+      capturedCells: state.capturedCells.slice(),
+      remainingOpen: state.remainingOpen.slice(),
+      capturedAny: state.capturedAny
     };
   }
 
@@ -927,6 +995,58 @@ function normalizeNumberOfIslandsInput(candidate: unknown): NumberOfIslandsInput
   };
 }
 
+function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Surrounded Regions input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Surrounded Regions input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Surrounded Regions input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty capture grid row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "string") {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be \"X\" or \"O\".`);
+      }
+
+      const normalizedCell = cell.trim().toUpperCase();
+
+      if (normalizedCell !== "X" && normalizedCell !== "O") {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be "X" or "O".`);
+      }
+
+      return normalizedCell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Surrounded Regions input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeWallsAndGatesInput(candidate: unknown): WallsAndGatesInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Walls and Gates input must be an object with a grid field.");
@@ -1002,6 +1122,8 @@ export function parseGraphInputText(
       return normalizeRottingOrangesInput(parsed);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(parsed);
+    case "surrounded-regions":
+      return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
       return normalizeWallsAndGatesInput(parsed);
     default:
@@ -1024,6 +1146,8 @@ export function normalizeGraphInput(
       return normalizeRottingOrangesInput(input);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(input);
+    case "surrounded-regions":
+      return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
       return normalizeWallsAndGatesInput(input);
     default:
@@ -1448,6 +1572,33 @@ function createNumberOfIslandsRecorder() {
   });
 }
 
+function createSurroundedRegionsRecorder() {
+  return createTraceRecorder<
+    SurroundedRegionsRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "surrounded-regions",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "surrounded-regions",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        boundarySeeds: runtimeState.boundarySeeds.slice(),
+        safeCells: runtimeState.safeCells.slice(),
+        capturedCells: runtimeState.capturedCells.slice(),
+        remainingOpen: Array.from(runtimeState.remainingOpen).sort(compareCellIds),
+        capturedAny: runtimeState.capturedAny
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createWallsAndGatesRecorder() {
   return createTraceRecorder<
     WallsAndGatesRuntimeState,
@@ -1488,6 +1639,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
+    | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
   return createTraceEnvelope({
@@ -3659,6 +3811,363 @@ export function buildNumberOfIslandsTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildSurroundedRegionsTrace(
+  input: SurroundedRegionsInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["surrounded-regions"];
+  const normalizedInput = normalizeSurroundedRegionsInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const boundarySeeds: string[] = [];
+  const safeCells: string[] = [];
+  const capturedCells: string[] = [];
+  const remainingOpen = new Set<string>();
+  const recorder = createSurroundedRegionsRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "mark-safe" | "capture" | "resolved" = "mark-safe";
+  let capturedAny: boolean | null = null;
+
+  const safeSet = new Set<string>();
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const cell = makeCellId(row, column);
+      const value = grid[row]![column]!;
+
+      if (value !== "O") {
+        continue;
+      }
+
+      const isBoundary = row === 0 || column === 0 || row === rowCount - 1 || column === columnCount - 1;
+
+      if (isBoundary) {
+        if (!safeSet.has(cell)) {
+          safeSet.add(cell);
+          boundarySeeds.push(cell);
+          safeCells.push(cell);
+          frontier.push(cell);
+        }
+      } else {
+        remainingOpen.add(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+  metrics.updates = safeCells.length;
+
+  const createRuntimeState = (): SurroundedRegionsRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    phaseMode,
+    boundarySeeds,
+    safeCells,
+    capturedCells,
+    remainingOpen,
+    capturedAny
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Seed the border-connected O cells before traversal starts so replay can separate safe regions from enclosed regions deterministically.",
+    explanation: {
+      summary: "Record the boundary O frontier and the unresolved interior O ledger before any flood-fill step begins.",
+      details:
+        "The opening frame stores both the safe-entry queue and the remaining open cells directly, so replay never reconstructs border reachability from hidden visited state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "surrounded-regions-initial",
+        path: boundarySeeds.length > 0 ? "state.boundarySeeds" : "state.remainingOpen",
+        kind: "collection",
+        intent: "focus",
+        label:
+          boundarySeeds.length > 0
+            ? `${boundarySeeds.length} border seed${boundarySeeds.length === 1 ? "" : "s"} ready`
+            : `${remainingOpen.size} enclosed candidate${remainingOpen.size === 1 ? "" : "s"} pending capture`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the safe frontier and becomes the next border-connected cell under inspection.`,
+      explanation: {
+        summary: "Expand the next border-connected O cell in deterministic row-major queue order.",
+        details:
+          "Replay stores the active frontier cell before neighbor checks begin so the safe-region flood fill stays explicit rather than inferred.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `surrounded-regions-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Protect ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(currentRow, currentColumn, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const neighborValue = grid[neighborRow]![neighborColumn]!;
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (neighborValue === "X") {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and stop because an X wall blocks the safe-region flood fill.`,
+          explanation: {
+            summary: "Inspect a blocked neighboring cell without changing the safe frontier.",
+            details:
+              "Blocked walls stay explicit in the trace so replay can explain why the current safe region does not cross that boundary.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `surrounded-regions-wall-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label: `Wall ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (safeSet.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because it is already marked safe.`,
+          explanation: {
+            summary: "Inspect previously protected O without re-enqueuing it.",
+            details:
+              "This keeps the safe-region ledger deterministic and prevents replay from inferring deduplication from hidden visited state.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `surrounded-regions-safe-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.safeCells",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already safe`
+            }
+          ]
+        });
+        continue;
+      }
+
+      safeSet.add(neighbor);
+      safeCells.push(neighbor);
+      frontier.push(neighbor);
+      remainingOpen.delete(neighbor);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      recorder.push({
+        phase: "Mark Safe",
+        description: `${formatCellLabel(neighbor)} stays O because the border-connected flood fill reaches it from ${formatCellLabel(currentCell)}.`,
+        explanation: {
+          summary: "Protect one neighboring O by adding it to the safe-region frontier.",
+          details:
+            "Replay removes the cell from the unresolved-open ledger and appends it to the safe frontier in the same frame so capture never depends on recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `surrounded-regions-mark-safe-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: "state.safeCells",
+            kind: "collection",
+            intent: "frontier",
+            label: `Protect ${formatCellLabel(neighbor)}`
+          }
+        ]
+      });
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed inside the border-connected safe region.`,
+      explanation: {
+        summary: "Seal one safe cell after all of its neighbor inspections are recorded.",
+        details:
+          "This checkpoint preserves the safe frontier, protected-cell ledger, and unresolved-open set directly so replay can jump to any flood-fill boundary.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `surrounded-regions-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} settled`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "capture";
+  current = null;
+  activeEdge = [];
+  frontier.push(...Array.from(remainingOpen).sort(compareCellIds));
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Capture Phase",
+    description:
+      frontier.length > 0
+        ? `${frontier.length} enclosed O cell${frontier.length === 1 ? "" : "s"} remain and move into deterministic row-major capture order.`
+        : "No enclosed O cells remain, so capture can finish without flipping the grid.",
+    explanation: {
+      summary: "Switch from safe-region discovery to deterministic capture of every unresolved enclosed cell.",
+      details:
+        "Replay serializes the pending capture queue directly so the final flips stay stable and inspectable one cell at a time.",
+      tags: ["checkpoint", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "surrounded-regions-capture-phase",
+        path: "state.frontier",
+        kind: "collection",
+        intent: "focus",
+        label:
+          frontier.length > 0
+            ? `${frontier.length} capture target${frontier.length === 1 ? "" : "s"} queued`
+            : "No capture targets"
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.inspections += 1;
+
+    const { row, column } = parseCellId(currentCell);
+    grid[row]![column] = "X";
+    remainingOpen.delete(currentCell);
+    capturedCells.push(currentCell);
+    settled.push(currentCell);
+    metrics.updates += 1;
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Capture",
+      description: `${formatCellLabel(currentCell)} flips from O to X because no border-connected path ever marked it safe.`,
+      explanation: {
+        summary: "Capture one enclosed region cell in deterministic row-major order.",
+        details:
+          "The updated grid, captured-cell ledger, and shrinking unresolved-open set are stored together so replay can explain each flip without rerunning the flood fill.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `surrounded-regions-capture-${currentCell}`,
+          path: `state.grid.${row}.${column}`,
+          kind: "node",
+          intent: "result",
+          label: `Capture ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  capturedAny = capturedCells.length > 0;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: capturedAny
+      ? `Captured ${capturedCells.length} enclosed O cell${capturedCells.length === 1 ? "" : "s"} while preserving ${safeCells.length} safe border-connected cell${safeCells.length === 1 ? "" : "s"}.`
+      : `Every O cell stayed border-connected, so the grid resolves without any captures.`,
+    explanation: {
+      summary: capturedAny
+        ? "Publish the final captured-cell ledger and the preserved safe region."
+        : "Publish the final safe-region ledger when no enclosed O cells remain to flip.",
+      details: capturedAny
+        ? "The terminal frame preserves the final grid, safe cells, and captured cells directly so replay can justify every surviving or flipped region without recomputation."
+        : "Because the unresolved-open set is empty, replay can show that every O was reachable from the boundary without performing another flood fill.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "surrounded-regions-final",
+        path: capturedAny ? "state.capturedCells" : "state.safeCells",
+        kind: "collection",
+        intent: "result",
+        label: capturedAny ? "Captured enclosed regions" : "No enclosed regions"
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildWallsAndGatesTrace(
   input: WallsAndGatesInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -3981,6 +4490,8 @@ export function buildGraphTrace(
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
     case "number-of-islands":
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
+    case "surrounded-regions":
+      return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":
       return buildWallsAndGatesTrace(graph as WallsAndGatesInput);
   }

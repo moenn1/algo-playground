@@ -930,6 +930,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const surroundedRegionsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-capture/resolve",
+      payload: {
+        algorithmId: "surrounded-regions"
+      }
+    });
+
+    expect(surroundedRegionsPreset.statusCode).toBe(200);
+    expect(surroundedRegionsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-capture"
+      },
+      algorithm: {
+        id: "surrounded-regions",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
+    const borderSafePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.border-safe/resolve",
+      payload: {
+        algorithmId: "surrounded-regions"
+      }
+    });
+
+    expect(borderSafePreset.statusCode).toBe(200);
+    expect(borderSafePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.border-safe"
+      },
+      algorithm: {
+        id: "surrounded-regions",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const wallsAndGatesPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-gates/resolve",
@@ -1703,6 +1745,40 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const validateSurroundedRegionsInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "surrounded-regions",
+        payload: {
+          grid: [
+            ["x", "x", "x", "x"],
+            ["x", "o", "o", "x"],
+            ["x", "x", "o", "x"],
+            ["x", "o", "x", "x"]
+          ]
+        }
+      }
+    });
+
+    expect(validateSurroundedRegionsInput.statusCode).toBe(200);
+    expect(validateSurroundedRegionsInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "surrounded-regions",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["X", "X", "X", "X"],
+          ["X", "O", "O", "X"],
+          ["X", "X", "O", "X"],
+          ["X", "O", "X", "X"]
+        ]
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const validateWallsAndGatesInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -1865,6 +1941,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: 'grid[1][1] must be "0" or "1".'
+    });
+  });
+
+  it("rejects surrounded-regions payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "surrounded-regions",
+        payload: {
+          grid: [
+            ["X", "O", "X"],
+            ["O", "Y", "O"]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: 'grid[1][1] must be "X" or "O".'
     });
   });
 
