@@ -2,6 +2,7 @@
 
 ## 2026-04-21
 
+- Hardened the GitHub Actions verification install path by switching to lockfile-exact `npm ci`, enabling npm cache restores keyed to the root `package-lock.json`, and documenting the CI dependency contract for cache and lockfile maintenance.
 - Added a shared stack runtime for Min Stack, including deterministic push-time minimum comparisons, explicit `top` and `getMin` read checkpoints, minimum recovery after pops, and reuse of the shared `comparisons`, `pushes`, and `pops` metrics.
 - Wired Min Stack through the replay shell, input-service presets and validation, demo seed data, library catalog, and stack-domain documentation so TraceDeck now covers a fourth reusable stack problem with product-grade replay support.
 - Added a shared stack runtime for Largest Rectangle in Histogram, including deterministic monotonic-stack flush checkpoints, stable rectangle-span state, and reuse of the shared `comparisons`, `pushes`, and `pops` metrics.

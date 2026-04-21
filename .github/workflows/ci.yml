@@ -57,12 +57,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         env:
           NPM_CONFIG_AUDIT: "false"
           NPM_CONFIG_FUND: "false"
-        run: npm install
+          NPM_CONFIG_PREFER_OFFLINE: "true"
+        run: npm ci
 
       - name: Validate workspace links
         run: npm run verify:workspaces
