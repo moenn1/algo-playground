@@ -366,6 +366,43 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds shortest-path-binary-matrix replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "shortest-path-binary-matrix",
+      JSON.stringify(
+        {
+          grid: [
+            [0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 0],
+            [0, 0, 0, 1, 0],
+            [1, 1, 0, 0, 0],
+            [1, 1, 1, 1, 0]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("shortest-path-binary-matrix");
+    expect(finalStep.state.kind).toBe("shortest-path-binary-matrix");
+    if (finalStep.state.kind !== "shortest-path-binary-matrix") {
+      throw new Error("Expected the shortest-path-binary-matrix graph state.");
+    }
+    expect(finalStep.state.reachable).toBe(true);
+    expect(finalStep.state.pathLength).toBe(6);
+    expect(finalStep.state.path).toEqual(["0,0", "1,0", "2,1", "2,2", "3,3", "4,4"]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds surrounded-regions replay runs from the shared graph engine", () => {
     const run = buildRun(
       "surrounded-regions",

@@ -16,6 +16,7 @@ export type GraphAlgorithmId =
   | "rotting-oranges"
   | "number-of-islands"
   | "pacific-atlantic-water-flow"
+  | "shortest-path-binary-matrix"
   | "surrounded-regions"
   | "walls-and-gates";
 
@@ -29,6 +30,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "rotting-oranges",
   "number-of-islands",
   "pacific-atlantic-water-flow",
+  "shortest-path-binary-matrix",
   "surrounded-regions",
   "walls-and-gates"
 ];
@@ -63,6 +65,10 @@ export interface PacificAtlanticWaterFlowInput extends JsonObject {
   grid: number[][];
 }
 
+export interface ShortestPathBinaryMatrixInput extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInput extends JsonObject {
   grid: string[][];
 }
@@ -78,6 +84,7 @@ export type GraphInput =
   | RottingOrangesInput
   | NumberOfIslandsInput
   | PacificAtlanticWaterFlowInput
+  | ShortestPathBinaryMatrixInput
   | SurroundedRegionsInput
   | WallsAndGatesInput;
 
@@ -186,6 +193,21 @@ export interface PacificAtlanticWaterFlowExecutionState extends JsonObject {
   dualReachable: string[];
 }
 
+export interface ShortestPathBinaryMatrixExecutionState extends JsonObject {
+  kind: "shortest-path-binary-matrix";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  path: string[];
+  visitedOpen: string[];
+  blockedCells: string[];
+  pathLength: number | null;
+  reachable: boolean | null;
+}
+
 export interface SurroundedRegionsExecutionState extends JsonObject {
   kind: "surrounded-regions";
   grid: string[][];
@@ -225,6 +247,7 @@ export type GraphExecutionState =
   | RottingOrangesExecutionState
   | NumberOfIslandsExecutionState
   | PacificAtlanticWaterFlowExecutionState
+  | ShortestPathBinaryMatrixExecutionState
   | SurroundedRegionsExecutionState
   | WallsAndGatesExecutionState;
 
@@ -381,6 +404,20 @@ interface WallsAndGatesRuntimeState {
   unreachableRooms: string[];
 }
 
+interface ShortestPathBinaryMatrixRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  path: string[];
+  visitedOpen: Set<string>;
+  blockedCells: string[];
+  pathLength: number | null;
+  reachable: boolean | null;
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -426,6 +463,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "pacific-atlantic-water-flow",
     label: "Pacific Atlantic Water Flow",
     implementationVersion: "graph-engine-0.9.0"
+  },
+  "shortest-path-binary-matrix": {
+    id: "shortest-path-binary-matrix",
+    label: "Shortest Path in Binary Matrix",
+    implementationVersion: "graph-engine-0.10.0"
   },
   "surrounded-regions": {
     id: "surrounded-regions",
@@ -556,6 +598,16 @@ export const defaultPacificAtlanticWaterFlowInput: PacificAtlanticWaterFlowInput
     [2, 4, 5, 3, 1],
     [6, 7, 1, 4, 5],
     [5, 1, 1, 2, 4]
+  ]
+};
+
+export const defaultShortestPathBinaryMatrixInput: ShortestPathBinaryMatrixInput = {
+  grid: [
+    [0, 1, 0, 0, 0],
+    [0, 1, 0, 1, 0],
+    [0, 0, 0, 1, 0],
+    [1, 1, 0, 0, 0],
+    [1, 1, 1, 1, 0]
   ]
 };
 
@@ -698,6 +750,23 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       pacificReachable: state.pacificReachable.slice(),
       atlanticReachable: state.atlanticReachable.slice(),
       dualReachable: state.dualReachable.slice()
+    };
+  }
+
+  if (state.kind === "shortest-path-binary-matrix") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      path: state.path.slice(),
+      visitedOpen: state.visitedOpen.slice(),
+      blockedCells: state.blockedCells.slice(),
+      pathLength: state.pathLength,
+      reachable: state.reachable
     };
   }
 
@@ -1114,6 +1183,54 @@ function normalizePacificAtlanticWaterFlowInput(
   };
 }
 
+function normalizeShortestPathBinaryMatrixInput(
+  candidate: unknown
+): ShortestPathBinaryMatrixInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Shortest Path in Binary Matrix input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Shortest Path in Binary Matrix input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Shortest Path in Binary Matrix input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty binary row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (typeof cell !== "number" || !Number.isInteger(cell) || (cell !== 0 && cell !== 1)) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be either 0 or 1.`);
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Shortest Path in Binary Matrix input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeSurroundedRegionsInput(candidate: unknown): SurroundedRegionsInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Surrounded Regions input must be an object with a grid field.");
@@ -1243,6 +1360,8 @@ export function parseGraphInputText(
       return normalizeNumberOfIslandsInput(parsed);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(parsed);
+    case "shortest-path-binary-matrix":
+      return normalizeShortestPathBinaryMatrixInput(parsed);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(parsed);
     case "walls-and-gates":
@@ -1269,6 +1388,8 @@ export function normalizeGraphInput(
       return normalizeNumberOfIslandsInput(input);
     case "pacific-atlantic-water-flow":
       return normalizePacificAtlanticWaterFlowInput(input);
+    case "shortest-path-binary-matrix":
+      return normalizeShortestPathBinaryMatrixInput(input);
     case "surrounded-regions":
       return normalizeSurroundedRegionsInput(input);
     case "walls-and-gates":
@@ -1638,6 +1759,34 @@ function getNeighborCellIds(
     .map(([neighborRow, neighborColumn]) => makeCellId(neighborRow, neighborColumn));
 }
 
+function getDiagonalNeighborCellIds(
+  row: number,
+  column: number,
+  rowCount: number,
+  columnCount: number
+): string[] {
+  const candidates: Array<[number, number]> = [
+    [row - 1, column - 1],
+    [row - 1, column],
+    [row - 1, column + 1],
+    [row, column - 1],
+    [row, column + 1],
+    [row + 1, column - 1],
+    [row + 1, column],
+    [row + 1, column + 1]
+  ];
+
+  return candidates
+    .filter(
+      ([neighborRow, neighborColumn]) =>
+        neighborRow >= 0 &&
+        neighborRow < rowCount &&
+        neighborColumn >= 0 &&
+        neighborColumn < columnCount
+    )
+    .map(([neighborRow, neighborColumn]) => makeCellId(neighborRow, neighborColumn));
+}
+
 function createRottingOrangesRecorder() {
   return createTraceRecorder<
     RottingOrangesRuntimeState,
@@ -1722,6 +1871,33 @@ function createPacificAtlanticWaterFlowRecorder() {
   });
 }
 
+function createShortestPathBinaryMatrixRecorder() {
+  return createTraceRecorder<
+    ShortestPathBinaryMatrixRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "shortest-path-binary-matrix",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "shortest-path-binary-matrix",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        path: runtimeState.path.slice(),
+        visitedOpen: Array.from(runtimeState.visitedOpen).sort(compareCellIds),
+        blockedCells: runtimeState.blockedCells.slice(),
+        pathLength: runtimeState.pathLength,
+        reachable: runtimeState.reachable
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createSurroundedRegionsRecorder() {
   return createTraceRecorder<
     SurroundedRegionsRuntimeState,
@@ -1790,6 +1966,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
     | ReturnType<typeof createPacificAtlanticWaterFlowRecorder>
+    | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createSurroundedRegionsRecorder>
     | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
@@ -4289,6 +4466,470 @@ export function buildPacificAtlanticWaterFlowTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildShortestPathBinaryMatrixTrace(
+  input: ShortestPathBinaryMatrixInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["shortest-path-binary-matrix"];
+  const normalizedInput = normalizeShortestPathBinaryMatrixInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const startCell = makeCellId(0, 0);
+  const targetCell = makeCellId(rowCount - 1, columnCount - 1);
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const path: string[] = [];
+  const blockedCells = grid.flatMap((row, rowIndex) =>
+    row.flatMap((value, columnIndex) =>
+      value === 1 ? [makeCellId(rowIndex, columnIndex)] : []
+    )
+  );
+  const visitedOpen = new Set<string>();
+  const predecessors = new Map<string, string>();
+  const recorder = createShortestPathBinaryMatrixRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let pathLength: number | null = null;
+  let reachable: boolean | null = null;
+  let foundCell: string | null = null;
+
+  const createRuntimeState = (): ShortestPathBinaryMatrixRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    phaseMode,
+    path,
+    visitedOpen,
+    blockedCells,
+    pathLength,
+    reachable
+  });
+
+  if (grid[0]![0] === 0) {
+    frontier.push(startCell);
+    visitedOpen.add(startCell);
+    metrics.frontier = 1;
+    metrics.updates = 1;
+  }
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Seed the binary-matrix search from the top-left open cell and publish the blocked-cell ledger before the 8-direction BFS begins.",
+    explanation: {
+      summary: "Store the opening queue, blocked cells, and empty path directly in the first frame.",
+      details:
+        "The replay keeps the blocked-cell ledger explicit so every later frontier expansion and traceback step can be explained without rebuilding the matrix topology on demand.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-binary-matrix-init",
+        path: "state.blockedCells",
+        kind: "collection",
+        intent: "focus",
+        label: `${blockedCells.length} blocked cell${blockedCells.length === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  if (grid[0]![0] === 1 || grid[rowCount - 1]![columnCount - 1] === 1) {
+    phaseMode = "resolved";
+    reachable = false;
+    current = null;
+    activeEdge = [];
+
+    recorder.push({
+      phase: "Blocked",
+      description:
+        "Stop immediately because the start or destination cell is blocked, so no binary-matrix path can exist.",
+      explanation: {
+        summary: "Publish the blocked endpoint result without entering the BFS loop.",
+        details:
+          "The trace records endpoint failure directly in the state snapshot so replay does not need to infer why the queue stayed empty.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-binary-matrix-blocked",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "No path"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  searchLoop: while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the BFS queue as the next binary-matrix search source.`,
+      explanation: {
+        summary: "Expand the next reachable open cell in deterministic queue order.",
+        details:
+          "Every extract frame records the active search source before neighbor inspection begins, which keeps the grid frontier explicit across the entire shortest-path search.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-binary-matrix-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expanding ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    if (currentCell === targetCell) {
+      reachable = true;
+      foundCell = currentCell;
+      settled.push(currentCell);
+      metrics.settled = settled.length;
+
+      recorder.push({
+        phase: "Target",
+        description: `${formatCellLabel(currentCell)} is the destination, so the BFS search can stop and switch to traceback.`,
+        explanation: {
+          summary: "Stop search on the first destination extract because BFS guarantees a shortest path.",
+          details:
+            "The destination frame locks the search result before the traceback phase reconstructs the path directly into the replay state.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-binary-matrix-target-${currentCell}`,
+            path: "state.settled",
+            kind: "collection",
+            intent: "result",
+            label: "Destination reached"
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row: currentRow, column: currentColumn } = parseCellId(currentCell);
+
+    for (const neighbor of getDiagonalNeighborCellIds(
+      currentRow,
+      currentColumn,
+      rowCount,
+      columnCount
+    )) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (grid[neighborRow]![neighborColumn] === 1) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and stop because the cell is blocked.`,
+          explanation: {
+            summary: "Reject a blocked neighbor during the BFS expansion.",
+            details:
+              "Binary Matrix search only queues open cells, so blocked destinations are recorded as inspected but never discovered.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-binary-matrix-blocked-edge-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.blockedCells",
+              kind: "collection",
+              intent: "candidate",
+              label: `${formatCellLabel(neighbor)} blocked`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (visitedOpen.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the queue stable because the search already discovered that open cell.`,
+          explanation: {
+            summary: "Skip a previously discovered open cell without re-enqueuing it.",
+            details:
+              "This keeps the visited-open ledger deterministic and avoids hidden deduplication logic inside the replay.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-binary-matrix-known-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.visitedOpen",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already discovered`
+            }
+          ]
+        });
+        continue;
+      }
+
+      visitedOpen.add(neighbor);
+      frontier.push(neighbor);
+      predecessors.set(neighbor, currentCell);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      const reachesTarget = neighbor === targetCell;
+
+      recorder.push({
+        phase: reachesTarget ? "Target Found" : "Enqueue",
+        description: reachesTarget
+          ? `${formatCellLabel(neighbor)} enters the queue as the first discovered destination, which locks the shortest path length before traceback.`
+          : `${formatCellLabel(neighbor)} is open, so BFS records it as a new shortest-path candidate.`,
+        explanation: {
+          summary: reachesTarget
+            ? "Discover the destination and stop the search after this shortest frontier expansion."
+            : "Queue one newly discovered open cell for later expansion.",
+          details:
+            "The state update records the visited-open ledger, predecessor link, and queue growth in the same frame so replay can justify every later traceback edge.",
+          tags: ["frontier", "edge"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-binary-matrix-enqueue-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: reachesTarget ? "state.frontier" : "state.visitedOpen",
+            kind: "collection",
+            intent: reachesTarget ? "result" : "frontier",
+            label: reachesTarget
+              ? "Destination queued"
+              : `${formatCellLabel(neighbor)} discovered`
+          }
+        ]
+      });
+
+      if (reachesTarget) {
+        reachable = true;
+        foundCell = neighbor;
+        settled.push(currentCell);
+        metrics.settled = settled.length;
+        activeEdge = [];
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is sealed after discovering the destination on its search frontier.`,
+          explanation: {
+            summary: "Close the final search source before the trace transitions into traceback.",
+            details:
+              "This checkpoint keeps the BFS search and the path reconstruction phases distinct while preserving the settled and frontier ledgers exactly as they stood when the target was found.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-binary-matrix-checkpoint-${currentCell}`,
+              path: "state.settled",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} settled`
+            }
+          ]
+        });
+
+        break searchLoop;
+      }
+    }
+
+    if (reachable) {
+      break;
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed after all 8-direction neighbor checks.`,
+      explanation: {
+        summary: "Seal one open cell after its BFS expansion finishes.",
+        details:
+          "The checkpoint frame stores the search queue and visited ledger directly so replay can jump to any settled boundary without rerunning neighbor scans.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-binary-matrix-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} settled`
+        }
+      ]
+    });
+  }
+
+  if (reachable && foundCell) {
+    phaseMode = "traceback";
+    current = foundCell;
+    activeEdge = [];
+
+    recorder.push({
+      phase: "Traceback",
+      description:
+        "Switch from BFS expansion to predecessor traceback so replay can build the shortest path directly from the discovered destination.",
+      explanation: {
+        summary: "Begin reconstructing the shortest path from the destination back to the source.",
+        details:
+          "The path is published as an explicit ledger, not inferred from hidden predecessor tables during playback.",
+        tags: ["checkpoint", "path"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-binary-matrix-traceback-start",
+          path: "state.phaseMode",
+          kind: "value",
+          intent: "focus",
+          label: "Traceback"
+        }
+      ]
+    });
+
+    let tracebackCell: string | null = foundCell;
+
+    while (tracebackCell) {
+      current = tracebackCell;
+      const previousCell: string | null = predecessors.get(tracebackCell) ?? null;
+      activeEdge = previousCell ? [previousCell, tracebackCell] : [];
+      path.unshift(tracebackCell);
+
+      recorder.push({
+        phase: "Traceback",
+        description: previousCell
+          ? `${formatCellLabel(tracebackCell)} joins the shortest path, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+          : `${formatCellLabel(tracebackCell)} closes the traceback as the source cell.`,
+        explanation: {
+          summary: previousCell
+            ? "Prepend one predecessor-linked cell to the shortest path ledger."
+            : "Finish the shortest path at the source cell.",
+          details:
+            "Each traceback frame grows the path ledger directly so the final route never depends on hidden predecessor reconstruction in the viewer.",
+          tags: ["path", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-binary-matrix-path-${tracebackCell}-${path.length}`,
+            path: "state.path",
+            kind: "collection",
+            intent: "result",
+            label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+          }
+        ]
+      });
+
+      tracebackCell = previousCell;
+    }
+
+    pathLength = path.length;
+  } else {
+    phaseMode = "resolved";
+    current = null;
+    activeEdge = [];
+    reachable = false;
+
+    recorder.push({
+      phase: "No Path",
+      description:
+        "The BFS queue is empty before the destination is discovered, so the binary matrix has no open route to the bottom-right cell.",
+      explanation: {
+        summary: "Publish the unreachable result once the search frontier stalls.",
+        details:
+          "The terminal frame preserves the visited-open ledger directly, so replay can explain which open cells were reachable even though no full path exists.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-binary-matrix-no-path",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "No path"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The shortest binary-matrix path is ${pathLength ?? 0} cell${pathLength === 1 ? "" : "s"} long after BFS and traceback both complete.`,
+    explanation: {
+      summary: "Publish the final shortest-path ledger and path length together.",
+      details:
+        "The terminal frame stores the exact route, the reachable outcome, and the final queue state directly so replay can justify the solution without recomputing BFS or predecessor chains.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-binary-matrix-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `${pathLength ?? 0} path cell${pathLength === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildSurroundedRegionsTrace(
   input: SurroundedRegionsInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -4970,6 +5611,8 @@ export function buildGraphTrace(
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
     case "pacific-atlantic-water-flow":
       return buildPacificAtlanticWaterFlowTrace(graph as PacificAtlanticWaterFlowInput);
+    case "shortest-path-binary-matrix":
+      return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
     case "surrounded-regions":
       return buildSurroundedRegionsTrace(graph as SurroundedRegionsInput);
     case "walls-and-gates":

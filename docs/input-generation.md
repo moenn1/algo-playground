@@ -129,6 +129,8 @@ Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort
 - `graph.diagonal-islands`: curated diagonal land pattern that stays disconnected under four-directional adjacency
 - `graph.reference-flow`: curated heights grid with a stable dual-ocean coastline intersection
 - `graph.interior-sink`: curated basin where one low interior cell never joins either ocean reachability set
+- `graph.reference-binary-path`: curated blocked grid with one deterministic open route to the exit
+- `graph.sealed-binary-exit`: curated blocked grid where the exit remains unreachable after search exhaustion
 - `graph.reference-capture`: curated capture grid with one border-safe region and several enclosed flips
 - `graph.border-safe`: curated capture grid where every `O` stays connected to the border
 - `graph.reference-gates`: curated room map where every empty room reaches a gate with a stable shortest distance
@@ -148,6 +150,8 @@ The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] 
 The island-count presets resolve for Number of Islands and use `{ "grid": string[][] }` as the normalized contract, where `"0"` is water and `"1"` is land. Numeric `0` and `1` values are accepted during validation and normalized to strings.
 
 The dual-ocean presets resolve for Pacific Atlantic Water Flow and use `{ "grid": number[][] }` as the normalized contract, where each cell is a non-negative integer height.
+
+The binary-matrix path presets resolve for Shortest Path in Binary Matrix and use `{ "grid": number[][] }` as the normalized contract, where `0` is open and `1` is blocked.
 
 The border-capture presets resolve for Surrounded Regions and use `{ "grid": string[][] }` as the normalized contract, where `"X"` is a wall and `"O"` is an open cell. Lowercase `x` and `o` values are accepted during validation and normalized to uppercase strings.
 
@@ -247,6 +251,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Kth Largest Element in an Array payloads must define between 2 and 24 integers plus an integer `k` between `1` and the array length.
 - Top K Frequent Elements payloads must define between 2 and 24 integers plus an integer `k` between `1` and the number of distinct values.
 - Pacific Atlantic Water Flow payloads must define a rectangular grid up to `8 x 8` and every height must be a non-negative integer.
+- Shortest Path in Binary Matrix payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
 - Surrounded Regions payloads must define a rectangular grid up to `8 x 8` and every cell must normalize to `"X"` or `"O"`.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.

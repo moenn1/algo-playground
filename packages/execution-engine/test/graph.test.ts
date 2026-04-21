@@ -10,6 +10,7 @@ import {
   buildNumberOfIslandsTrace,
   buildPacificAtlanticWaterFlowTrace,
   buildRottingOrangesTrace,
+  buildShortestPathBinaryMatrixTrace,
   buildSurroundedRegionsTrace,
   buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
@@ -19,6 +20,7 @@ import {
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
+  defaultShortestPathBinaryMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   formatGraphDistance,
@@ -237,6 +239,12 @@ describe("graph execution engine", () => {
         "pacific-atlantic-water-flow"
       )
     ).toEqual(defaultPacificAtlanticWaterFlowInput);
+    expect(
+      parseGraphInputText(
+        serializeGraphInput(defaultShortestPathBinaryMatrixInput),
+        "shortest-path-binary-matrix"
+      )
+    ).toEqual(defaultShortestPathBinaryMatrixInput);
     expect(
       parseGraphInputText(
         serializeGraphInput(defaultSurroundedRegionsInput),
@@ -465,6 +473,49 @@ describe("graph execution engine", () => {
     ]);
     expect(interiorSinkFinalStep.state.pacificReachable).not.toContain("1,1");
     expect(interiorSinkFinalStep.state.atlanticReachable).not.toContain("1,1");
+  });
+
+  it("records deterministic shortest paths and unreachable grids for Shortest Path in Binary Matrix", () => {
+    const firstTrace = buildShortestPathBinaryMatrixTrace(defaultShortestPathBinaryMatrixInput);
+    const secondTrace = buildShortestPathBinaryMatrixTrace(defaultShortestPathBinaryMatrixInput);
+    const unreachableTrace = buildShortestPathBinaryMatrixTrace({
+      grid: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 0],
+        [0, 0, 1, 1],
+        [0, 1, 1, 0]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const unreachableFinalStep = unreachableTrace.steps[unreachableTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("shortest-path-binary-matrix");
+    if (referenceFinalStep.state.kind !== "shortest-path-binary-matrix") {
+      throw new Error("Expected the shortest-path-binary-matrix state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.reachable).toBe(true);
+    expect(referenceFinalStep.state.pathLength).toBe(6);
+    expect(referenceFinalStep.state.path).toEqual([
+      "0,0",
+      "1,0",
+      "2,1",
+      "2,2",
+      "3,3",
+      "4,4"
+    ]);
+
+    expect(unreachableFinalStep.phase).toBe("No Path");
+    expect(unreachableFinalStep.state.kind).toBe("shortest-path-binary-matrix");
+    if (unreachableFinalStep.state.kind !== "shortest-path-binary-matrix") {
+      throw new Error("Expected the shortest-path-binary-matrix state.");
+    }
+    expect(unreachableFinalStep.state.reachable).toBe(false);
+    expect(unreachableFinalStep.state.pathLength).toBeNull();
+    expect(unreachableFinalStep.state.path).toEqual([]);
+    expect(unreachableFinalStep.state.visitedOpen).toEqual(["0,0", "0,1", "0,2", "0,3", "1,3"]);
   });
 
   it("records deterministic room fills and blocked rooms for Walls and Gates", () => {

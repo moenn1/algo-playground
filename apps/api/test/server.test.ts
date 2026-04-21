@@ -972,6 +972,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const binaryPathPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-binary-path/resolve",
+      payload: {
+        algorithmId: "shortest-path-binary-matrix"
+      }
+    });
+
+    expect(binaryPathPreset.statusCode).toBe(200);
+    expect(binaryPathPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-binary-path"
+      },
+      algorithm: {
+        id: "shortest-path-binary-matrix",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
+    const sealedBinaryExitPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.sealed-binary-exit/resolve",
+      payload: {
+        algorithmId: "shortest-path-binary-matrix"
+      }
+    });
+
+    expect(sealedBinaryExitPreset.statusCode).toBe(200);
+    expect(sealedBinaryExitPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.sealed-binary-exit"
+      },
+      algorithm: {
+        id: "shortest-path-binary-matrix",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const surroundedRegionsPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-capture/resolve",
@@ -1823,6 +1865,42 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
+    const validateShortestPathBinaryMatrixInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-path-binary-matrix",
+        payload: {
+          grid: [
+            [0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 0],
+            [0, 0, 0, 1, 0],
+            [1, 1, 0, 0, 0],
+            [1, 1, 1, 1, 0]
+          ]
+        }
+      }
+    });
+
+    expect(validateShortestPathBinaryMatrixInput.statusCode).toBe(200);
+    expect(validateShortestPathBinaryMatrixInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "shortest-path-binary-matrix",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [0, 1, 0, 0, 0],
+          [0, 1, 0, 1, 0],
+          [0, 0, 0, 1, 0],
+          [1, 1, 0, 0, 0],
+          [1, 1, 1, 1, 0]
+        ]
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const validateSurroundedRegionsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -2042,6 +2120,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "grid[1][1] must be a non-negative integer height."
+    });
+  });
+
+  it("rejects shortest-path-binary-matrix payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-path-binary-matrix",
+        payload: {
+          grid: [
+            [0, 1, 0],
+            [0, 2, 0]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "grid[1][1] must be either 0 or 1."
     });
   });
 

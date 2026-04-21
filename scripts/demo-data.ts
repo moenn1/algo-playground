@@ -459,6 +459,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "interior-sink"]
   },
   {
+    key: "graph-reference-binary-path",
+    algorithmId: "shortest-path-binary-matrix",
+    presetId: "graph.reference-binary-path",
+    recordedAt: "2026-04-20T09:16:22.000Z",
+    tags: ["seeded-demo", "graph", "reference-binary-path"]
+  },
+  {
+    key: "graph-sealed-binary-exit",
+    algorithmId: "shortest-path-binary-matrix",
+    presetId: "graph.sealed-binary-exit",
+    recordedAt: "2026-04-20T09:16:25.000Z",
+    tags: ["seeded-demo", "graph", "sealed-binary-exit"]
+  },
+  {
     key: "graph-reference-capture",
     algorithmId: "surrounded-regions",
     presetId: "graph.reference-capture",

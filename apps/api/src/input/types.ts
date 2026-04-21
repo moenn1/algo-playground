@@ -32,6 +32,7 @@ export const supportedAlgorithmIds = [
   "rotting-oranges",
   "number-of-islands",
   "pacific-atlantic-water-flow",
+  "shortest-path-binary-matrix",
   "surrounded-regions",
   "walls-and-gates"
 ] as const;
@@ -74,6 +75,10 @@ export interface PacificAtlanticWaterFlowInputPayload extends JsonObject {
   grid: number[][];
 }
 
+export interface ShortestPathBinaryMatrixInputPayload extends JsonObject {
+  grid: number[][];
+}
+
 export interface SurroundedRegionsInputPayload extends JsonObject {
   grid: string[][];
 }
@@ -89,6 +94,7 @@ export type GraphInputPayload =
   | RottingOrangesInputPayload
   | NumberOfIslandsInputPayload
   | PacificAtlanticWaterFlowInputPayload
+  | ShortestPathBinaryMatrixInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload;
 

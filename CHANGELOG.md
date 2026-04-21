@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Shortest Path in Binary Matrix, including deterministic 8-direction BFS discovery, explicit blocked-cell ledgers, predecessor traceback, and replay-safe shortest-route state without hidden path reconstruction.
+- Wired Shortest Path in Binary Matrix through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct blocked-grid shortest-path problem alongside traversal, Union-Find, scheduling, infection, component counting, dual-ocean reachability, capture, and room-filling replays.
+- Expanded the seeded demo dataset and operator docs so local verification now reflects 34 algorithms with runs, 68 total runs, and 2 saved comparisons.
 - Added a shared graph replay for Pacific Atlantic Water Flow, including deterministic dual-ocean border seeding, uphill reverse-flow reachability, immediate dual-ocean intersection tracking, and replay-safe coastline state without hidden flood-fill reconstruction.
 - Wired Pacific Atlantic Water Flow through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct dual-ocean reachability problem alongside traversal, Union-Find, scheduling, infection, component counting, capture, and room-filling replays.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 33 algorithms with runs, 66 total runs, and 2 saved comparisons.

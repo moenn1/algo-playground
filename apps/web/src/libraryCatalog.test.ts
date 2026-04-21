@@ -256,6 +256,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("pacific-atlantic-water-flow");
   });
 
+  it("surfaces shortest-path-binary-matrix study paths through traceback metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "pathfinding",
+        q: "traceback blocked-cell bfs"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-path-binary-matrix");
+  });
+
   it("surfaces dfs study paths through depth-first stack metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

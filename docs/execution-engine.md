@@ -370,6 +370,21 @@ Pacific Atlantic Water Flow records:
 - `state.atlanticReachable`: cells confirmed to reach the Atlantic border through reverse flow
 - `state.dualReachable`: cells confirmed to reach both oceans
 
+Shortest Path in Binary Matrix records:
+
+- `state.kind`: `"shortest-path-binary-matrix"`
+- `state.grid`: the open-vs-blocked matrix snapshot for the current search or traceback frame
+- `state.settled`: open cells whose outgoing BFS checks are fully recorded
+- `state.frontier`: the ordered queue of open cells still waiting to expand
+- `state.current`: the open cell currently acting as the search focus or traceback cursor
+- `state.activeEdge`: the active source-to-neighbor inspection or predecessor traceback edge
+- `state.phaseMode`: `"search"`, `"traceback"`, or `"resolved"` so replay can explain whether the runtime is still expanding the frontier or reconstructing the route
+- `state.path`: the explicit shortest-path ledger published during traceback
+- `state.visitedOpen`: the deterministic row-major ledger of reachable open cells discovered so far
+- `state.blockedCells`: the deterministic row-major ledger of blocked cells in the grid
+- `state.pathLength`: the terminal shortest-path length in cells when the destination is reachable
+- `state.reachable`: `true`, `false`, or `null` while the runtime is still in progress
+
 Surrounded Regions records:
 
 - `state.kind`: `"surrounded-regions"`
@@ -408,7 +423,7 @@ Shared graph metrics keep the runtime readable across all graph-family algorithm
 - `inspections`: edges or neighbor relationships inspected so far
 - `updates`: committed state changes such as predecessor locks, indegree unlocks, room fills, or successful unions
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, DFS records top-first stack order, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, Clone Graph records the remaining original-node queue in fixed discovery order, Graph Valid Tree records the remaining edge queue in fixed input order, Course Schedule records the zero-indegree queue sorted by numeric course id, Rotting Oranges records the minute-wave infection queue in fixed neighbor order, Number of Islands records the active connected-component queue in fixed neighbor order while the row-major scan cursor stays explicit, Pacific Atlantic Water Flow records the Pacific queue first and then the Atlantic queue in row-major border-seed order, Shortest Path in Binary Matrix records the open-cell BFS queue in fixed 8-direction neighbor order before switching to predecessor traceback, Surrounded Regions records the border-safe queue first and then the row-major capture queue, and Walls and Gates records the multi-source room-fill queue in fixed neighbor order so shortest gate distances stay replay-safe.
 
 ## Deterministic Emission Rules
 
@@ -437,11 +452,12 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Rotting Oranges records queue extraction, per-neighbor infection checks, explicit spread updates, minute-wave checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete infections and unreachable fresh cells without re-running the grid BFS.
 - Number of Islands records row-major scan passes, island-seed checkpoints, per-neighbor land or water inspections, explicit component-expansion updates, island-complete checkpoints, and terminal island counts explicitly so replay can explain both scan order and connected-component membership without re-running the flood fill.
 - Pacific Atlantic Water Flow records Pacific border seeding, Atlantic border seeding, uphill reverse-flow inspections, explicit ocean-reachability updates, immediate dual-ocean intersections, and terminal coastline reporting explicitly so replay can explain both single-ocean and dual-ocean reachability without re-running either pass.
+- Shortest Path in Binary Matrix records blocked-cell inspection, open-cell discovery, destination-found checkpoints, predecessor traceback, and terminal reachable-or-unreachable reporting explicitly so replay can explain both frontier search and route reconstruction without re-running the grid BFS.
 - Surrounded Regions records border-seed discovery, safe-flood queue extraction, per-neighbor wall-or-open inspections, explicit safe-region updates, deterministic row-major capture flips, and terminal preserve-versus-capture reporting explicitly so replay can explain both protected border regions and enclosed captures without re-running the flood fill.
 - Walls and Gates records gate seeding, queue extraction, per-neighbor wall-or-room inspections, explicit distance-fill updates, per-source checkpoints, and terminal resolution-or-stall reporting explicitly so replay can explain both complete room coverage and blocked infinity rooms without re-running the grid BFS.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, Pacific Atlantic Water Flow replay, Surrounded Regions replay, and Walls and Gates replay from this package.
-- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, dual-ocean reachability, border-capture, and grid contracts.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Course Schedule replay, Rotting Oranges replay, Number of Islands replay, Pacific Atlantic Water Flow replay, Shortest Path in Binary Matrix replay, Surrounded Regions replay, and Walls and Gates replay from this package.
+- `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, dual-ocean reachability, blocked-cell shortest-path search, border-capture, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

@@ -463,6 +463,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong grid-graph follow-up because it reuses deterministic frontier instrumentation while adding a clean two-phase intersection model.",
     nextAlgorithmIds: ["surrounded-regions", "walls-and-gates"]
   },
+  "shortest-path-binary-matrix": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.94,
+    timeToExplore: "7 min",
+    complexity: "The BFS frontier stays readable, but every expansion also has to preserve blocked-cell inspections and a separate predecessor traceback before the route is complete.",
+    outcome: "See exactly when an open cell is discovered, when the destination first appears on the frontier, and how traceback reconstructs the winning path into the final ledger.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much blocked-cell scanning and queue churn happened before the shortest route locked in.",
+    skills: ["8-direction bfs", "traceback", "blocked-cell ledgers"],
+    spotlight: "A strong graph continuation because it keeps the grid frontier model while adding an explicit path-recovery phase instead of stopping at reachability alone.",
+    nextAlgorithmIds: ["pacific-atlantic-water-flow", "walls-and-gates"]
+  },
   "surrounded-regions": {
     stage: "core",
     focus: "state-tracking",

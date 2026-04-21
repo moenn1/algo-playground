@@ -26,6 +26,7 @@ import {
   defaultNumberOfIslandsInput,
   defaultPacificAtlanticWaterFlowInput,
   defaultRottingOrangesInput,
+  defaultShortestPathBinaryMatrixInput,
   defaultSurroundedRegionsInput,
   defaultWallsAndGatesInput,
   defaultTwoSumInput,
@@ -303,6 +304,17 @@ export function isPacificAtlanticWaterFlowInput(
     "grid" in input &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && cell >= 0)
+    )
+  );
+}
+
+export function isShortestPathBinaryMatrixInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && (cell === 0 || cell === 1))
     )
   );
 }
@@ -768,6 +780,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "Graph Input",
     inputHint: "JSON with a grid of non-negative integer heights.",
     defaultInput: serializeGraphInput(defaultPacificAtlanticWaterFlowInput),
+    domain: "graph"
+  },
+  {
+    id: "shortest-path-binary-matrix",
+    name: "Shortest Path in Binary Matrix",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "8-direction BFS replay records blocked-cell inspections, queue growth, and explicit predecessor traceback into the final shortest route.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with a grid using 0 for open cells and 1 for blocked cells.",
+    defaultInput: serializeGraphInput(defaultShortestPathBinaryMatrixInput),
     domain: "graph"
   },
   {

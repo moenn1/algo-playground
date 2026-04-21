@@ -23,6 +23,7 @@ import {
   isPacificAtlanticWaterFlowInput,
   isPathfindingGraphInput,
   isRottingOrangesInput,
+  isShortestPathBinaryMatrixInput,
   isSurroundedRegionsInput,
   isWallsAndGatesInput,
   type SearchRun,
@@ -178,12 +179,14 @@ function formatGraphNodeStatus(
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
     step.state.kind === "pacific-atlantic-water-flow" ||
+    step.state.kind === "shortest-path-binary-matrix" ||
     step.state.kind === "surrounded-regions" ||
     step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isNumberOfIslandsInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
+    isShortestPathBinaryMatrixInput(run.input) ||
     isSurroundedRegionsInput(run.input) ||
     isWallsAndGatesInput(run.input)
   ) {
@@ -229,6 +232,7 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
 
   if (
     isNumberOfIslandsInput(run.input) ||
+    isShortestPathBinaryMatrixInput(run.input) ||
     isPacificAtlanticWaterFlowInput(run.input) ||
     isRottingOrangesInput(run.input) ||
     isWallsAndGatesInput(run.input)
@@ -682,6 +686,60 @@ function formatPacificAtlanticCellStatus(
   }
 
   return "Unreached";
+}
+
+function getShortestPathBinaryMatrixCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-path-binary-matrix" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "water";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return "active";
+  }
+
+  return "land";
+}
+
+function formatShortestPathBinaryMatrixCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-path-binary-matrix" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback" ? "Traceback focus" : "Search focus";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "Shortest path";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "Queued open cell";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "Blocked";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return step.state.phaseMode === "traceback" ? "Reachable open cell" : "Discovered open cell";
+  }
+
+  return "Open";
 }
 
 function formatGateCellValue(value: number): string {
@@ -1874,6 +1932,192 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
               {step.state.dualReachable.length > 0
                 ? step.state.dualReachable.join(", ")
                 : "Replay has not published a shared-ocean cell yet."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (
+    step.state.kind === "shortest-path-binary-matrix" &&
+    isShortestPathBinaryMatrixInput(run.input)
+  ) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} route grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Shortest Path in Binary Matrix status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Shortest path</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Discovered open cell</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>
+                {step.state.blockedCells.length} blocked cell
+                {step.state.blockedCells.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.reachable === true
+                  ? `Shortest path length ${step.state.pathLength ?? 0}`
+                  : step.state.reachable === false
+                    ? "Destination remains unreachable"
+                    : `${step.state.frontier.length} open cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? "No neighbor under inspection"}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getShortestPathBinaryMatrixCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === 1 ? "Blocked" : "Open"}
+                      </strong>
+                      <span className="island-cell-status">
+                        {formatShortestPathBinaryMatrixCellStatus(cell, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Route focus</span>
+              <strong>{step.state.current ?? "Awaiting next search cell"}</strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} path cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.visitedOpen.length} open cell${step.state.visitedOpen.length === 1 ? "" : "s"} discovered`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued search cells</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Visited open</strong>
+                  <span className="graph-node-status">{step.state.visitedOpen.length}</span>
+                </div>
+                <span className="graph-node-distance">Reachable open cells</span>
+                <span className="graph-node-meta">
+                  {step.state.visitedOpen.length > 0
+                    ? step.state.visitedOpen.join(" · ")
+                    : "No open cells discovered"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Shortest path</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.pathLength !== null
+                    ? `${step.state.pathLength} path cell${step.state.pathLength === 1 ? "" : "s"}`
+                    : "No path yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.reachable === null
+                      ? step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"
+                      : step.state.reachable
+                        ? "Resolved"
+                        : "No path"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.reachable === true
+                    ? `Path length ${step.state.pathLength ?? 0}`
+                    : `${step.state.blockedCells.length} blocked cell${step.state.blockedCells.length === 1 ? "" : "s"} recorded`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Blocked cells</span>
+            <div className="pill-row">
+              {step.state.blockedCells.length > 0 ? (
+                step.state.blockedCells.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No blocked cells</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Settled search cells</span>
+            <strong>{step.state.settled.length}</strong>
+            <p>
+              {step.state.settled.length > 0
+                ? step.state.settled.join(", ")
+                : "No fully processed cells yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Resolution</span>
+            <strong>
+              {step.state.reachable === null
+                ? step.state.phaseMode
+                : step.state.reachable
+                  ? `${step.state.pathLength ?? 0} cells`
+                  : "Unreachable"}
+            </strong>
+            <p>
+              {step.state.reachable
+                ? `Replay stores the exact route from ${step.state.path[0]} to ${step.state.path[step.state.path.length - 1]}.`
+                : "Replay stores the visited-open ledger directly when the frontier exhausts."}
             </p>
           </div>
         </div>
