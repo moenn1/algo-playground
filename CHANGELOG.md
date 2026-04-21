@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Reworked the replay-first interface around a tighter tool layout: the empty hash now opens replay, overview moved to an explicit route directory, replay and comparison use a docked transport-and-timeline rail, and library/history surfaces lean on ledgers and lists instead of repeated card grids.
+- Tightened desktop and tablet framing for the main replay surface so laptop-width layouts avoid rightward page scrolling, reduce above-the-fold sprawl, and keep core controls visible without promotional banner treatment.
 - Added a shared stack-validation runtime for Valid Parentheses, including deterministic push, match, reject, and unclosed terminal checkpoints with stable `comparisons`, `pushes`, and `pops` metrics.
 - Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new stack domain so TraceDeck now includes a famous stack-based interview problem alongside search, sliding window, and dynamic programming.
 - Reworked the algorithm library into a browseable discovery surface with route-backed filters, curated progression paths, saved-run-aware ordering, richer catalog cards, and reference pages that carry progression cues forward.

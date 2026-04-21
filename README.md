@@ -1,15 +1,15 @@
 # TraceDeck
 
-TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, comparison-ready metric surfaces, and a route-based product shell that separates overview, replay, reference, and saved activity.
+TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, comparison-ready metric surfaces, and a route-based interface that separates overview, replay, reference, and saved activity.
 
-This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a multi-surface web shell for replay-oriented UX, shared sorting, search, window, dynamic-programming, and graph execution engines, and a shared trace contract that execution and history features build on.
+This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a multi-route web interface for replay-oriented UX, shared sorting, search, window, dynamic-programming, and graph execution engines, and a shared trace contract that execution and history features build on.
 
 ## Workspace Layout
 
 ```text
 apps/
   api/            Fastify service for persistence, input, comparison, and foundation APIs
-  web/            React replay shell and visualization UX
+  web/            React replay interface and visualization UX
 packages/
   execution-engine/ Shared sorting, search, window, dynamic-programming, stack, and graph runtimes plus trace emitters
   trace-core/     Shared trace schema, replay invariants, and validation helpers
@@ -26,7 +26,7 @@ npm install
 
 Run that command from the repository root. TraceDeck now verifies the internal `@tracedeck/*` workspace links during install and before local build, test, demo, or dev commands start, so nested `npm install` runs inside `apps/*` or `packages/*` are rejected as incomplete workspace bootstraps.
 
-Start the API and web shell together:
+Start the API and web interface together:
 
 ```bash
 npm run dev
@@ -47,16 +47,16 @@ npm run dev:web
 
 The web app runs on `http://localhost:5173` and proxies `/api` to the local API on port `4000`.
 
-## Product Surfaces
+## Interface Routes
 
-The web app is organized into distinct navigation surfaces instead of one vertically condensed page:
+The web app is organized into distinct routes instead of one vertically condensed page:
 
-- `#/` overview landing with product context, recent activity, and route selection
-- `#/playground/:algorithmId?` single-run replay workspace
+- `#/overview` overview index with route selection, persistence status, and recent activity
+- `#/playground/:algorithmId?` single-run replay workspace, and the default first-load route when the hash is empty
 - `#/library` algorithm catalog with shareable browse state for domain, stage, goal, sort, and search filters
 - `#/algorithms/:algorithmId` focused reference pages for each algorithm
 - `#/history` saved runs and saved comparison records
-- `#/compare` synchronized sorting comparison studio
+- `#/compare` synchronized sorting comparison view
 
 Set `TRACEDECK_DATA_FILE` when you want the API to store durable run history somewhere other than the default local path at `.tracedeck/storage.json`. The Fastify entrypoint reads that env var directly, so local runs and restart checks can point at a stable file without changing source code.
 
@@ -92,7 +92,7 @@ The current preset catalog covers seeded random inputs, worst-case scenarios, cu
 
 ## Current Foundation
 
-- `apps/web` exposes the multi-surface product shell: overview, replay playground, a browseable algorithm library with progression paths and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison studio backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
+- `apps/web` exposes the multi-route replay interface: overview, replay, a browseable algorithm library with progression paths and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison view backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
 - `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, stack, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.

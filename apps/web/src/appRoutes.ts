@@ -132,7 +132,13 @@ export function parseHashRoute(hash: string): AppRoute {
   const segments = path.split("/").filter(Boolean);
 
   if (segments.length === 0) {
-    return { page: "playground", algorithmId: algorithms[0]?.id };
+    return algorithms[0]?.id
+      ? { page: "playground", algorithmId: algorithms[0].id }
+      : { page: "playground" };
+  }
+
+  if (segments[0] === "overview") {
+    return { page: "overview" };
   }
 
   if (segments[0] === "playground") {
@@ -173,7 +179,7 @@ export function parseHashRoute(hash: string): AppRoute {
 export function buildRouteHref(route: AppRoute): string {
   switch (route.page) {
     case "overview":
-      return "#/";
+      return "#/overview";
     case "playground":
       return route.algorithmId ? `#/playground/${route.algorithmId}` : "#/playground";
     case "library":

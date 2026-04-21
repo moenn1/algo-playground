@@ -21,6 +21,7 @@ import {
 } from "./libraryCatalog.js";
 import {
   GraphStage,
+  IntervalStage,
   SearchStage,
   SortingStage,
   StackStage
@@ -48,6 +49,7 @@ import {
   type AccentTone,
   type DynamicProgrammingRun,
   type GraphRun,
+  type IntervalRun,
   type ReplayAlgorithm,
   type ReplayRun,
   type SearchRun,
@@ -92,6 +94,7 @@ const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
   sorting: "Sorting systems",
   search: "Search systems",
   window: "Window systems",
+  interval: "Interval systems",
   "dynamic-programming": "Dynamic-programming systems",
   stack: "Stack systems",
   graph: "Graph systems"
@@ -124,6 +127,12 @@ const domainReference: Record<
     metrics: "Window metrics emphasize `expansions`, `shrinks`, and `bestUpdates` for replay and history surfaces.",
     checkpoints: "Storyboard stops call out the moments when the window first qualifies and when a better hit lands."
   },
+  interval: {
+    lens: "Track sorted ranges, overlap checks, active merge spans, and committed outputs without guessing which interval group is live.",
+    flow: "Interval playback records the ordered ranges, current comparison, active merged span, and committed outputs in every snapshot.",
+    metrics: "Interval metrics emphasize `comparisons`, `merges`, and `outputs` so range resolution work stays readable across future interval problems.",
+    checkpoints: "Checkpoint stops separate sort, compare, merge, and commit phases so classic range problems stay easy to scrub."
+  },
   "dynamic-programming": {
     lens: "Surface table fill order, recurrence dependencies, and traceback recovery without reconstructing cells in the browser.",
     flow: "DP playback records the full table, current cell, predecessor dependencies, and recovered sequence in every snapshot.",
@@ -148,6 +157,7 @@ const libraryDomainOrder = [
   "sorting",
   "search",
   "window",
+  "interval",
   "dynamic-programming",
   "stack",
   "graph"
@@ -220,6 +230,10 @@ function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
 }
 
+function isIntervalRun(run: ReplayRun): run is IntervalRun {
+  return run.algorithm.domain === "interval";
+}
+
 function isDynamicProgrammingRun(run: ReplayRun): run is DynamicProgrammingRun {
   return run.algorithm.domain === "dynamic-programming";
 }
@@ -234,6 +248,14 @@ function formatGridCoordinate(cell: number[]): string | null {
   }
 
   return `[${cell[0]}, ${cell[1]}]`;
+}
+
+function formatIntervalValue(interval: number[]): string {
+  if (interval.length !== 2) {
+    return "Pending";
+  }
+
+  return `[${interval[0]}, ${interval[1]}]`;
 }
 
 function hasGridCoordinate(cells: number[][], row: number, column: number): boolean {
@@ -1712,117 +1734,174 @@ function OverviewPage({
   recentComparisons: PersistedComparisonRecord[];
   onLoadSavedRun: (runId: string) => void;
 }) {
-  const heroStats = [
-    {
-      label: "Views",
-      value: `${navigationSurfaces.length}`,
-      detail: "Overview, replay, library, history, and compare are separated."
-    },
-    {
-      label: "Algorithms",
-      value: `${algorithms.length}`,
-      detail:
-        "Sorting, search, window, dynamic-programming, and graph domains share the same trace contract."
-    },
-    {
-      label: "Saved runs",
-      value: `${persistence?.counts.runs ?? 0}`,
-      detail: "Saved traces can be reviewed without reopening the active replay."
-    },
-    {
-      label: "Comparisons",
-      value: `${persistence?.counts.comparisons ?? 0}`,
-      detail: "Saved comparison records are listed separately from the active replay."
-    }
-  ];
+  const directorySurfaces = navigationSurfaces.filter((surface) => surface.page !== "overview");
 
   return (
     <>
-      <section className="hero-band hero-band-overview">
-        <div>
-          <p className="eyebrow">TraceDeck</p>
-          <h1>Algorithm replay, references, and saved runs are split into focused views.</h1>
-          <p className="hero-copy">
-            Use the overview to move into replay, references, saved runs, or comparison without
-            forcing everything into one long screen.
-          </p>
-        </div>
-        <div className="hero-command">
-          <div className="hero-command-panel">
-            <div className="panel-heading hero-command-header">
-              <div>
-                <p className="eyebrow">Workspace Layout</p>
-                <h2>Available views</h2>
-              </div>
-              <span className="phase-badge">{status === "ready" ? "Ready" : "Offline-safe"}</span>
+      <WorkspaceHeader
+        actions={
+          <>
+            <a
+              className="launch-button"
+              href={buildRouteHref({
+                page: "playground",
+                algorithmId: assuredDefaultAlgorithm.id
+              })}
+            >
+              Open replay
+            </a>
+            <a className="segmented" href={buildRouteHref({ page: "history" })}>
+              Saved runs
+            </a>
+            <a className="segmented" href={buildRouteHref({ page: "compare" })}>
+              Compare
+            </a>
+          </>
+        }
+        details={[
+          {
+            label: "Status",
+            value:
+              status === "ready" ? "API connected" : status === "offline" ? "Offline-safe" : "Loading"
+          },
+          {
+            label: "Algorithms",
+            value: `${algorithms.length}`
+          },
+          {
+            label: "Saved runs",
+            value: `${persistence?.counts.runs ?? 0}`
+          },
+          {
+            label: "Comparisons",
+            value: `${persistence?.counts.comparisons ?? 0}`
+          }
+        ]}
+        eyebrow="Overview"
+        summary="Use this directory to move between replay, references, and saved records without collapsing every task into one screen."
+        title="Replay, reference notes, and saved history stay in separate working views."
+      />
+
+      <section className="overview-frame">
+        <article className="panel overview-panel overview-directory-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">View Directory</p>
+              <h2>Open a focused surface</h2>
             </div>
-            <p className="hero-copy hero-command-copy">
-              Replay, reference material, saved activity, and comparison are separated so each
-              view can stay focused on one task.
+            <p className="panel-copy">
+              Each route keeps one job in frame: active replay, reference notes, saved records, or
+              side-by-side comparison.
             </p>
-            <div className="hero-meter">
-              <div className="hero-meter-bar">
-                <span style={{ width: "100%" }} />
-              </div>
-              <div className="hero-meter-labels">
-                <span>Overview</span>
-                <span>Replay + Reference</span>
-                <span>History + Compare</span>
-              </div>
-            </div>
           </div>
-          <div className="hero-stat-grid">
-            {heroStats.map((stat) => (
-              <article className="hero-stat-card" key={stat.label}>
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-                <p>{stat.detail}</p>
-              </article>
+          <div className="surface-directory">
+            {directorySurfaces.map((surface, index) => (
+              <a
+                className="surface-row"
+                href={buildRouteHref(
+                  surface.page === "playground"
+                    ? { page: "playground", algorithmId: assuredDefaultAlgorithm.id }
+                    : { page: surface.page }
+                )}
+                key={surface.page}
+              >
+                <span className="surface-row-index">{String(index + 1).padStart(2, "0")}</span>
+                <div className="surface-row-main">
+                  <p className="eyebrow">{surface.label}</p>
+                  <h2>{surface.title}</h2>
+                  <p>{surface.description}</p>
+                </div>
+                <span className="surface-row-action">Open</span>
+              </a>
             ))}
           </div>
-        </div>
-        <div className="hero-status">
-          <div className="status-row">
-            <span className={`status-chip status-chip--${status}`}>
-              {status === "ready"
-                ? "API connected"
-                : status === "offline"
-                  ? "API offline"
-                  : "Loading foundation"}
-            </span>
-            <span className="status-chip status-chip--accent">
-              {foundation?.product ?? "TraceDeck"} overview
-            </span>
-          </div>
-          <div className="status-row">
-            <span className="status-chip">
-              {persistedAlgorithms.length} tracked algorithms in persistence
-            </span>
-            <span className="status-chip">{recentRuns.length} recent saved runs</span>
-            <span className="status-chip">Contract-driven replay</span>
-          </div>
+        </article>
+
+        <div className="overview-side-stack">
+          <article className="panel overview-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Local State</p>
+                <h2>Current storage and service status</h2>
+              </div>
+            </div>
+            <div className="overview-ledger">
+              <article className="ledger-row">
+                <span>API</span>
+                <strong>
+                  {status === "ready"
+                    ? "Connected"
+                    : status === "offline"
+                      ? "Unavailable"
+                      : "Loading"}
+                </strong>
+                <p>
+                  {status === "ready"
+                    ? "Foundation and persistence metadata are available."
+                    : "Replay stays local even when the API is unavailable."}
+                </p>
+              </article>
+              <article className="ledger-row">
+                <span>Store file</span>
+                <strong>{persistence?.dataFile ?? "Unavailable"}</strong>
+                <p>
+                  Schema {persistence?.storageSchemaVersion ?? "-"} with {persistedAlgorithms.length} tracked
+                  algorithms.
+                </p>
+              </article>
+              <article className="ledger-row">
+                <span>Recent saved work</span>
+                <strong>
+                  {recentRuns.length} runs / {recentComparisons.length} comparisons
+                </strong>
+                <p>Saved records stay separate from the live replay surface until you reopen them.</p>
+              </article>
+            </div>
+          </article>
+
+          <article className="panel overview-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Recent Activity</p>
+                <h2>Latest saved records</h2>
+              </div>
+            </div>
+            <div className="activity-list">
+              {recentRuns.slice(0, 3).map((run) => (
+                <button
+                  className="activity-row"
+                  key={run.id}
+                  onClick={() => {
+                    onLoadSavedRun(run.id);
+                  }}
+                  type="button"
+                >
+                  <span>{run.algorithmLabel}</span>
+                  <strong>{run.stepCount} frames</strong>
+                  <p>{formatTimestamp(run.recordedAt)}</p>
+                </button>
+              ))}
+              {recentComparisons.slice(0, 2).map((comparison) => (
+                <a className="activity-row" href={buildRouteHref({ page: "history" })} key={comparison.id}>
+                  <span>{comparison.label ?? "Saved comparison"}</span>
+                  <strong>
+                    {comparison.baseRun.algorithmLabel} vs {comparison.candidateRun.algorithmLabel}
+                  </strong>
+                  <p>{comparison.metrics.length} tracked metrics</p>
+                </a>
+              ))}
+              {recentRuns.length === 0 && recentComparisons.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No saved records yet.</strong>
+                  <p>Open replay or start the local API seed to populate this index.</p>
+                </div>
+              ) : null}
+            </div>
+          </article>
         </div>
       </section>
 
-      <section className="surface-grid">
-        {navigationSurfaces.map((surface) => (
-          <a
-            className="surface-card panel"
-            href={buildRouteHref(
-              surface.page === "playground"
-                ? { page: "playground", algorithmId: assuredDefaultAlgorithm.id }
-                : { page: surface.page }
-            )}
-            key={surface.page}
-          >
-            <p className="eyebrow">{surface.label}</p>
-            <h2>{surface.title}</h2>
-            <p>{surface.description}</p>
-          </a>
-        ))}
-      </section>
-
-      <section className="overview-grid">
+      <section className="overview-grid overview-grid-ledger">
         <article className="panel overview-panel">
           <div className="panel-heading">
             <div>
@@ -1830,7 +1909,7 @@ function OverviewPage({
               <h2>Algorithms by domain</h2>
             </div>
           </div>
-          <div className="overview-domain-grid">
+          <div className="overview-domain-grid overview-domain-ledger">
             {libraryDomainOrder.map((domain) => (
               <article className="overview-domain-card" key={domain}>
                 <span>{domainLabels[domain]}</span>
@@ -1843,59 +1922,26 @@ function OverviewPage({
           </div>
         </article>
 
-        <article className="panel overview-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Recent Activity</p>
-              <h2>Saved runs and comparisons</h2>
+        {foundation?.services.length ? (
+          <article className="panel overview-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Modules</p>
+                <h2>Core parts of the local stack</h2>
+              </div>
             </div>
-          </div>
-          <div className="activity-preview-grid">
-            {recentRuns.slice(0, 3).map((run) => (
-              <button
-                className="activity-card"
-                key={run.id}
-                onClick={() => {
-                  onLoadSavedRun(run.id);
-                }}
-                type="button"
-              >
-                <span>{run.algorithmLabel}</span>
-                <strong>{run.stepCount} frames</strong>
-                <p>{formatTimestamp(run.recordedAt)}</p>
-              </button>
-            ))}
-            {recentComparisons.slice(0, 2).map((comparison) => (
-              <a className="activity-card" href={buildRouteHref({ page: "history" })} key={comparison.id}>
-                <span>{comparison.label ?? "Saved comparison"}</span>
-                <strong>
-                  {comparison.baseRun.algorithmLabel} vs {comparison.candidateRun.algorithmLabel}
-                </strong>
-                <p>{comparison.metrics.length} tracked metrics</p>
-              </a>
-            ))}
-          </div>
-        </article>
+            <div className="module-ledger">
+              {foundation.services.map((service) => (
+                <article className="module-row" key={service.name}>
+                  <span>{service.name}</span>
+                  <strong>{service.role}</strong>
+                </article>
+              ))}
+            </div>
+          </article>
+        ) : null}
       </section>
 
-      {foundation?.services.length ? (
-        <section className="panel summary-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Modules</p>
-              <h3>Core parts of the local stack</h3>
-            </div>
-          </div>
-          <div className="summary-grid">
-            {foundation.services.map((service) => (
-              <article className="summary-card" key={service.name}>
-                <p className="card-kicker">{service.name}</p>
-                <h3>{service.role}</h3>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
     </>
   );
 }
