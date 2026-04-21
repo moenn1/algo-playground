@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 
+import {
+  getProblemReferenceById,
+  problemReferences,
+  type ReferenceProblemId
+} from "./problemReferences.js";
 import { ReferenceLibrary } from "./ReferenceLibrary.js";
 import {
   algorithmReferences,
@@ -866,7 +871,9 @@ export default function App() {
     .join(" / ");
   const activeReference =
     route.view === "reference-detail" ? getAlgorithmReferenceById(route.algorithmId) : null;
-  const referenceCoverage = Math.round((algorithmReferences.length / algorithms.length) * 100);
+  const activeProblem =
+    route.view === "problem-detail" ? getProblemReferenceById(route.problemId) : null;
+  const libraryEntryCount = algorithmReferences.length + problemReferences.length;
   const heroHeadline =
     route.view === "studio"
       ? viewMode === "compare"
@@ -874,7 +881,9 @@ export default function App() {
         : `${run.algorithm.name} under replay lens`
       : route.view === "reference-detail" && activeReference
         ? `${activeReference.algorithm.name} reference page`
-        : "Algorithm reference library";
+        : route.view === "problem-detail" && activeProblem
+          ? `${activeProblem.title} problem page`
+          : "Algorithm reference library";
   const heroNarrative =
     route.view === "studio"
       ? viewMode === "compare"
@@ -882,7 +891,9 @@ export default function App() {
         : currentStep?.explanation.summary ?? run.trace.steps[0]!.explanation.summary
       : route.view === "reference-detail" && activeReference
         ? activeReference.coreIdea
-        : "Reference pages are now a core TraceDeck surface: each one bundles the algorithm idea, complexity profile, reasoning path, and starter implementations in multiple languages while staying one click away from replay.";
+        : route.view === "problem-detail" && activeProblem
+          ? activeProblem.summary
+          : "Reference pages are now a core TraceDeck surface: they cover both algorithms and famous named problems, with study framing, related variants, and starter implementations in multiple languages.";
   const heroStats =
     route.view === "studio"
       ? viewMode === "compare"
@@ -930,6 +941,29 @@ export default function App() {
               detail: isPlaying ? "Transport rolling" : "Transport paused"
             }
           ]
+      : route.view === "problem-detail" && activeProblem
+        ? [
+            {
+              label: "Difficulty",
+              value: activeProblem.difficulty,
+              detail: activeProblem.problemStatement
+            },
+            {
+              label: "Pattern tags",
+              value: `${activeProblem.patternTags.length}`,
+              detail: activeProblem.patternTags.join(" / ")
+            },
+            {
+              label: "Variants",
+              value: `${activeProblem.implementationVariants.length}`,
+              detail: "Documented solution shapes on the problem page"
+            },
+            {
+              label: "Languages",
+              value: `${activeProblem.implementations.length}`,
+              detail: activeProblem.implementations.map((entry) => entry.label).join(" / ")
+            }
+          ]
       : route.view === "reference-detail" && activeReference
         ? [
             {
@@ -955,24 +989,24 @@ export default function App() {
           ]
         : [
             {
-              label: "Reference pages",
-              value: `${algorithmReferences.length}`,
-              detail: "Every current TraceDeck algorithm has a dedicated page"
+              label: "Library entries",
+              value: `${libraryEntryCount}`,
+              detail: "Algorithm pages and named-problem pages live in one catalog"
             },
             {
-              label: "Coverage",
-              value: `${referenceCoverage}%`,
-              detail: "Catalog coverage against the current replay set"
+              label: "Algorithms",
+              value: `${algorithmReferences.length}`,
+              detail: "Replay-backed algorithm references"
+            },
+            {
+              label: "Named problems",
+              value: `${problemReferences.length}`,
+              detail: "Interview-style study pages with variants and related links"
             },
             {
               label: "Languages",
               value: "4",
               detail: "TypeScript, Python, Java, and C++"
-            },
-            {
-              label: "Replay handoff",
-              value: "Direct",
-              detail: "Reference cards launch the live replay shell"
             }
           ];
   const platformPriorities = foundation?.priorities ?? [];
@@ -983,16 +1017,18 @@ export default function App() {
         ? describeRunSnapshot(run, currentStep.index)
         : "";
   const heroProgress =
-    route.view === "studio" ? syncProgress : referenceCoverage;
+    route.view === "studio" ? syncProgress : 100;
   const heroProgressStartLabel = route.view === "studio" ? (viewMode === "compare" ? "Lift-off" : "Seed") : "Catalog";
   const heroProgressMiddleLabel =
     route.view === "studio"
       ? viewMode === "compare"
         ? `${syncProgress}% synced`
         : currentStep?.phase
+      : route.view === "problem-detail" && activeProblem
+        ? activeProblem.difficulty
       : route.view === "reference-detail" && activeReference
         ? activeReference.algorithm.name
-        : `${referenceCoverage}% covered`;
+        : `${libraryEntryCount} entries`;
   const heroProgressEndLabel = route.view === "studio" ? "Done" : "Replay-linked";
   const heroPhaseBadgeLabel =
     route.view === "studio"
@@ -1001,9 +1037,11 @@ export default function App() {
         : currentStep
           ? `Frame ${currentStep.index + 1}`
           : "Frame 1"
+      : route.view === "problem-detail" && activeProblem
+        ? `${activeProblem.implementations.length} implementations`
       : route.view === "reference-detail" && activeReference
         ? `${activeReference.implementations.length} implementations`
-        : `${algorithmReferences.length} pages`;
+        : `${libraryEntryCount} pages`;
 
   function resetPlayback(nextMode: ViewMode) {
     setViewMode(nextMode);
@@ -1065,6 +1103,13 @@ export default function App() {
     });
   }
 
+  function openProblem(problemId: string) {
+    navigate({
+      view: "problem-detail",
+      problemId: problemId as ReferenceProblemId
+    });
+  }
+
   function openReplayFromReference(algorithmId: string) {
     const algorithm = getAlgorithmById(algorithmId);
 
@@ -1081,14 +1126,16 @@ export default function App() {
           <h1>
             {route.view === "studio"
               ? "Replay and comparison studio for deterministic algorithm traces."
+              : route.view === "problem-detail" && activeProblem
+                ? `${activeProblem.title}, framed as a study reference.`
               : route.view === "reference-detail" && activeReference
                 ? `${activeReference.algorithm.name}, explained for study and replay.`
-                : "Reference pages for every replay-backed algorithm in TraceDeck."}
+                : "Reference pages for replay-backed algorithms and named interview problems."}
           </h1>
           <p className="hero-copy">
             {route.view === "studio"
               ? "The shell keeps replay, step inspection, and algorithm comparison on top of the same checkpointed trace model so every scrub lands on recorded state instead of reconstructed mutations."
-              : "The reference library turns algorithm knowledge into a first-class product surface with complexity framing, reasoning steps, and multi-language implementations that stay connected to the deterministic replay shell."}
+              : "The reference library turns algorithm knowledge into a first-class product surface with complexity framing, pattern tags, related problems, implementation variants, and multi-language implementations that stay connected to the deterministic replay shell."}
           </p>
         </div>
         <div className="hero-command">
@@ -1155,18 +1202,22 @@ export default function App() {
                 ? viewMode === "compare"
                   ? comparisonRuns.map((comparisonRun) => comparisonRun.algorithm.name).join(" vs ")
                   : run.algorithm.name
+                : route.view === "problem-detail" && activeProblem
+                  ? activeProblem.title
                 : route.view === "reference-detail" && activeReference
                   ? activeReference.algorithm.name
-                  : `${algorithmReferences.length} reference pages`}
+                  : `${libraryEntryCount} library entries`}
             </span>
             <span className="status-chip">
               {route.view === "studio"
                 ? viewMode === "compare"
                   ? `Sync ${syncProgress}%`
                   : `Frame ${Math.min(currentStepIndex, run.trace.summary.stepCount - 1) + 1} of ${run.trace.summary.stepCount}`
+                : route.view === "problem-detail" && activeProblem
+                  ? activeProblem.difficulty
                 : route.view === "reference-detail" && activeReference
                   ? activeReference.complexity.worst
-                  : `${referenceCoverage}% coverage`}
+                  : `${problemReferences.length} named problems`}
             </span>
             <span className="status-chip">
               {route.view === "studio" ? "Contract-driven replay" : "Replay-linked reference"}
@@ -1191,7 +1242,7 @@ export default function App() {
             >
               Reference Library
             </button>
-            {route.view === "reference-detail" ? (
+            {route.view !== "studio" ? (
               <button
                 className="segmented"
                 onClick={() => {
@@ -1199,7 +1250,7 @@ export default function App() {
                 }}
                 type="button"
               >
-                All Algorithms
+                All References
               </button>
             ) : null}
           </div>
@@ -1701,6 +1752,7 @@ export default function App() {
           onBrowseLibrary={() => {
             navigate({ view: "reference-index" });
           }}
+          onOpenProblem={openProblem}
           onOpenReference={openReference}
           onOpenReplay={openReplayFromReference}
           route={route}

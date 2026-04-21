@@ -14,10 +14,24 @@ describe("parseAppRoute", () => {
     });
   });
 
+  it("parses a named problem detail route", () => {
+    expect(parseAppRoute("/reference/problems/network-delay-time")).toEqual({
+      view: "problem-detail",
+      problemId: "network-delay-time"
+    });
+  });
+
   it("falls back to the reference index for unknown algorithms", () => {
     expect(parseAppRoute("/reference/not-real")).toEqual({
       view: "reference-index",
-      missingAlgorithmId: "not-real"
+      missingReferenceId: "not-real"
+    });
+  });
+
+  it("falls back to the reference index for unknown problem ids", () => {
+    expect(parseAppRoute("/reference/problems/not-real")).toEqual({
+      view: "reference-index",
+      missingReferenceId: "not-real"
     });
   });
 });
@@ -28,6 +42,9 @@ describe("getAppRouteHref", () => {
     expect(getAppRouteHref({ view: "reference-index" })).toBe("/reference");
     expect(getAppRouteHref({ view: "reference-detail", algorithmId: "bfs" })).toBe(
       "/reference/bfs"
+    );
+    expect(getAppRouteHref({ view: "problem-detail", problemId: "merge-intervals" })).toBe(
+      "/reference/problems/merge-intervals"
     );
   });
 });

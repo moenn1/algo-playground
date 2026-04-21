@@ -29,7 +29,7 @@ Today the web app includes three connected product paths: deterministic single-r
 - The hero band also acts as the top-level route switch between replay and the reference library, so study and execution paths remain part of one product shell.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - The graph stage now runs on the shared execution-engine package for both Breadth-First Search and Dijkstra, so queue order, weighted frontier order, and route recovery all come from one deterministic runtime surface.
-- The reference library exposes a catalog route plus per-algorithm detail routes with complexity framing, reasoning steps, and four starter implementations that can open the live replay surface for the same algorithm.
+- The reference library exposes a catalog route, per-algorithm detail routes, and named-problem detail routes with complexity framing, pattern tags, related problems, implementation variants, and four starter implementations that can open the live replay surface for the associated algorithm.
 
 ## Comparison Surfaces
 
@@ -44,6 +44,7 @@ Today the web app includes three connected product paths: deterministic single-r
 
 - Add algorithm selection, seeded inputs, transport controls, and step inspection on top of the existing shell rather than replacing it with a separate app path.
 - Extend the reference library whenever a new replayable algorithm lands; replay and reference coverage should move together.
+- As the study catalog grows, named problems should be treated as first-class routes instead of being folded into generic algorithm blurbs.
 - Hook persistence into the eventual run-builder shape so saved runs can hydrate the shell without changing the transport model.
 - Extend comparison mode by adding more compare-ready algorithms that share an input contract and metric vocabulary.
 - Keep future visualizations snapshot-driven. The timeline should always be able to jump to a step without replaying intermediate mutations.

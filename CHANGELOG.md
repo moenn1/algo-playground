@@ -2,7 +2,7 @@
 
 ## 2026-04-21
 
-- Added a dedicated algorithm reference library in `apps/web` with catalog/detail routes, complexity guidance, reasoning walkthroughs, replay handoff, and TypeScript/Python/Java/C++ starter implementations for every currently supported algorithm.
+- Expanded the reference library in `apps/web` so it now covers both replay-backed algorithms and named problem pages, including problem routes, pattern tags, related problems, implementation variants, replay handoff, and TypeScript/Python/Java/C++ starter implementations.
 - Added shared graph execution-engine builders for Breadth-First Search and Dijkstra, and fixed the workspace-integrity guard so root-linked validation still works when package lifecycle hooks invoke it from nested workspaces.
 - Elevated the replay shell with a hero command surface that exposes live playback telemetry, product priorities, and current replay context.
 - Added an active-frame briefing strip for single-run replay with snapshot summaries and recorded-signal chips ahead of the detailed inspector panels.

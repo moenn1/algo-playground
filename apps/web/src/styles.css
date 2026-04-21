@@ -1006,14 +1006,16 @@ button {
 .reference-summary-grid,
 .reference-card-grid,
 .reference-fact-grid,
-.reference-bullet-grid {
+.reference-bullet-grid,
+.reference-variant-grid {
   display: grid;
   gap: 16px;
 }
 
 .reference-summary-grid,
 .reference-fact-grid,
-.reference-bullet-grid {
+.reference-bullet-grid,
+.reference-variant-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -1083,6 +1085,18 @@ button {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   gap: 20px;
   align-items: start;
+}
+
+.reference-problem-hero.accent-ember {
+  border-color: rgba(255, 142, 85, 0.26);
+}
+
+.reference-problem-hero.accent-teal {
+  border-color: rgba(88, 208, 200, 0.26);
+}
+
+.reference-problem-hero.accent-gold {
+  border-color: rgba(245, 201, 120, 0.26);
 }
 
 .reference-rail {
@@ -1197,6 +1211,7 @@ button {
   .reference-summary-grid,
   .reference-fact-grid,
   .reference-bullet-grid,
+  .reference-variant-grid,
   .reference-quick-grid {
     grid-template-columns: 1fr;
   }

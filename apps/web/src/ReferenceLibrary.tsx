@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react"
 
 import {
+  getProblemReferenceById,
+  getProblemReferencesForAlgorithm,
+  getRelatedProblemReferences,
+  problemReferences,
+  type ProblemReference
+} from "./problemReferences.js"
+import {
   algorithmReferences,
   getAlgorithmReferenceById,
   getRelatedAlgorithmReferences,
   referenceLanguageOrder,
   type AlgorithmReference,
+  type ReferenceImplementation,
   type ReferenceLanguageId
 } from "./reference.js"
 import { type AppRoute } from "./routes.js"
@@ -14,6 +22,7 @@ type ReferenceLibraryProps = {
   route: AppRoute
   onBrowseLibrary: () => void
   onOpenReference: (algorithmId: string) => void
+  onOpenProblem: (problemId: string) => void
   onOpenReplay: (algorithmId: string) => void
 }
 
@@ -21,16 +30,160 @@ function getAccentClass(accent: AlgorithmReference["algorithm"]["accent"]): stri
   return `accent-${accent}`
 }
 
+function getProblemAccentClass(problem: ProblemReference): string {
+  return `accent-${problem.accent}`
+}
+
 function getDomainLabel(domain: AlgorithmReference["algorithm"]["domain"]): string {
   return domain === "sorting" ? "Sorting systems" : "Graph pathfinding"
 }
 
-function ReferenceCatalog({
-  missingAlgorithmId,
+function ImplementationDeck({
+  implementations,
+  resetKey,
+  eyebrow,
+  title,
+  copy
+}: {
+  implementations: ReferenceImplementation[]
+  resetKey: string
+  eyebrow: string
+  title: string
+  copy: string
+}) {
+  const [languageId, setLanguageId] = useState<ReferenceLanguageId>("typescript")
+
+  useEffect(() => {
+    setLanguageId("typescript")
+  }, [resetKey])
+
+  const implementation =
+    implementations.find((candidate) => candidate.language === languageId) ?? implementations[0]!
+
+  return (
+    <section className="panel summary-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h2>{title}</h2>
+        </div>
+        <p className="panel-copy">{copy}</p>
+      </div>
+      <div className="speed-row reference-language-row">
+        {referenceLanguageOrder.map((language) => (
+          <button
+            className={`segmented ${language.id === implementation.language ? "segmented-active" : ""}`}
+            key={language.id}
+            onClick={() => {
+              setLanguageId(language.id)
+            }}
+            type="button"
+          >
+            {language.label}
+          </button>
+        ))}
+      </div>
+      <div className="reference-code-meta">
+        <div>
+          <strong>{implementation.label}</strong>
+          <p>{implementation.summary}</p>
+        </div>
+        <span className="number-pill">{implementation.filename}</span>
+      </div>
+      <pre className="reference-code-block">
+        <code>{implementation.code}</code>
+      </pre>
+    </section>
+  )
+}
+
+function ProblemCard({
+  problem,
+  onOpenProblem,
   onOpenReference,
   onOpenReplay
-}: Pick<ReferenceLibraryProps, "onOpenReference" | "onOpenReplay"> & {
-  missingAlgorithmId?: string
+}: {
+  problem: ProblemReference
+  onOpenProblem: (problemId: string) => void
+  onOpenReference: (algorithmId: string) => void
+  onOpenReplay: (algorithmId: string) => void
+}) {
+  const primaryAlgorithm = getAlgorithmReferenceById(problem.primaryAlgorithmIds[0] ?? "")
+
+  return (
+    <article className={`reference-card ${getProblemAccentClass(problem)}`}>
+      <div className="reference-card-header">
+        <span className={`algorithm-badge algorithm-badge-${problem.accent}`}>Problem</span>
+        <span className="phase-badge">{problem.difficulty}</span>
+      </div>
+      <div className="reference-card-copy">
+        <strong>{problem.title}</strong>
+        <p>{problem.summary}</p>
+      </div>
+      <div className="tag-row">
+        {problem.patternTags.map((tag) => (
+          <span className="number-pill" key={tag}>
+            {tag}
+          </span>
+        ))}
+      </div>
+      <div className="reference-quick-grid">
+        <div className="mini-card">
+          <span>Variants</span>
+          <strong>{problem.implementationVariants.length}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Languages</span>
+          <strong>{problem.implementations.length}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Anchor</span>
+          <strong>{primaryAlgorithm?.algorithm.name ?? "Study page"}</strong>
+        </div>
+      </div>
+      <div className="reference-action-row">
+        <button
+          className="launch-button reference-open-button"
+          onClick={() => {
+            onOpenProblem(problem.id)
+          }}
+          type="button"
+        >
+          Open problem
+        </button>
+        {primaryAlgorithm ? (
+          <button
+            className="segmented"
+            onClick={() => {
+              onOpenReplay(primaryAlgorithm.algorithm.id)
+            }}
+            type="button"
+          >
+            Launch replay
+          </button>
+        ) : (
+          <button
+            className="segmented"
+            onClick={() => {
+              onOpenReference(problem.primaryAlgorithmIds[0] ?? "")
+            }}
+            type="button"
+          >
+            Study algorithm
+          </button>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function ReferenceCatalog({
+  missingReferenceId,
+  onOpenReference,
+  onOpenProblem,
+  onOpenReplay
+}: Pick<ReferenceLibraryProps, "onOpenReference" | "onOpenProblem" | "onOpenReplay"> & {
+  missingReferenceId?: string
 }) {
   const referencesByDomain = new Map<string, AlgorithmReference[]>()
 
@@ -46,16 +199,16 @@ function ReferenceCatalog({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Library Coverage</p>
-            <h2>Reference pages tied directly to TraceDeck algorithms</h2>
+            <h2>Algorithm and named-problem pages in one study surface</h2>
           </div>
           <p className="panel-copy">
-            Every page exposes the algorithm idea, complexity profile, interview framing,
-            reasoning steps, and production-ready starter implementations in four languages.
+            The library now covers both replay-backed algorithms and famous interview-style problem
+            references, with shared language tabs and direct handoff into the visualizer.
           </p>
         </div>
-        {missingAlgorithmId ? (
+        {missingReferenceId ? (
           <div className="error-banner">
-            No reference page exists for "{missingAlgorithmId}". Browse the current catalog below.
+            No reference page exists for "{missingReferenceId}". Browse the current library below.
           </div>
         ) : null}
         <div className="summary-grid reference-summary-grid">
@@ -64,12 +217,12 @@ function ReferenceCatalog({
             <h3>{algorithmReferences.length}</h3>
           </article>
           <article className="summary-card">
-            <p className="card-kicker">Languages</p>
-            <h3>{referenceLanguageOrder.map((language) => language.label).join(" / ")}</h3>
+            <p className="card-kicker">Named Problems</p>
+            <h3>{problemReferences.length}</h3>
           </article>
           <article className="summary-card">
-            <p className="card-kicker">Replay Link</p>
-            <h3>Reference pages launch the exact replay surface for each algorithm.</h3>
+            <p className="card-kicker">Languages</p>
+            <h3>{referenceLanguageOrder.map((language) => language.label).join(" / ")}</h3>
           </article>
         </div>
       </section>
@@ -83,8 +236,8 @@ function ReferenceCatalog({
             </div>
             <p className="panel-copy">
               {domain === "sorting"
-                ? "These pages pair side-by-side complexity tradeoffs with deterministic replay-ready algorithms."
-                : "These pages focus on path discovery, frontier control, and route reconstruction semantics."}
+                ? "Algorithm pages explain runtime tradeoffs and link into pattern-heavy array problems."
+                : "Graph pages stay grounded in traversal and shortest-path reasoning, then branch into classic interview problems."}
             </p>
           </div>
           <div className="reference-card-grid">
@@ -117,8 +270,8 @@ function ReferenceCatalog({
                     <strong>{reference.complexity.worst}</strong>
                   </div>
                   <div className="mini-card">
-                    <span>Space</span>
-                    <strong>{reference.complexity.space}</strong>
+                    <span>Problems</span>
+                    <strong>{getProblemReferencesForAlgorithm(reference.algorithm.id).length}</strong>
                   </div>
                 </div>
                 <div className="reference-action-row">
@@ -129,7 +282,7 @@ function ReferenceCatalog({
                     }}
                     type="button"
                   >
-                    Open reference
+                    Open algorithm
                   </button>
                   <button
                     className="segmented"
@@ -146,58 +299,31 @@ function ReferenceCatalog({
           </div>
         </section>
       ))}
+
+      <section className="panel summary-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Named Problems</p>
+            <h2>Interview-style reference pages</h2>
+          </div>
+          <p className="panel-copy">
+            These entries focus on pattern recognition, problem framing, and implementation
+            variants rather than only generic algorithm descriptions.
+          </p>
+        </div>
+        <div className="reference-card-grid">
+          {problemReferences.map((problem) => (
+            <ProblemCard
+              key={problem.id}
+              onOpenProblem={onOpenProblem}
+              onOpenReference={onOpenReference}
+              onOpenReplay={onOpenReplay}
+              problem={problem}
+            />
+          ))}
+        </div>
+      </section>
     </div>
-  )
-}
-
-function ImplementationDeck({ reference }: { reference: AlgorithmReference }) {
-  const [languageId, setLanguageId] = useState<ReferenceLanguageId>("typescript")
-
-  useEffect(() => {
-    setLanguageId("typescript")
-  }, [reference.algorithm.id])
-
-  const implementation =
-    reference.implementations.find((candidate) => candidate.language === languageId) ??
-    reference.implementations[0]!
-
-  return (
-    <section className="panel summary-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Implementations</p>
-          <h2>Multi-language starter code</h2>
-        </div>
-        <p className="panel-copy">
-          The snippets below aim for clean interview or reference use, not framework-specific
-          runtime wiring.
-        </p>
-      </div>
-      <div className="speed-row reference-language-row">
-        {referenceLanguageOrder.map((language) => (
-          <button
-            className={`segmented ${language.id === implementation.language ? "segmented-active" : ""}`}
-            key={language.id}
-            onClick={() => {
-              setLanguageId(language.id)
-            }}
-            type="button"
-          >
-            {language.label}
-          </button>
-        ))}
-      </div>
-      <div className="reference-code-meta">
-        <div>
-          <strong>{implementation.label}</strong>
-          <p>{implementation.summary}</p>
-        </div>
-        <span className="number-pill">{implementation.filename}</span>
-      </div>
-      <pre className="reference-code-block">
-        <code>{implementation.code}</code>
-      </pre>
-    </section>
   )
 }
 
@@ -205,8 +331,12 @@ function ReferenceDetail({
   algorithmId,
   onBrowseLibrary,
   onOpenReference,
+  onOpenProblem,
   onOpenReplay
-}: Pick<ReferenceLibraryProps, "onBrowseLibrary" | "onOpenReference" | "onOpenReplay"> & {
+}: Pick<
+  ReferenceLibraryProps,
+  "onBrowseLibrary" | "onOpenReference" | "onOpenProblem" | "onOpenReplay"
+> & {
   algorithmId: string
 }) {
   const reference = getAlgorithmReferenceById(algorithmId)
@@ -214,7 +344,8 @@ function ReferenceDetail({
   if (!reference) {
     return (
       <ReferenceCatalog
-        missingAlgorithmId={algorithmId}
+        missingReferenceId={algorithmId}
+        onOpenProblem={onOpenProblem}
         onOpenReference={onOpenReference}
         onOpenReplay={onOpenReplay}
       />
@@ -222,6 +353,7 @@ function ReferenceDetail({
   }
 
   const relatedReferences = getRelatedAlgorithmReferences(reference.algorithm.id)
+  const linkedProblems = getProblemReferencesForAlgorithm(reference.algorithm.id)
 
   return (
     <div className="reference-stack">
@@ -267,9 +399,9 @@ function ReferenceDetail({
             <p className="metric-caption">Upper bound</p>
           </article>
           <article className="metric-card">
-            <span>Space</span>
-            <strong>{reference.complexity.space}</strong>
-            <p className="metric-caption">Auxiliary memory</p>
+            <span>Problem spotlights</span>
+            <strong>{linkedProblems.length}</strong>
+            <p className="metric-caption">Named problems tied to this algorithm</p>
           </article>
         </div>
         <div className="note-banner">{reference.complexity.note}</div>
@@ -310,7 +442,13 @@ function ReferenceDetail({
             </ol>
           </section>
 
-          <ImplementationDeck reference={reference} />
+          <ImplementationDeck
+            copy="The snippets below aim for clean interview or reference use, not framework-specific runtime wiring."
+            implementations={reference.implementations}
+            eyebrow="Implementations"
+            resetKey={reference.algorithm.id}
+            title="Multi-language starter code"
+          />
         </div>
 
         <aside className="reference-rail">
@@ -356,6 +494,35 @@ function ReferenceDetail({
             </ul>
           </section>
 
+          {linkedProblems.length > 0 ? (
+            <section className="panel summary-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Problem Spotlights</p>
+                  <h2>Named problems powered by this algorithm</h2>
+                </div>
+              </div>
+              <div className="algorithm-list">
+                {linkedProblems.map((problem) => (
+                  <button
+                    className="algorithm-card"
+                    key={problem.id}
+                    onClick={() => {
+                      onOpenProblem(problem.id)
+                    }}
+                    type="button"
+                  >
+                    <span className={`algorithm-badge algorithm-badge-${problem.accent}`}>
+                      {problem.difficulty}
+                    </span>
+                    <strong>{problem.title}</strong>
+                    <p>{problem.summary}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {relatedReferences.length > 0 ? (
             <section className="panel summary-panel">
               <div className="panel-heading">
@@ -392,10 +559,222 @@ function ReferenceDetail({
   )
 }
 
+function ProblemDetail({
+  problemId,
+  onBrowseLibrary,
+  onOpenReference,
+  onOpenProblem,
+  onOpenReplay
+}: Pick<
+  ReferenceLibraryProps,
+  "onBrowseLibrary" | "onOpenReference" | "onOpenProblem" | "onOpenReplay"
+> & {
+  problemId: string
+}) {
+  const problem = getProblemReferenceById(problemId)
+
+  if (!problem) {
+    return (
+      <ReferenceCatalog
+        missingReferenceId={problemId}
+        onOpenProblem={onOpenProblem}
+        onOpenReference={onOpenReference}
+        onOpenReplay={onOpenReplay}
+      />
+    )
+  }
+
+  const primaryAlgorithms = problem.primaryAlgorithmIds
+    .map((algorithmId) => getAlgorithmReferenceById(algorithmId))
+    .filter((reference): reference is AlgorithmReference => reference !== null)
+  const relatedProblems = getRelatedProblemReferences(problem.id)
+
+  return (
+    <div className="reference-stack">
+      <section className={`panel summary-panel reference-problem-hero ${getProblemAccentClass(problem)}`}>
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Named Problem</p>
+            <h2>{problem.title}</h2>
+          </div>
+          <span className={`algorithm-badge algorithm-badge-${problem.accent}`}>
+            {problem.difficulty}
+          </span>
+        </div>
+        <p className="hero-copy reference-hero-copy">{problem.summary}</p>
+        <div className="note-banner">{problem.problemStatement}</div>
+        <div className="reference-action-row">
+          <button className="segmented" onClick={onBrowseLibrary} type="button">
+            Browse library
+          </button>
+          {primaryAlgorithms[0] ? (
+            <button
+              className="launch-button reference-open-button"
+              onClick={() => {
+                onOpenReplay(primaryAlgorithms[0]!.algorithm.id)
+              }}
+              type="button"
+            >
+              Open related replay
+            </button>
+          ) : null}
+        </div>
+        <div className="reference-fact-grid">
+          <article className="metric-card">
+            <span>Difficulty</span>
+            <strong>{problem.difficulty}</strong>
+            <p className="metric-caption">Interview expectation</p>
+          </article>
+          <article className="metric-card">
+            <span>Patterns</span>
+            <strong>{problem.patternTags.length}</strong>
+            <p className="metric-caption">Named tags on this page</p>
+          </article>
+          <article className="metric-card">
+            <span>Variants</span>
+            <strong>{problem.implementationVariants.length}</strong>
+            <p className="metric-caption">Alternative solution shapes</p>
+          </article>
+          <article className="metric-card">
+            <span>Algorithms</span>
+            <strong>{primaryAlgorithms.length}</strong>
+            <p className="metric-caption">Reference pages linked from this problem</p>
+          </article>
+        </div>
+      </section>
+
+      <div className="reference-detail-layout">
+        <div className="main-column">
+          <section className="panel summary-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Pattern Fit</p>
+                <h2>Why this problem matters</h2>
+              </div>
+            </div>
+            <div className="reference-bullet-grid">
+              {problem.takeaways.map((entry) => (
+                <article className="mini-card" key={entry}>
+                  <strong>{entry}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel summary-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Implementation Variants</p>
+                <h2>Approach options</h2>
+              </div>
+            </div>
+            <div className="reference-variant-grid">
+              {problem.implementationVariants.map((variant) => (
+                <article className="reference-step-card" key={variant.title}>
+                  <strong>{variant.title}</strong>
+                  <p>{variant.summary}</p>
+                  <p className="metric-caption">{variant.whenToUse}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <ImplementationDeck
+            copy="Each snippet targets a clean, interview-ready reference implementation of the primary approach."
+            implementations={problem.implementations}
+            eyebrow="Problem Implementations"
+            resetKey={problem.id}
+            title="Multi-language solutions"
+          />
+        </div>
+
+        <aside className="reference-rail">
+          <section className="panel summary-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Pattern Tags</p>
+                <h2>Recognition cues</h2>
+              </div>
+            </div>
+            <div className="tag-row">
+              {problem.patternTags.map((tag) => (
+                <span className="number-pill" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {primaryAlgorithms.length > 0 ? (
+            <section className="panel summary-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Related Algorithms</p>
+                  <h2>Study the base technique</h2>
+                </div>
+              </div>
+              <div className="algorithm-list">
+                {primaryAlgorithms.map((algorithm) => (
+                  <button
+                    className="algorithm-card"
+                    key={algorithm.algorithm.id}
+                    onClick={() => {
+                      onOpenReference(algorithm.algorithm.id)
+                    }}
+                    type="button"
+                  >
+                    <span
+                      className={`algorithm-badge algorithm-badge-${algorithm.algorithm.accent}`}
+                    >
+                      {algorithm.algorithm.badge}
+                    </span>
+                    <strong>{algorithm.algorithm.name}</strong>
+                    <p>{algorithm.coreIdea}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {relatedProblems.length > 0 ? (
+            <section className="panel summary-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Related Problems</p>
+                  <h2>Adjacent practice</h2>
+                </div>
+              </div>
+              <div className="algorithm-list">
+                {relatedProblems.map((relatedProblem) => (
+                  <button
+                    className="algorithm-card"
+                    key={relatedProblem.id}
+                    onClick={() => {
+                      onOpenProblem(relatedProblem.id)
+                    }}
+                    type="button"
+                  >
+                    <span className={`algorithm-badge algorithm-badge-${relatedProblem.accent}`}>
+                      {relatedProblem.difficulty}
+                    </span>
+                    <strong>{relatedProblem.title}</strong>
+                    <p>{relatedProblem.summary}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </aside>
+      </div>
+    </div>
+  )
+}
+
 export function ReferenceLibrary({
   route,
   onBrowseLibrary,
   onOpenReference,
+  onOpenProblem,
   onOpenReplay
 }: ReferenceLibraryProps) {
   if (route.view === "reference-detail") {
@@ -403,18 +782,32 @@ export function ReferenceLibrary({
       <ReferenceDetail
         algorithmId={route.algorithmId}
         onBrowseLibrary={onBrowseLibrary}
+        onOpenProblem={onOpenProblem}
         onOpenReference={onOpenReference}
         onOpenReplay={onOpenReplay}
       />
     )
   }
 
+  if (route.view === "problem-detail") {
+    return (
+      <ProblemDetail
+        onBrowseLibrary={onBrowseLibrary}
+        onOpenProblem={onOpenProblem}
+        onOpenReference={onOpenReference}
+        onOpenReplay={onOpenReplay}
+        problemId={route.problemId}
+      />
+    )
+  }
+
   return (
     <ReferenceCatalog
+      onOpenProblem={onOpenProblem}
       onOpenReference={onOpenReference}
       onOpenReplay={onOpenReplay}
-      {...(route.view === "reference-index" && route.missingAlgorithmId
-        ? { missingAlgorithmId: route.missingAlgorithmId }
+      {...(route.view === "reference-index" && route.missingReferenceId
+        ? { missingReferenceId: route.missingReferenceId }
         : {})}
     />
   )
