@@ -21,6 +21,7 @@ import {
 } from "./libraryCatalog.js";
 import {
   GraphStage,
+  HashStage,
   IntervalStage,
   SearchStage,
   SortingStage,
@@ -49,6 +50,7 @@ import {
   type AccentTone,
   type DynamicProgrammingRun,
   type GraphRun,
+  type HashRun,
   type IntervalRun,
   type ReplayAlgorithm,
   type ReplayRun,
@@ -94,6 +96,7 @@ const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
   sorting: "Sorting systems",
   search: "Search systems",
   window: "Window systems",
+  hash: "Hash systems",
   interval: "Interval systems",
   "dynamic-programming": "Dynamic-programming systems",
   stack: "Stack systems",
@@ -127,6 +130,12 @@ const domainReference: Record<
     metrics: "Window metrics emphasize `expansions`, `shrinks`, and `bestUpdates` for replay and history surfaces.",
     checkpoints: "Storyboard stops call out the moments when the window first qualifies and when a better hit lands."
   },
+  hash: {
+    lens: "Track complement lookups, stored entries, and the exact pair lock without reconstructing a hidden hash table.",
+    flow: "Hash playback records the active value, missing complement, insertion-ordered table entries, and matched pair in every snapshot.",
+    metrics: "Hash metrics emphasize `inspections`, `lookups`, and `stores` so lookup-table work stays readable across future array and hash problems.",
+    checkpoints: "Checkpoint stops separate failed lookups, table stores, and the winning complement hit so classic hash-map problems stay easy to scrub."
+  },
   interval: {
     lens: "Track sorted ranges, overlap checks, active merge spans, and committed outputs without guessing which interval group is live.",
     flow: "Interval playback records the ordered ranges, current comparison, active merged span, and committed outputs in every snapshot.",
@@ -157,6 +166,7 @@ const libraryDomainOrder = [
   "sorting",
   "search",
   "window",
+  "hash",
   "interval",
   "dynamic-programming",
   "stack",
@@ -228,6 +238,10 @@ function isSearchRun(run: ReplayRun): run is SearchRun {
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
+}
+
+function isHashRun(run: ReplayRun): run is HashRun {
+  return run.algorithm.domain === "hash";
 }
 
 function isIntervalRun(run: ReplayRun): run is IntervalRun {
@@ -481,6 +495,24 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return "Target not reached";
   }
 
+  if (isHashRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.matchedPairValues.length === 2) {
+      return `${step.state.matchedPairValues[0]} + ${step.state.matchedPairValues[1]} = ${step.state.target}`;
+    }
+
+    if (step.state.currentIndex !== null && step.state.currentValue !== null) {
+      return `Inspect index ${step.state.currentIndex} = ${step.state.currentValue}`;
+    }
+
+    if (step.state.seenEntries.length > 0) {
+      return `${step.state.seenEntries.length} stored lookup entr${step.state.seenEntries.length === 1 ? "y" : "ies"}`;
+    }
+
+    return `Target ${step.state.target} awaiting first lookup`;
+  }
+
   if (isIntervalRun(run)) {
     const step = getRunStep(run, stepIndex);
 
@@ -635,6 +667,8 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
       return "Probes and comparisons";
     case "window":
       return "Expansions, shrinks, and best updates";
+    case "hash":
+      return "Inspections, lookups, and stores";
     case "interval":
       return "Overlap checks, merges, and outputs";
     case "dynamic-programming":
@@ -697,9 +731,9 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
             ? `Match locked at lane ${searchStep.state.foundIndex}`
             : `${searchStep.state.eliminatedIndices.length} lanes ruled out`;
         })()
-      : isWindowRun(run)
-        ? (() => {
-            const windowStep = getRunStep(run, stepIndex);
+        : isWindowRun(run)
+          ? (() => {
+              const windowStep = getRunStep(run, stepIndex);
 
             if (windowStep.state.bestLength !== null) {
               return `Best window length ${windowStep.state.bestLength}`;
@@ -711,6 +745,24 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             return "Window waiting for first hit";
           })()
+        : isHashRun(run)
+          ? (() => {
+              const hashStep = getRunStep(run, stepIndex);
+
+              if (hashStep.state.matchedPairIndices.length === 2) {
+                return `Pair locked at ${hashStep.state.matchedPairIndices.join(" and ")}`;
+              }
+
+              if (hashStep.state.complementIndex !== null) {
+                return `Complement found at index ${hashStep.state.complementIndex}`;
+              }
+
+              if (hashStep.state.seenEntries.length > 0) {
+                return `${hashStep.state.seenEntries.length} lookup entr${hashStep.state.seenEntries.length === 1 ? "y" : "ies"} stored`;
+              }
+
+              return `${hashStep.state.inspectedIndices.length} values inspected`;
+            })()
         : isIntervalRun(run)
           ? (() => {
               const intervalStep = getRunStep(run, stepIndex);
@@ -1031,6 +1083,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
     return <WindowStage run={run} stepIndex={stepIndex} />;
   }
 
+  if (isHashRun(run)) {
+    return <HashStage run={run} stepIndex={stepIndex} />;
+  }
+
   if (isIntervalRun(run)) {
     return <IntervalStage run={run} stepIndex={stepIndex} />;
   }
@@ -1137,6 +1193,56 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
               {index}:{value}
             </span>
           ))}
+        </div>
+      </>
+    );
+  }
+
+  if (isHashRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Target</span>
+            <strong>{step.state.target}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Current</span>
+            <strong>
+              {step.state.currentIndex !== null && step.state.currentValue !== null
+                ? `${step.state.currentIndex}:${step.state.currentValue}`
+                : "Waiting"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Complement</span>
+            <strong>{step.state.complement !== null ? step.state.complement : "Waiting"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Pair</span>
+            <strong>
+              {step.state.matchedPairIndices.length === 2
+                ? step.state.matchedPairIndices.join("-")
+                : "Pending"}
+            </strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.seenEntries.length > 0 ? (
+            step.state.seenEntries.map((entry) => (
+              <span className="number-pill" key={`hash-pill-${entry.index}`}>
+                {entry.value}@{entry.index}
+              </span>
+            ))
+          ) : (
+            step.state.array.map((value, index) => (
+              <span className="number-pill" key={`hash-array-pill-${index}`}>
+                {index}:{value}
+              </span>
+            ))
+          )}
         </div>
       </>
     );
@@ -1539,7 +1645,8 @@ function WorkspaceHeader({
   title,
   summary,
   actions,
-  details
+  details,
+  className
 }: {
   eyebrow: string;
   title: string;
@@ -1548,10 +1655,12 @@ function WorkspaceHeader({
   details: Array<{
     label: string;
     value: string;
+    detail?: string;
   }>;
+  className?: string;
 }) {
   return (
-    <section className="workspace-header">
+    <section className={className ? `workspace-header ${className}` : "workspace-header"}>
       <div className="workspace-header-main">
         <div>
           <p className="eyebrow">{eyebrow}</p>
@@ -1564,50 +1673,11 @@ function WorkspaceHeader({
           <div className="workspace-header-detail" key={detail.label}>
             <span>{detail.label}</span>
             <strong>{detail.value}</strong>
+            {detail.detail ? <p className="workspace-header-note">{detail.detail}</p> : null}
           </div>
         ))}
       </div>
       {actions ? <div className="workspace-header-actions">{actions}</div> : null}
-    </section>
-  );
-}
-
-function PageBanner({
-  eyebrow,
-  title,
-  copy,
-  accent = "gold",
-  actions,
-  stats
-}: {
-  eyebrow: string;
-  title: string;
-  copy: string;
-  accent?: "gold" | "ember" | "teal";
-  actions?: ReactNode;
-  stats: Array<{
-    label: string;
-    value: string;
-    detail: string;
-  }>;
-}) {
-  return (
-    <section className={`page-banner panel page-banner-${accent}`}>
-      <div className="page-banner-copy">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p className="hero-copy">{copy}</p>
-        {actions ? <div className="page-banner-actions">{actions}</div> : null}
-      </div>
-      <div className="page-banner-stats">
-        {stats.map((stat) => (
-          <article className="hero-stat-card" key={stat.label}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-            <p>{stat.detail}</p>
-          </article>
-        ))}
-      </div>
     </section>
   );
 }
@@ -2079,101 +2149,67 @@ function LibraryPage({
 
   return (
     <>
-      <PageBanner
-        accent="teal"
+      <WorkspaceHeader
         actions={
           <>
             <a className="launch-button" href={buildRouteHref({ page: "compare" })}>
               Open comparison view
             </a>
-            <a className="segmented segmented-active" href={buildRouteHref({ page: "history" })}>
-              Review saved runs
+            <a className="segmented" href={buildRouteHref({ page: "history" })}>
+              Saved history
             </a>
           </>
         }
-        copy="Use the library as a route-backed study index: narrow by domain, stage, or learning goal, then jump directly into references or replay."
-        eyebrow="Algorithm Index"
-        stats={[
+        className="workspace-header-library"
+        details={[
           {
-            label: "Visible systems",
+            label: "Visible algorithms",
             value: `${filteredAlgorithms.length}`,
             detail:
               filteredAlgorithms.length === algorithms.length
-                ? "The full library is in view."
-                : "Results update as you refine the browse state."
+                ? "The full catalog is in view."
+                : "Results update as the current browse state changes."
           },
           {
-            label: "Saved runs in view",
+            label: "Saved runs",
             value: `${visibleSavedRuns}`,
-            detail: "Saved activity highlights algorithms you have already replayed."
+            detail: "Replay history stays visible without pulling saved runs back into the workspace."
           },
           {
             label: "Progression",
             value: activeStage?.label ?? "All stages",
             detail:
-              activeFocus?.description ??
-              "Discovery spans foundation walkthroughs, dense-state systems, and compare-ready sorting decks."
+              activeFocus?.label ??
+              "Discovery spans walkthroughs, dense-state systems, and comparison-ready sorting decks."
+          },
+          {
+            label: "Browse mode",
+            value: activePathway?.label ?? "Custom filters",
+            detail: `Sort order: ${activeSortMode.label}`
           }
         ]}
-        title="Reference library for replayable algorithms."
+        eyebrow="Library"
+        summary="Browse the reference catalog by domain, stage, and learning goal. Filters stay route-backed so reference work does not collapse back into the replay workspace."
+        title="Algorithm library"
       />
 
       <section className="panel library-browser-panel">
         <div className="library-browser-shell">
           <aside className="library-filter-rail">
-            <div className="library-rail-block">
-              <div className="library-rail-heading">
-                <div>
-                  <p className="eyebrow">Browse State</p>
-                  <h2>Filter the index</h2>
-                </div>
-                <span>{activeSortMode.label}</span>
-              </div>
+            <div className="library-rail-intro">
+              <p className="eyebrow">Browse Navigator</p>
+              <h2>Move by family or study path.</h2>
               <p className="panel-copy">
-                Route-backed filters keep the library shareable and let reference work stay
-                separate from the active replay workspace.
+                The rail stays focused on orientation. Search and refinement live beside the
+                results so the library behaves like one continuous tool.
               </p>
-              <label className="library-search-shell" htmlFor="library-search">
-                <span>Search algorithms</span>
-                <input
-                  id="library-search"
-                  onChange={(event) => {
-                    updateFilters({ q: event.target.value });
-                  }}
-                  placeholder="Search by algorithm, metric, or learning goal"
-                  type="search"
-                  value={filters.q}
-                />
-              </label>
-              <div className="library-active-filters">
-                {activeFilterTokens.length > 0 ? (
-                  activeFilterTokens.map((token) => (
-                    <span className="library-active-filter" key={token}>
-                      {token}
-                    </span>
-                  ))
-                ) : (
-                  <span className="library-active-filter">No narrow filters applied</span>
-                )}
-              </div>
-              <div className="library-rail-actions">
-                <button
-                  className="segmented"
-                  onClick={() => {
-                    updateFilters(defaultLibraryFilters);
-                  }}
-                  type="button"
-                >
-                  Reset filters
-                </button>
-              </div>
             </div>
 
             <div className="library-rail-block">
               <div className="library-rail-heading">
                 <div>
-                  <p className="eyebrow">Domains</p>
-                  <h2>Pick a system family</h2>
+                  <p className="eyebrow">Families</p>
+                  <h2>Algorithm domains</h2>
                 </div>
                 <span>{filters.domain === "all" ? "All domains" : domainLabels[filters.domain]}</span>
               </div>
@@ -2221,8 +2257,8 @@ function LibraryPage({
             <div className="library-rail-block">
               <div className="library-rail-heading">
                 <div>
-                  <p className="eyebrow">Progression Paths</p>
-                  <h2>Browse a study sequence</h2>
+                  <p className="eyebrow">Pathways</p>
+                  <h2>Suggested sequences</h2>
                 </div>
                 <span>{activePathway?.label ?? "Custom browse state"}</span>
               </div>
@@ -2259,35 +2295,70 @@ function LibraryPage({
 
           <div className="library-results-column">
             <div className="library-results-header">
-              <div>
+              <div className="library-results-intro">
                 <p className="eyebrow">Algorithm Catalog</p>
-                <h2>
-                  {filteredAlgorithms.length === 1
-                    ? "1 algorithm matches this browse state."
-                    : `${filteredAlgorithms.length} algorithms match this browse state.`}
-                </h2>
+                <div className="library-results-title-block">
+                  <h2>Browse TraceDeck as one reference index.</h2>
+                  <strong>{filteredAlgorithms.length}</strong>
+                </div>
                 <p className="panel-copy">
-                  The results stay dense on purpose: you can scan progression, saved-run activity,
-                  and replay readiness without opening every reference page first.
+                  Search, sort, and progression cues stay in one control band so you can refine the
+                  catalog without hopping between boxed sections.
                 </p>
               </div>
-              <div className="library-results-summary">
-                <div className="metric-inline">
-                  <span>Sort</span>
-                  <strong>{activeSortMode.label}</strong>
-                </div>
-                <div className="metric-inline">
-                  <span>Saved runs</span>
-                  <strong>{visibleSavedRuns}</strong>
-                </div>
-                <div className="metric-inline">
-                  <span>Current path</span>
-                  <strong>{activePathway?.label ?? "Custom browse state"}</strong>
+              <div className="library-search-panel">
+                <label className="library-search-shell" htmlFor="library-search">
+                  <span>Search algorithms</span>
+                  <input
+                    id="library-search"
+                    onChange={(event) => {
+                      updateFilters({ q: event.target.value });
+                    }}
+                    placeholder="Search by algorithm, metric, or learning goal"
+                    type="search"
+                    value={filters.q}
+                  />
+                </label>
+                <div className="library-results-summary">
+                  <div className="metric-inline">
+                    <span>Sort</span>
+                    <strong>{activeSortMode.label}</strong>
+                  </div>
+                  <div className="metric-inline">
+                    <span>Saved runs</span>
+                    <strong>{visibleSavedRuns}</strong>
+                  </div>
+                  <div className="metric-inline">
+                    <span>Current path</span>
+                    <strong>{activePathway?.label ?? "Custom browse state"}</strong>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="library-toolbar">
+              <div className="library-toolbar-meta">
+                <div className="library-active-filters">
+                  {activeFilterTokens.length > 0 ? (
+                    activeFilterTokens.map((token) => (
+                      <span className="library-active-filter" key={token}>
+                        {token}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="library-active-filter">No narrow filters applied</span>
+                  )}
+                </div>
+                <button
+                  className="segmented"
+                  onClick={() => {
+                    updateFilters(defaultLibraryFilters);
+                  }}
+                  type="button"
+                >
+                  Reset filters
+                </button>
+              </div>
               <div className="library-toolbar-row">
                 <span className="filter-label">Stage</span>
                 <div className="filter-chip-row">
@@ -2399,46 +2470,48 @@ function LibraryPage({
                         </div>
                       </div>
 
-                      <div className="library-result-ledger">
-                        <div>
-                          <span>Saved runs</span>
-                          <strong>{persistedRecord?.runCount ?? 0}</strong>
+                      <div className="library-result-side">
+                        <div className="library-result-ledger">
+                          <div>
+                            <span>Saved runs</span>
+                            <strong>{persistedRecord?.runCount ?? 0}</strong>
+                          </div>
+                          <div>
+                            <span>Explore time</span>
+                            <strong>{profile.timeToExplore}</strong>
+                          </div>
+                          <div>
+                            <span>Trace lens</span>
+                            <strong>{algorithm.inputLabel}</strong>
+                          </div>
+                          <div>
+                            <span>Next up</span>
+                            <strong>{nextNames.join(" -> ")}</strong>
+                          </div>
                         </div>
-                        <div>
-                          <span>Explore time</span>
-                          <strong>{profile.timeToExplore}</strong>
-                        </div>
-                        <div>
-                          <span>Trace lens</span>
-                          <strong>{algorithm.inputLabel}</strong>
-                        </div>
-                        <div>
-                          <span>Next up</span>
-                          <strong>{nextNames.join(" -> ")}</strong>
-                        </div>
-                      </div>
 
-                      <div className="library-result-actions">
-                        <p>{profile.spotlight}</p>
-                        <div className="library-card-actions">
-                          <a
-                            className="segmented"
-                            href={buildRouteHref({
-                              page: "algorithm-detail",
-                              algorithmId: algorithm.id
-                            })}
-                          >
-                            Reference
-                          </a>
-                          <button
-                            className="launch-button"
-                            onClick={() => {
-                              onOpenPlayground(algorithm.id);
-                            }}
-                            type="button"
-                          >
-                            Open replay
-                          </button>
+                        <div className="library-result-actions">
+                          <p>{profile.spotlight}</p>
+                          <div className="library-card-actions">
+                            <a
+                              className="segmented"
+                              href={buildRouteHref({
+                                page: "algorithm-detail",
+                                algorithmId: algorithm.id
+                              })}
+                            >
+                              Reference
+                            </a>
+                            <button
+                              className="launch-button"
+                              onClick={() => {
+                                onOpenPlayground(algorithm.id);
+                              }}
+                              type="button"
+                            >
+                              Open replay
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </article>
@@ -2480,8 +2553,7 @@ function AlgorithmDetailPage({
 
   return (
     <>
-      <PageBanner
-        accent={algorithm.accent}
+      <WorkspaceHeader
         actions={
           <>
             <button
@@ -2510,9 +2582,8 @@ function AlgorithmDetailPage({
             ) : null}
           </>
         }
-        copy={`${algorithm.description} This reference page captures the input contract, replay focus, and metric language used by replay, history, and comparison views.`}
-        eyebrow={`${algorithm.badge} Reference`}
-        stats={[
+        className="workspace-header-detail"
+        details={[
           {
             label: "Progression stage",
             value: stage.label,
@@ -2536,11 +2607,13 @@ function AlgorithmDetailPage({
               : "No persisted runs recorded yet"
           }
         ]}
+        eyebrow={`${algorithm.badge} Reference`}
+        summary={`${algorithm.description} This page keeps the input contract, checkpoints, and replay metric language in one place before you open a live run or reload saved history.`}
         title={algorithm.name}
       />
 
-      <section className="detail-layout">
-        <article className="panel detail-panel">
+      <section className="detail-layout detail-layout-reference">
+        <article className="panel detail-panel detail-panel-brief">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Reference Brief</p>
@@ -2592,7 +2665,7 @@ function AlgorithmDetailPage({
           </div>
         </article>
 
-        <article className="panel detail-panel">
+        <article className="panel detail-panel detail-panel-code">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Seed Input</p>
@@ -2707,7 +2780,7 @@ function PlaygroundPage({
       />
 
       <div className="workspace-grid workspace-grid-replay">
-        <aside className="sidebar panel tool-rail">
+        <aside className="sidebar panel tool-rail tool-rail-replay">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Scenario</p>
@@ -2786,8 +2859,8 @@ function PlaygroundPage({
           </button>
         </aside>
 
-        <div className="main-column workspace-main">
-          <div className="workspace-body">
+        <div className="main-column workspace-main workspace-main-replay">
+          <div className="workspace-body workspace-body-replay">
             <section className="panel stage-panel workspace-stage">
               <SingleReplayBriefing run={run} stepIndex={currentStepIndex} />
               <div className="stage-layout">
@@ -2844,7 +2917,7 @@ function PlaygroundPage({
               </div>
             </section>
 
-            <section className="panel workspace-dock">
+            <section className="panel workspace-dock workspace-dock-replay">
               <TransportPanel
                 embedded
                 isPlaying={isPlaying}
@@ -2966,6 +3039,7 @@ function ComparePage({
             </a>
           </>
         }
+        className="workspace-header-compare"
         details={[
           {
             label: "Matchup",
@@ -2989,8 +3063,8 @@ function ComparePage({
         title="Compare"
       />
 
-      <div className="workspace-grid workspace-grid-replay">
-        <aside className="sidebar panel tool-rail">
+      <div className="workspace-grid workspace-grid-compare">
+        <aside className="sidebar panel tool-rail tool-rail-compare">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Comparison Deck</p>
@@ -3044,15 +3118,33 @@ function ComparePage({
           </button>
         </aside>
 
-        <div className="main-column workspace-main">
-          <div className="workspace-body">
+        <div className="main-column workspace-main workspace-main-compare">
+          <section className="compare-route-strip">
+            <article className="compare-route-card">
+              <span>Deck</span>
+              <strong>{comparisonRuns.map((run) => run.algorithm.name.split(" ")[0]).join(" / ")}</strong>
+              <p>Every sorting trace is rebuilt from one shared array so the lanes stay directly comparable.</p>
+            </article>
+            <article className="compare-route-card">
+              <span>Current sync</span>
+              <strong>{syncProgress}% aligned</strong>
+              <p>{compareLaneSignals.join(" · ")}</p>
+            </article>
+            <article className="compare-route-card">
+              <span>Saved comparisons</span>
+              <strong>{recentComparisons.length}</strong>
+              <p>{activeStepCount} synchronized frames are available in the current deck.</p>
+            </article>
+          </section>
+
+          <div className="workspace-body workspace-body-compare">
             <ComparisonWorkspace
               currentStepIndex={currentStepIndex}
               runs={comparisonRuns}
               stepCount={activeStepCount}
             />
 
-            <section className="panel workspace-dock">
+            <section className="panel workspace-dock workspace-dock-compare">
               <TransportPanel
                 embedded
                 isPlaying={isPlaying}
@@ -3134,8 +3226,7 @@ function HistoryPage({
 }) {
   return (
     <>
-      <PageBanner
-        accent="ember"
+      <WorkspaceHeader
         actions={
           <>
             <button className="segmented" onClick={onRefresh} type="button">
@@ -3146,9 +3237,8 @@ function HistoryPage({
             </a>
           </>
         }
-        copy="Saved runs and comparisons are listed separately from the live replay so persistence output can be reviewed without reopening the active workspace."
-        eyebrow="History"
-        stats={[
+        className="workspace-header-history"
+        details={[
           {
             label: "Runs",
             value: `${persistence?.counts.runs ?? 0}`,
@@ -3163,9 +3253,17 @@ function HistoryPage({
             label: "Storage schema",
             value: `${persistence?.storageSchemaVersion ?? "-"}`,
             detail: persistence?.dataFile ?? "Persistence metadata unavailable"
+          },
+          {
+            label: "API",
+            value:
+              status === "ready" ? "Connected" : status === "offline" ? "Unavailable" : "Loading",
+            detail: "Refresh re-queries the persistence index without reopening the replay workspace."
           }
         ]}
-        title="Saved activity"
+        eyebrow="Saved Records"
+        summary="Saved runs and comparisons stay in their own route so persisted output can be reviewed without reopening the live replay workspace."
+        title="History"
       />
 
       {status === "offline" ? (

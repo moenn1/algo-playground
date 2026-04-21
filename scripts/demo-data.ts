@@ -95,6 +95,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "window", "no-solution"]
   },
   {
+    key: "hash-reference-hit",
+    algorithmId: "two-sum",
+    presetId: "hash.reference-hit",
+    recordedAt: "2026-04-20T09:07:51.000Z",
+    tags: ["seeded-demo", "hash", "reference-hit"]
+  },
+  {
+    key: "hash-negative-values",
+    algorithmId: "two-sum",
+    presetId: "hash.negative-values",
+    recordedAt: "2026-04-20T09:07:51.500Z",
+    tags: ["seeded-demo", "hash", "negative-values"]
+  },
+  {
     key: "interval-reference-overlap",
     algorithmId: "merge-intervals",
     presetId: "interval.reference-overlap",

@@ -8,6 +8,7 @@ export const supportedAlgorithmIds = [
   "binary-search",
   "search-in-rotated-sorted-array",
   "minimum-size-subarray-sum",
+  "two-sum",
   "merge-intervals",
   "longest-common-subsequence",
   "valid-parentheses",
@@ -37,6 +38,11 @@ export interface SearchInputPayload extends JsonObject {
 }
 
 export interface WindowInputPayload extends JsonObject {
+  array: number[];
+  target: number;
+}
+
+export interface HashInputPayload extends JsonObject {
   array: number[];
   target: number;
 }

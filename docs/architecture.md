@@ -29,7 +29,7 @@ apps/
   api/            Fastify service boundary
   web/            React replay shell
 packages/
-  execution-engine/ Shared sorting, search, window, interval, dynamic-programming, stack, and graph runtimes plus trace emitters
+  execution-engine/ Shared sorting, search, window, hash, interval, dynamic-programming, stack, and graph runtimes plus trace emitters
   trace-core/     Trace envelope contract and validation helpers
 docs/             Architecture and developer workflow
 ```
@@ -47,10 +47,11 @@ docs/             Architecture and developer workflow
 
 ### `packages/execution-engine`
 
-- Owns deterministic sorting, search, window, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
+- Owns deterministic sorting, search, window, hash, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
 - Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
 - Shares one replay-safe sliding-window state shape for Minimum Size Subarray Sum so active bounds, running sums, and best-window updates stay readable across replay and persistence
+- Shares one replay-safe hash state shape for Two Sum so complement lookups, stored entries, and matched pairs stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
 - Shares one replay-safe dynamic-programming state shape for Longest Common Subsequence so table snapshots, predecessor dependencies, and traceback recovery stay readable across replay and persistence
 - Shares one replay-safe stack state shape for Valid Parentheses so cursor position, stack contents, matched pairs, and failure reasons stay readable across replay and persistence
@@ -58,6 +59,7 @@ docs/             Architecture and developer workflow
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
 - Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
 - Publishes stable window semantics for explicit expand, candidate, shrink, and terminal no-solution frames
+- Publishes stable hash semantics for explicit complement lookups, lookup-table stores, and terminal pair matches
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals
 - Publishes stable dynamic-programming semantics for row-major table fills, deterministic traceback ties, and recovered subsequences
 - Publishes stable stack semantics for opener pushes, closer checks, matched-pair recovery, and terminal mismatch reporting
@@ -107,6 +109,7 @@ docs/             Architecture and developer workflow
 - Sorting engines currently share `comparisons` and `writes` so bubble, selection, quick, and merge traces stay comparable without overloading algorithm-specific counters.
 - Search engines currently publish `probes` and `comparisons` so interval-search traces can compare midpoint work without reconstructing the decision path in consumers.
 - Window engines currently publish `expansions`, `shrinks`, and `bestUpdates` so sliding-window traces can compare scan pressure and qualifying-window churn without replay-time derivation.
+- Hash engines currently publish `inspections`, `lookups`, and `stores` so lookup-table traces can compare scan work and table growth without replay-time reconstruction.
 - Interval engines currently publish `comparisons`, `merges`, and `outputs` so range-merging traces can compare overlap work and committed result spans without replay-time inference.
 - Dynamic-programming engines currently publish `cellsComputed`, `matches`, and `tracebackSteps` so table-driven traces can compare fill work and recovery cost without reconstructing the recurrence in consumers.
 - Stack engines currently publish `comparisons`, `pushes`, and `pops` so validation traces can compare closer checks and stack churn without replay-time inference.

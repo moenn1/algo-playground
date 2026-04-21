@@ -12,14 +12,15 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - An empty hash now resolves to `#/playground/:algorithmId?`, so first load opens replay instead of the overview route.
 - `#/playground/:algorithmId?` is the dedicated single-run workspace for live replay, transport, timeline, and step inspection.
 - `#/library` now acts as a browseable catalog with a docked filter rail, route-backed search, domain, progression-stage, learning-goal, and sort filters, plus curated pathways into focused reference pages.
-- `#/algorithms/:algorithmId` captures per-algorithm guidance, input format, and replay expectations without crowding the live replay surface.
+- `#/algorithms/:algorithmId` captures per-algorithm guidance, input format, and replay expectations in a reference-style dossier without crowding the live replay surface.
 - `#/history` surfaces saved runs and saved comparison records as lightweight summaries first, then hydrates a replay only when the user resumes one.
-- `#/compare` reserves synchronized sorting playback, trend charts, and leaderboard metrics for a dedicated comparison route.
+- `#/compare` reserves synchronized sorting playback, route-level sync context, trend charts, and leaderboard metrics for a dedicated comparison route.
 
 ## Interaction model
 
 - Replay surfaces should treat recorded trace envelopes as the source of truth instead of recomputing hidden state in the browser.
 - Navigation should create genuinely separate working surfaces, not one long page disguised with anchor jumps or tabs.
+- Route splitting alone is not enough: overview, replay, library, reference, comparison, and history should each keep a different composition pattern instead of reusing the same card grid with new labels.
 - Library browse state should live in the route so discovery filters can be revisited, shared, and recovered without rebuilding them manually.
 - The selected algorithm should own its input editor format and trace builder so transport and inspection views stay domain-aware.
 - Algorithm trace builders should lean on the shared `trace-core` recorder so step keys, path diffs, and runtime-state projection stay consistent across domains.
@@ -28,6 +29,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Comparison playback should synchronize runs by normalized progress instead of forcing algorithms with different trace densities onto the same absolute step count.
 - Step inspectors should read structured explanations, explicit change paths, and structured highlights from the recorded trace envelope rather than deriving them ad hoc in the UI.
 - The interface should foreground the active frame with a briefing layer before deeper inspector panels so the current replay moment stays readable during scrubbing.
+- Route headers should stay neutral and operational. The product should read like a working trace tool, not a promotional landing page.
 - Global storyboard stops should complement local checkpoint windows: the storyboard communicates journey-level progress while nearby checkpoints keep precise jumps fast.
 - Comparison mode should surface compact per-lane sync signals ahead of the full comparison deck so multi-run playback remains legible on narrow viewports.
 - The visual system should read as an intentional replay tool rather than a generic dashboard: solid surfaces, bolder section separation, and a distinct palette shift should be visible on first load.
@@ -42,17 +44,19 @@ Today the web app is a multi-route local interface: it validates API connectivit
 
 - Route choices, recent activity, and persistence state are visible in the overview index.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, sliding-window, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, sliding-window, hash, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
+- Library, reference, and history now share one neutral workspace-header system with metadata ledgers instead of banner-style intros, which keeps cross-route hierarchy consistent without making the pages feel identical.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
-- Single replay now pairs the main visualization stage with a docked transport-and-timeline rail so playback controls stay visible without forcing the page wider than a laptop frame.
+- Single replay now gives the visualization stage the full main width and moves the transport-and-timeline dock below it on desktop, which keeps playback controls visible without forcing the page wider than a laptop frame.
 - Overview, library, and history now lean on directories and ledger-style lists instead of large hero sections or repeated card grids.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, ordered-half signals for rotated-array search, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
+- The hash stage renders the active array slot, requested complement, insertion-ordered lookup table, and final matched pair directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.
 - The stack stage renders token-by-token validation status, the live opener stack, expected closers, and first-failure context directly from the shared execution-engine snapshots.
@@ -67,6 +71,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Metric trend charts visualize how comparisons, swaps, and passes diverge over the same synchronized timeline.
 - Comparison summary cards read final comparison metrics directly from the trace envelope instead of recomputing winners in the UI layer.
 - A sync-signal grid summarizes each algorithm's current phase and normalized position before the full comparison deck, which improves scanability on desktop and mobile.
+- The compare route also carries a dedicated deck-and-sync strip above the main workspace so it reads differently from single-run replay before users reach the heavier charts and stage cards.
 - Timeline scrubbing now pairs a progress bar, storyboard stops, and local checkpoint windows so users can switch between global navigation and precise frame stepping.
 - Storyboard cards, sync cards, and transport metrics enter with staged motion and keep snap-aligned horizontal browsing on smaller screens so multi-run inspection remains readable without shrinking the cards away.
 - Mobile and tablet comparison layouts now prioritize stacked cards, grid-based controls, and horizontal checkpoint browsing so synchronized playback stays readable without shrinking the visualization cards away.

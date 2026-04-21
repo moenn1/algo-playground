@@ -191,6 +191,52 @@ describe("TraceDeck API foundation", () => {
     });
   });
 
+  it("resolves hash presets and validates custom Two Sum inputs", async () => {
+    const server = await createServer();
+
+    const presetResponse = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/hash.reference-hit/resolve",
+      payload: {
+        algorithmId: "two-sum"
+      }
+    });
+
+    expect(presetResponse.statusCode).toBe(200);
+    expect(presetResponse.json()).toMatchObject({
+      algorithm: {
+        id: "two-sum",
+        domain: "hash"
+      },
+      preset: {
+        id: "hash.reference-hit",
+        domain: "hash"
+      },
+      footprint: "4 lanes / target 9"
+    });
+
+    const validateResponse = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "two-sum",
+        payload: {
+          array: [-3, 4, 3, 90],
+          target: 0
+        }
+      }
+    });
+
+    expect(validateResponse.statusCode).toBe(200);
+    expect(validateResponse.json()).toMatchObject({
+      algorithm: {
+        id: "two-sum",
+        domain: "hash"
+      },
+      footprint: "4 lanes / target 0"
+    });
+  });
+
   it("persists runs, algorithms, and paged step retrieval", async () => {
     const server = await createServer();
 

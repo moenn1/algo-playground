@@ -4,7 +4,7 @@
 
 `packages/execution-engine` owns reusable algorithm runtimes that emit deterministic TraceDeck envelopes on top of `packages/trace-core`.
 
-The current package covers shared sorting, search, window, interval, dynamic-programming, stack, and graph runtimes:
+The current package covers shared sorting, search, window, hash, interval, dynamic-programming, stack, and graph runtimes:
 
 - `bubble-sort`
 - `selection-sort`
@@ -13,6 +13,7 @@ The current package covers shared sorting, search, window, interval, dynamic-pro
 - `binary-search`
 - `search-in-rotated-sorted-array`
 - `minimum-size-subarray-sum`
+- `two-sum`
 - `merge-intervals`
 - `longest-common-subsequence`
 - `valid-parentheses`
@@ -79,6 +80,27 @@ Shared window metrics focus on replaying the scan and contraction rhythm directl
 - `bestUpdates`: times the runtime published a shorter qualifying window
 
 The runtime records explicit `Expand`, `Candidate`, `Best Update`, `Shrink`, and terminal `Done` or `No Solution` checkpoints so replay never has to infer qualifying intervals from aggregate counters alone.
+
+## Hash Runtime Model
+
+Two Sum establishes the first lookup-table runtime shape:
+
+- `state.array`: the integer array under scan
+- `state.target`: the requested pair sum
+- `state.currentIndex` and `state.currentValue`: the active array slot under inspection, or `null` outside active lookup work
+- `state.complement`: the missing value required to close the target with the current value
+- `state.complementIndex`: the stored index for that complement when the lookup succeeds
+- `state.seenEntries`: the insertion-ordered lookup-table entries already stored by prior steps
+- `state.inspectedIndices`: array slots already checked for complements
+- `state.matchedPairIndices` and `state.matchedPairValues`: the resolved solution pair once replay locks it
+
+Shared hash metrics keep lookup-table work readable:
+
+- `inspections`: array values inspected so far
+- `lookups`: complement checks performed so far
+- `stores`: values stored into the lookup table so far
+
+The runtime records explicit `Initialization`, per-value `Lookup` and `Store`, and terminal `Match` plus `Done` checkpoints so replay can jump directly between failed complements, table growth, and the winning pair without replay-time inference.
 
 ## Dynamic-Programming Runtime Model
 
@@ -175,6 +197,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
 - Search in Rotated Sorted Array records ordered-half detection plus discard checkpoints explicitly so replay can jump between pivot-aware interval cuts without rerunning branch selection.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
+- Two Sum records complement checks, lookup-table stores, and the winning pair explicitly so replay can jump between hash states without reconstructing a live `Map`.
 - Merge Intervals records sorted range order, active-span merges, and committed outputs explicitly so replay can jump between overlap checks and result commits without recomputing interval groups.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
 - Valid Parentheses records opener pushes, closer matches, and terminal mismatch frames explicitly so replay can restore the exact stack and failure reason for any token boundary.
@@ -183,6 +206,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, sliding-window replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
-- `apps/api` exposes the same sorting, search, window, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
+- `apps/api` exposes the same sorting, search, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

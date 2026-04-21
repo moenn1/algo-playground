@@ -12,6 +12,7 @@ export type AlgorithmDomain =
   | "graph"
   | "search"
   | "window"
+  | "hash"
   | "dynamic-programming"
   | "stack"
   | "interval";

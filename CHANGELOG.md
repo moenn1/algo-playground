@@ -2,6 +2,9 @@
 
 ## 2026-04-21
 
+- Added a shared hash runtime for Two Sum, including deterministic complement lookups, explicit lookup-table store checkpoints, and stable `inspections`, `lookups`, and `stores` metrics.
+- Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to the new hash domain so TraceDeck now includes its first classic array-and-hash interview problem with a named product-grade replay.
+- Tightened the multi-route replay shell with neutral route headers, a stage-first replay layout that keeps transport and timeline docks inside the desktop frame, and stronger per-route composition across library, reference, comparison, and history surfaces.
 - Added a shared rotated-array search runtime for Search in Rotated Sorted Array, including deterministic ordered-half checkpoints, explicit discard frames, and stable reuse of the search `probes` and `comparisons` metrics.
 - Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to Search in Rotated Sorted Array so TraceDeck now covers a second high-signal search problem alongside classic Binary Search.
 - Added a shared interval runtime for Merge Intervals, including deterministic sort-first range scans, explicit overlap and commit checkpoints, and stable `comparisons`, `merges`, and `outputs` metrics.

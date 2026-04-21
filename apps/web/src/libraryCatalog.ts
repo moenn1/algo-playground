@@ -223,10 +223,22 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "Good for learning replay surfaces where the active region moves even when the result stays the same.",
     nextAlgorithmIds: ["merge-intervals", "binary-search"]
   },
+  "two-sum": {
+    stage: "foundation",
+    focus: "state-tracking",
+    order: 8,
+    timeToExplore: "5 min",
+    complexity: "One pass and one lookup table keep the trace compact while the complement state still changes meaningfully every frame.",
+    outcome: "See exactly when a value checks for its complement, when a failed lookup becomes a store, and when the winning pair locks.",
+    metricsLens: "Inspections, lookups, and stores expose the real work behind the classic O(n) hash-map solution.",
+    skills: ["complement search", "lookup tables", "pair locking"],
+    spotlight: "One of the most recognizable interview problems in the catalog and a strong bridge from linear scans into hash-backed state.",
+    nextAlgorithmIds: ["valid-parentheses", "merge-intervals"]
+  },
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",
-    order: 8,
+    order: 9,
     timeToExplore: "6 min",
     complexity: "Sorted range order keeps the scan linear while the active merge span still changes meaningfully over time.",
     outcome: "See exactly when a range extends the active span, when a gap forces an output commit, and how the final interval list forms.",
@@ -238,7 +250,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-sort": {
     stage: "core",
     focus: "partitioning",
-    order: 9,
+    order: 10,
     timeToExplore: "6 min",
     complexity: "Split and merge phases ask the viewer to connect multiple local windows.",
     outcome: "Track recursive decomposition and the write-heavy merge path back to a stable final ordering.",
@@ -250,7 +262,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "quick-sort": {
     stage: "advanced",
     focus: "partitioning",
-    order: 10,
+    order: 11,
     timeToExplore: "7 min",
     complexity: "Pivot locks and recursive partitions create dense local transitions across the deck.",
     outcome: "Inspect how partition boundaries move and why one pivot choice can reshape the next trace segment.",
@@ -262,7 +274,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "longest-common-subsequence": {
     stage: "advanced",
     focus: "dependencies",
-    order: 11,
+    order: 12,
     timeToExplore: "8 min",
     complexity: "A full table plus traceback shifts the user from linear scans to dependency-heavy state.",
     outcome: "Separate matrix fill work from traceback recovery while keeping the current cell and dependencies visible.",
@@ -274,7 +286,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   dijkstra: {
     stage: "advanced",
     focus: "pathfinding",
-    order: 11,
+    order: 13,
     timeToExplore: "8 min",
     complexity: "Weighted frontier ordering makes every inspection and update more consequential.",
     outcome: "Read tentative distances, inspected edges, and recovered shortest paths without hidden queue state.",

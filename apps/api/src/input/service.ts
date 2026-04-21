@@ -5,6 +5,7 @@ import { HttpError } from "../lib/http.js";
 import type {
   DynamicProgrammingInputPayload,
   GraphInputPayload,
+  HashInputPayload,
   IntervalInputPayload,
   InputPresetListQuery,
   InputPresetSummary,
@@ -55,6 +56,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Minimum Size Subarray Sum",
     domain: "window"
   },
+  "two-sum": {
+    id: "two-sum",
+    label: "Two Sum",
+    domain: "hash"
+  },
   "merge-intervals": {
     id: "merge-intervals",
     label: "Merge Intervals",
@@ -93,6 +99,7 @@ const rotatedSearchAlgorithms = [
   supportedAlgorithms["search-in-rotated-sorted-array"]
 ] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
+const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
 const stackAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
@@ -109,6 +116,10 @@ const defaultRotatedSearchInput: SearchInputPayload = {
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
   target: 7
+};
+const defaultHashInput: HashInputPayload = {
+  array: [2, 7, 11, 15],
+  target: 9
 };
 const defaultIntervalInput: IntervalInputPayload = {
   intervals: [
@@ -539,6 +550,91 @@ function serializeWindowInput(input: WindowInputPayload) {
   );
 }
 
+function countHashPairs(array: number[], target: number) {
+  let pairCount = 0;
+
+  for (let left = 0; left < array.length - 1; left += 1) {
+    for (let right = left + 1; right < array.length; right += 1) {
+      if (array[left]! + array[right]! === target) {
+        pairCount += 1;
+      }
+    }
+  }
+
+  return pairCount;
+}
+
+function normalizeHashInput(payload: unknown): HashInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Hash input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Hash input must be an object with array and target.");
+  }
+
+  const value = candidate as {
+    array?: unknown;
+    target?: unknown;
+  };
+
+  if (!Array.isArray(value.array) || value.array.length < 2) {
+    throw new HttpError(400, "Hash input must include an array with at least two integers.");
+  }
+
+  if (value.array.length > 24) {
+    throw new HttpError(400, "Hash input arrays must contain 24 integers or fewer.");
+  }
+
+  const array = value.array.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry)) {
+      throw new HttpError(400, `array[${index}] must be an integer.`);
+    }
+
+    return entry;
+  });
+
+  if (typeof value.target !== "number" || !Number.isInteger(value.target)) {
+    throw new HttpError(400, "Hash input target must be an integer.");
+  }
+
+  const pairCount = countHashPairs(array, value.target);
+
+  if (pairCount === 0) {
+    throw new HttpError(400, "Two Sum input must contain exactly one solution pair.");
+  }
+
+  if (pairCount > 1) {
+    throw new HttpError(
+      400,
+      "Two Sum input must contain exactly one solution pair so replay stays deterministic."
+    );
+  }
+
+  return {
+    array,
+    target: value.target
+  };
+}
+
+function serializeHashInput(input: HashInputPayload) {
+  return JSON.stringify(
+    {
+      array: input.array,
+      target: input.target
+    },
+    null,
+    2
+  );
+}
+
 function serializeIntervalInput(input: IntervalInputPayload) {
   return JSON.stringify(
     {
@@ -798,7 +894,11 @@ function normalizeAlgorithmInput(
   }
 
   if (algorithm.domain === "search") {
-    const search = normalizeSearchInput(payload, algorithm.id);
+    const searchAlgorithmId =
+      algorithm.id === "search-in-rotated-sorted-array"
+        ? "search-in-rotated-sorted-array"
+        : "binary-search";
+    const search = normalizeSearchInput(payload, searchAlgorithmId);
 
     return {
       input: search,
@@ -814,6 +914,16 @@ function normalizeAlgorithmInput(
       input: window,
       normalizedInputText: serializeWindowInput(window),
       footprint: `${window.array.length} lanes / target ${window.target}`
+    };
+  }
+
+  if (algorithm.domain === "hash") {
+    const hash = normalizeHashInput(payload);
+
+    return {
+      input: hash,
+      normalizedInputText: serializeHashInput(hash),
+      footprint: `${hash.array.length} lanes / target ${hash.target}`
     };
   }
 
@@ -1196,6 +1306,43 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [1, 1, 1, 1, 1, 1],
         target: 9
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "hash.reference-hit",
+      label: "Reference complement hit",
+      description:
+        "Use the canonical Two Sum array so replay shows the early complement lookup and explicit pair lock.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "hash",
+      algorithms: hashAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultHashInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "hash.negative-values",
+      label: "Negative complement pair",
+      description:
+        "Mix negative and positive values so the lookup table has to recover a complement across the sign boundary.",
+      scenario: "negative-values",
+      kind: "curated",
+      domain: "hash",
+      algorithms: hashAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [-3, 4, 3, 90],
+        target: 0
       },
       options: {}
     })

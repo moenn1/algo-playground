@@ -1,6 +1,7 @@
 import {
   buildDynamicProgrammingTrace,
   buildGraphTrace,
+  buildHashTrace,
   buildIntervalTrace,
   buildSearchTrace,
   buildStackTrace,
@@ -10,6 +11,7 @@ import {
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultDijkstraInput,
+  defaultTwoSumInput,
   defaultMergeIntervalsInput,
   defaultMinimumSizeSubarrayInput,
   defaultRotatedSearchInput,
@@ -17,12 +19,14 @@ import {
   parseDynamicProgrammingInputText,
   formatGraphDistance,
   parseGraphInputText,
+  parseHashInputText,
   parseIntervalInputText,
   parseSearchInputText,
   parseStackInputText,
   parseWindowInputText,
   serializeDynamicProgrammingInput,
   serializeGraphInput,
+  serializeHashInput,
   serializeIntervalInput,
   serializeSearchInput,
   serializeStackInput,
@@ -33,6 +37,9 @@ import {
   type GraphAlgorithmId,
   type GraphExecutionState,
   type GraphInput,
+  type HashAlgorithmId,
+  type HashExecutionState,
+  type HashInput,
   type IntervalAlgorithmId,
   type IntervalExecutionState,
   type IntervalInput,
@@ -87,6 +94,11 @@ export type WindowAlgorithm = ReplayAlgorithmBase & {
   domain: "window";
 };
 
+export type HashAlgorithm = ReplayAlgorithmBase & {
+  id: HashAlgorithmId;
+  domain: "hash";
+};
+
 export type IntervalAlgorithm = ReplayAlgorithmBase & {
   id: IntervalAlgorithmId;
   domain: "interval";
@@ -107,6 +119,7 @@ export type ReplayAlgorithm =
   | GraphAlgorithm
   | SearchAlgorithm
   | WindowAlgorithm
+  | HashAlgorithm
   | IntervalAlgorithm
   | DynamicProgrammingAlgorithm
   | StackAlgorithm;
@@ -117,6 +130,7 @@ export type SearchReplayState = SearchExecutionState;
 export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
 export type StackReplayState = StackExecutionState;
 export type IntervalReplayState = IntervalExecutionState;
+export type HashReplayState = HashExecutionState;
 
 export type SortingRun = {
   algorithm: SortingAlgorithm;
@@ -146,6 +160,13 @@ export type WindowRun = {
   trace: TraceEnvelope<WindowExecutionState>;
 };
 
+export type HashRun = {
+  algorithm: HashAlgorithm;
+  input: HashInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<HashReplayState>;
+};
+
 export type IntervalRun = {
   algorithm: IntervalAlgorithm;
   input: IntervalInput;
@@ -172,6 +193,7 @@ export type ReplayRun =
   | GraphRun
   | SearchRun
   | WindowRun
+  | HashRun
   | IntervalRun
   | DynamicProgrammingRun
   | StackRun;
@@ -182,6 +204,10 @@ function isSearchRun(run: ReplayRun): run is SearchRun {
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
+}
+
+function isHashRun(run: ReplayRun): run is HashRun {
+  return run.algorithm.domain === "hash";
 }
 
 function isIntervalRun(run: ReplayRun): run is IntervalRun {
@@ -306,6 +332,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with a positive integer array and a target sum.",
     defaultInput: serializeWindowInput(defaultMinimumSizeSubarrayInput),
     domain: "window"
+  },
+  {
+    id: "two-sum",
+    name: "Two Sum",
+    badge: "Hash",
+    accent: "gold",
+    description:
+      "Lookup-table replay records complement checks, stored values, and the exact pair that closes the target.",
+    inputLabel: "Hash Input",
+    inputHint: "JSON with an integer array and a target that has exactly one solution pair.",
+    defaultInput: serializeHashInput(defaultTwoSumInput),
+    domain: "hash"
   },
   {
     id: "merge-intervals",
@@ -442,6 +480,19 @@ function buildWindowRunFromInput(
   };
 }
 
+function buildHashRunFromInput(
+  algorithm: HashAlgorithm,
+  input: HashInput,
+  normalizedInputText = serializeHashInput(input)
+): HashRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildHashTrace(algorithm.id, input)
+  };
+}
+
 function buildIntervalRunFromInput(
   algorithm: IntervalAlgorithm,
   input: IntervalInput,
@@ -508,6 +559,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildWindowRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "hash") {
+    const input = parseHashInputText(inputText);
+    return buildHashRunFromInput(algorithm, input);
+  }
+
   if (algorithm.domain === "interval") {
     const input = parseIntervalInputText(inputText);
     return buildIntervalRunFromInput(algorithm, input);
@@ -537,6 +593,10 @@ export function describeInputFootprint(run: ReplayRun): string {
   }
 
   if (isWindowRun(run)) {
+    return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isHashRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
   }
 

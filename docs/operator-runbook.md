@@ -32,6 +32,8 @@ The demo seed currently materializes:
 - Search in Rotated Sorted Array on `search.rotated-missing-target`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
+- Two Sum on `hash.reference-hit`
+- Two Sum on `hash.negative-values`
 - Merge Intervals on `interval.reference-overlap`
 - Merge Intervals on `interval.touching-ranges`
 - Longest Common Subsequence on `dynamic-programming.reference-overlap`

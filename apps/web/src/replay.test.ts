@@ -9,6 +9,7 @@ import {
   buildRun,
   getTraceStepPaths,
   type DynamicProgrammingRun,
+  type HashRun,
   type IntervalRun,
   type SearchRun,
   type StackRun,
@@ -242,6 +243,35 @@ describe("buildRun", () => {
       [15, 18]
     ]);
     expect(finalStep.highlights.map((highlight) => highlight.path)).toContain("state.mergedIntervals");
+  });
+
+  it("builds hash replay runs from the shared hash engine", () => {
+    const run = buildRun(
+      "two-sum",
+      JSON.stringify(
+        {
+          array: [2, 7, 11, 15],
+          target: 9
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "hash") {
+      throw new Error("Expected a hash run.");
+    }
+
+    const hashRun = run as HashRun;
+    const finalStep = hashRun.trace.steps[hashRun.trace.steps.length - 1]!;
+
+    expect(hashRun.algorithm.id).toBe("two-sum");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.matchedPairIndices).toEqual([0, 1]);
+    expect(finalStep.state.matchedPairValues).toEqual([2, 7]);
+    expect(finalStep.highlights.map((highlight) => highlight.path)).toContain(
+      "state.matchedPairIndices"
+    );
   });
 
   it("builds stack replay runs from the shared stack engine", () => {

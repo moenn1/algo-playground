@@ -7,6 +7,7 @@ import { type JsonObject, type TraceStep } from "@tracedeck/trace-core";
 import {
   formatDistance,
   type GraphRun,
+  type HashRun,
   type IntervalRun,
   type SearchRun,
   type SortingRun,
@@ -207,6 +208,14 @@ function formatInterval(interval: number[]): string {
   }
 
   return `[${interval[0]}, ${interval[1]}]`;
+}
+
+function formatHashPair(values: number[]): string {
+  if (values.length !== 2) {
+    return "Pending";
+  }
+
+  return `${values[0]} + ${values[1]}`;
 }
 
 function getStackTokenTone(
@@ -682,6 +691,104 @@ export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: numbe
         <div className="mini-card">
           <span>Verdict</span>
           <strong>{verdict}</strong>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function HashStage({ run, stepIndex }: { run: HashRun; stepIndex: number }) {
+  const step = getStep(run.trace.steps, stepIndex);
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} lookup</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="window-stage">
+        <div className="window-banner">
+          <span>Target {step.state.target}</span>
+          <strong>
+            {step.state.currentIndex !== null && step.state.currentValue !== null
+              ? `Inspect index ${step.state.currentIndex} = ${step.state.currentValue}`
+              : "Awaiting first lookup"}
+          </strong>
+          <p>
+            {step.state.matchedPairValues.length === 2
+              ? `Resolved pair ${formatHashPair(step.state.matchedPairValues)} = ${step.state.target}`
+              : step.state.complement !== null
+                ? `Need complement ${step.state.complement}${
+                    step.state.complementIndex !== null
+                      ? ` at stored index ${step.state.complementIndex}`
+                      : " from a future or unseen entry"
+                  }.`
+                : "The lookup table starts empty so the first value can only be stored."}
+          </p>
+        </div>
+        <div className="window-grid">
+          {step.state.array.map((value, index) => {
+            const isCurrent = step.state.currentIndex === index;
+            const isMatched = step.state.matchedPairIndices.includes(index);
+            const isStored = step.state.seenEntries.some((entry) => entry.index === index);
+            const className = [
+              "window-cell",
+              isStored ? "window-cell-active" : "",
+              isCurrent ? "window-cell-candidate" : "",
+              isMatched ? "window-cell-best" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div className={className} key={`hash-card-${index}-${value}`}>
+                <span className="window-cell-index">{index}</span>
+                <strong className="window-cell-value">{value}</strong>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mini-grid">
+        <div className="mini-card">
+          <span>Complement</span>
+          <strong>{step.state.complement !== null ? step.state.complement : "Waiting"}</strong>
+          <p>
+            {step.state.complementIndex !== null
+              ? `Stored at index ${step.state.complementIndex}`
+              : "No stored match yet"}
+          </p>
+        </div>
+        <div className="mini-card">
+          <span>Lookup table</span>
+          <strong>{step.state.seenEntries.length} entries</strong>
+          <div className="pill-row">
+            {step.state.seenEntries.length > 0 ? (
+              step.state.seenEntries.map((entry) => (
+                <span className="pill" key={`hash-entry-${entry.index}`}>
+                  {entry.value}@{entry.index}
+                </span>
+              ))
+            ) : (
+              <span className="empty-pill">Empty table</span>
+            )}
+          </div>
+        </div>
+        <div className="mini-card">
+          <span>Result pair</span>
+          <strong>
+            {step.state.matchedPairIndices.length === 2
+              ? step.state.matchedPairIndices.join(" and ")
+              : "Pending"}
+          </strong>
+          <p>
+            {step.state.matchedPairValues.length === 2
+              ? `${formatHashPair(step.state.matchedPairValues)} = ${step.state.target}`
+              : "No complement pair locked yet"}
+          </p>
         </div>
       </div>
     </>
