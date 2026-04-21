@@ -11,7 +11,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - `#/overview` is the overview index for route selection, persistence status, and recent activity.
 - An empty hash now resolves to `#/playground/:algorithmId?`, so first load opens replay instead of the overview route.
 - `#/playground/:algorithmId?` is the dedicated single-run workspace for live replay, transport, timeline, and step inspection.
-- `#/library` now acts as a browseable catalog with a docked filter rail, route-backed search, domain, progression-stage, learning-goal, and sort filters, plus curated pathways into focused reference pages.
+- `#/library` now acts as a browseable catalog with a calmer navigation rail, one shared control band for search and refinement, route-backed search, domain, progression-stage, learning-goal, and sort filters, plus curated pathways into focused reference pages.
 - `#/algorithms/:algorithmId` captures per-algorithm guidance, input format, and replay expectations in a reference-style dossier without crowding the live replay surface.
 - `#/history` surfaces saved runs and saved comparison records as lightweight summaries first, then hydrates a replay only when the user resumes one.
 - `#/compare` reserves synchronized sorting playback, route-level sync context, trend charts, and leaderboard metrics for a dedicated comparison route.
@@ -22,6 +22,8 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Navigation should create genuinely separate working surfaces, not one long page disguised with anchor jumps or tabs.
 - Route splitting alone is not enough: overview, replay, library, reference, comparison, and history should each keep a different composition pattern instead of reusing the same card grid with new labels.
 - Library browse state should live in the route so discovery filters can be revisited, shared, and recovered without rebuilding them manually.
+- Library controls should cluster by responsibility: navigation belongs in the rail, while search, active filters, and sort controls belong beside the results they modify.
+- Shared surface styling should stay calm across routes: title scale, border weight, spacing rhythm, and card interior treatment need one coherent system instead of changing panel by panel.
 - The selected algorithm should own its input editor format and trace builder so transport and inspection views stay domain-aware.
 - Algorithm trace builders should lean on the shared `trace-core` recorder so step keys, path diffs, and runtime-state projection stay consistent across domains.
 - Playback and timeline scrubbing should operate on full step snapshots encoded through `trace-core`. This keeps restoration deterministic and avoids replay drift.
@@ -46,9 +48,11 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - API availability is surfaced directly so local development failures are obvious.
 - Single-run replay exposes domain-aware sorting, search, sliding-window, hash, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
-- The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
+- The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, calmer borders, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
+- Library styling should favor continuous browse hierarchy over nested boxed sections: a quieter domain rail, one shared control band, and two-column result rows communicate the catalog more clearly than more framed cards.
 - Library, reference, and history now share one neutral workspace-header system with metadata ledgers instead of banner-style intros, which keeps cross-route hierarchy consistent without making the pages feel identical.
+- Reference, comparison, and history interiors now lean on lighter ledger rows, quieter metric treatments, and flatter controls so internal sections feel deliberate instead of visually busy.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - Single replay now gives the visualization stage the full main width and moves the transport-and-timeline dock below it on desktop, which keeps playback controls visible without forcing the page wider than a laptop frame.
 - Overview, library, and history now lean on directories and ledger-style lists instead of large hero sections or repeated card grids.

@@ -1934,8 +1934,8 @@ function OverviewPage({
         <article className="panel overview-panel overview-directory-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">View Directory</p>
-              <h2>Open a focused surface</h2>
+              <p className="eyebrow">Routes</p>
+              <h2>Choose a working view</h2>
             </div>
             <p className="panel-copy">
               Each route keeps one job in frame: active replay, reference notes, saved records, or
@@ -2189,7 +2189,7 @@ function LibraryPage({
           }
         ]}
         eyebrow="Library"
-        summary="Browse the reference catalog by domain, stage, and learning goal. Filters stay route-backed so reference work does not collapse back into the replay workspace."
+        summary="Browse the reference catalog by domain, stage, and learning goal. Filters stay route-backed so you can reopen the same browse state without mixing search and replay on one page."
         title="Algorithm library"
       />
 
@@ -2197,19 +2197,19 @@ function LibraryPage({
         <div className="library-browser-shell">
           <aside className="library-filter-rail">
             <div className="library-rail-intro">
-              <p className="eyebrow">Browse Navigator</p>
-              <h2>Move by family or study path.</h2>
+              <p className="eyebrow">Reference Index</p>
+              <h2>Browse by domain or study route.</h2>
               <p className="panel-copy">
-                The rail stays focused on orientation. Search and refinement live beside the
-                results so the library behaves like one continuous tool.
+                Use the rail for orientation. Search and refinement stay beside the results they
+                change.
               </p>
             </div>
 
             <div className="library-rail-block">
               <div className="library-rail-heading">
                 <div>
-                  <p className="eyebrow">Families</p>
-                  <h2>Algorithm domains</h2>
+                  <p className="eyebrow">Domains</p>
+                  <h2>Algorithm families</h2>
                 </div>
                 <span>{filters.domain === "all" ? "All domains" : domainLabels[filters.domain]}</span>
               </div>
@@ -2257,7 +2257,7 @@ function LibraryPage({
             <div className="library-rail-block">
               <div className="library-rail-heading">
                 <div>
-                  <p className="eyebrow">Pathways</p>
+                  <p className="eyebrow">Study Routes</p>
                   <h2>Suggested sequences</h2>
                 </div>
                 <span>{activePathway?.label ?? "Custom browse state"}</span>
@@ -2296,14 +2296,14 @@ function LibraryPage({
           <div className="library-results-column">
             <div className="library-results-header">
               <div className="library-results-intro">
-                <p className="eyebrow">Algorithm Catalog</p>
+                <p className="eyebrow">Catalog</p>
                 <div className="library-results-title-block">
-                  <h2>Browse TraceDeck as one reference index.</h2>
-                  <strong>{filteredAlgorithms.length}</strong>
+                  <h2>Reference explorer</h2>
+                  <strong>{filteredAlgorithms.length} entries</strong>
                 </div>
                 <p className="panel-copy">
-                  Search, sort, and progression cues stay in one control band so you can refine the
-                  catalog without hopping between boxed sections.
+                  Search, sort, and progression cues stay in one control band so the catalog can be
+                  refined without hopping between separate framed sections.
                 </p>
               </div>
               <div className="library-search-panel">
@@ -2582,7 +2582,7 @@ function AlgorithmDetailPage({
             ) : null}
           </>
         }
-        className="workspace-header-detail"
+        className="workspace-header-reference"
         details={[
           {
             label: "Progression stage",
@@ -3289,7 +3289,7 @@ function HistoryPage({
               <h2>Replay-ready history</h2>
             </div>
             <p className="panel-copy">
-              Run cards stay summary-first and only hydrate full trace payloads when you resume a
+              Saved runs stay summary-first and only hydrate full trace payloads when you resume a
               replay.
             </p>
           </div>
