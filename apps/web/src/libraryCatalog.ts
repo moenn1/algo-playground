@@ -161,12 +161,24 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Probes and comparisons capture how quickly the search space closes.",
     skills: ["interval narrowing", "midpoint probes", "negative outcomes"],
     spotlight: "Useful when you want a compact trace that still proves why the target was found or rejected.",
-    nextAlgorithmIds: ["bfs", "minimum-size-subarray-sum"]
+    nextAlgorithmIds: ["search-in-rotated-sorted-array", "minimum-size-subarray-sum"]
+  },
+  "search-in-rotated-sorted-array": {
+    stage: "core",
+    focus: "targeting",
+    order: 3,
+    timeToExplore: "6 min",
+    complexity: "The search window stays compact, but each probe must first identify which half of the rotated interval remains ordered.",
+    outcome: "See exactly when replay trusts an ordered half, discards the impossible branch, and converges on a target hidden behind the pivot.",
+    metricsLens: "Probes and comparisons expose the extra branch work required to preserve logarithmic search after rotation.",
+    skills: ["ordered-half detection", "branch elimination", "rotated interval invariants"],
+    spotlight: "A recognizable interview staple that extends Binary Search without forcing the replay surface to invent a new state model.",
+    nextAlgorithmIds: ["valid-parentheses", "bfs"]
   },
   bfs: {
     stage: "foundation",
     focus: "pathfinding",
-    order: 3,
+    order: 4,
     timeToExplore: "5 min",
     complexity: "Queue order is visible, but the frontier still stays approachable on first read.",
     outcome: "Follow level-order expansion and route recovery without losing where the queue shifts next.",
@@ -178,7 +190,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "valid-parentheses": {
     stage: "foundation",
     focus: "state-tracking",
-    order: 4,
+    order: 5,
     timeToExplore: "5 min",
     complexity: "One token stream and one explicit stack make the core invariant easy to verify.",
     outcome: "Watch opener pushes, closer checks, and the first invalid token without inferring hidden stack state.",
@@ -190,7 +202,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "selection-sort": {
     stage: "core",
     focus: "tradeoffs",
-    order: 5,
+    order: 6,
     timeToExplore: "5 min",
     complexity: "The trace stays readable while separating scan cost from write cost.",
     outcome: "Compare broad scanning against fewer writes and see why a cleaner end state can still cost time.",
@@ -202,7 +214,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "minimum-size-subarray-sum": {
     stage: "core",
     focus: "windowing",
-    order: 6,
+    order: 7,
     timeToExplore: "6 min",
     complexity: "Two moving bounds and best-hit updates create a more coupled replay surface.",
     outcome: "See the exact frames where the window qualifies, contracts, and improves the best answer.",
@@ -214,7 +226,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-intervals": {
     stage: "core",
     focus: "state-tracking",
-    order: 7,
+    order: 8,
     timeToExplore: "6 min",
     complexity: "Sorted range order keeps the scan linear while the active merge span still changes meaningfully over time.",
     outcome: "See exactly when a range extends the active span, when a gap forces an output commit, and how the final interval list forms.",
@@ -226,7 +238,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "merge-sort": {
     stage: "core",
     focus: "partitioning",
-    order: 8,
+    order: 9,
     timeToExplore: "6 min",
     complexity: "Split and merge phases ask the viewer to connect multiple local windows.",
     outcome: "Track recursive decomposition and the write-heavy merge path back to a stable final ordering.",
@@ -238,7 +250,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "quick-sort": {
     stage: "advanced",
     focus: "partitioning",
-    order: 9,
+    order: 10,
     timeToExplore: "7 min",
     complexity: "Pivot locks and recursive partitions create dense local transitions across the deck.",
     outcome: "Inspect how partition boundaries move and why one pivot choice can reshape the next trace segment.",
@@ -250,7 +262,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
   "longest-common-subsequence": {
     stage: "advanced",
     focus: "dependencies",
-    order: 10,
+    order: 11,
     timeToExplore: "8 min",
     complexity: "A full table plus traceback shifts the user from linear scans to dependency-heavy state.",
     outcome: "Separate matrix fill work from traceback recovery while keeping the current cell and dependencies visible.",

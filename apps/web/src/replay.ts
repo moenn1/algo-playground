@@ -12,6 +12,7 @@ import {
   defaultDijkstraInput,
   defaultMergeIntervalsInput,
   defaultMinimumSizeSubarrayInput,
+  defaultRotatedSearchInput,
   defaultValidParenthesesInput,
   parseDynamicProgrammingInputText,
   formatGraphDistance,
@@ -283,6 +284,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "search"
   },
   {
+    id: "search-in-rotated-sorted-array",
+    name: "Search in Rotated Sorted Array",
+    badge: "Search",
+    accent: "teal",
+    description:
+      "Rotated-array replay records ordered-half detection, discarded branches, and deterministic interval collapse.",
+    inputLabel: "Search Input",
+    inputHint: "JSON with a rotated distinct integer array and a target value.",
+    defaultInput: serializeSearchInput(defaultRotatedSearchInput),
+    domain: "search"
+  },
+  {
     id: "minimum-size-subarray-sum",
     name: "Minimum Size Subarray Sum",
     badge: "Window",
@@ -486,7 +499,7 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
   }
 
   if (algorithm.domain === "search") {
-    const input = parseSearchInputText(inputText);
+    const input = parseSearchInputText(inputText, algorithm.id);
     return buildSearchRunFromInput(algorithm, input);
   }
 

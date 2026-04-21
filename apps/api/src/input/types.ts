@@ -6,6 +6,7 @@ export const supportedAlgorithmIds = [
   "quick-sort",
   "merge-sort",
   "binary-search",
+  "search-in-rotated-sorted-array",
   "minimum-size-subarray-sum",
   "merge-intervals",
   "longest-common-subsequence",

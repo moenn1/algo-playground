@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildBinarySearchTrace,
+  buildRotatedSearchTrace,
   buildSearchTrace,
   defaultBinarySearchInput,
+  defaultRotatedSearchInput,
   parseSearchInputText,
   searchAlgorithmIds,
   serializeSearchInput
@@ -42,9 +44,41 @@ describe("search execution engine", () => {
     expect(finalStep.state.eliminatedIndices).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
+  it("records sorted-half decisions for rotated-array search", () => {
+    const trace = buildRotatedSearchTrace({
+      array: [15, 18, 22, 1, 3, 6, 10, 12],
+      target: 6
+    });
+    const probeSteps = trace.steps.filter((step) => step.phase === "Probe");
+    const finalStep = trace.steps[trace.steps.length - 1]!;
+
+    expect(probeSteps.map((step) => step.state.sortedSide)).toEqual(["right", "left"]);
+    expect(finalStep.phase).toBe("Found");
+    expect(finalStep.state.foundIndex).toBe(5);
+    expect(finalStep.state.array[finalStep.state.foundIndex!]).toBe(6);
+  });
+
+  it("rejects rotated-search inputs that are not a single rotation of ascending order", () => {
+    expect(() =>
+      buildSearchTrace("search-in-rotated-sorted-array", {
+        array: [9, 4, 12, 2, 7],
+        target: 7
+      })
+    ).toThrow("rotation of a strictly increasing array");
+  });
+
   it("serializes and parses replay-safe binary search inputs", () => {
     expect(parseSearchInputText(serializeSearchInput(defaultBinarySearchInput))).toEqual(
       defaultBinarySearchInput
     );
+  });
+
+  it("serializes and parses replay-safe rotated-search inputs", () => {
+    expect(
+      parseSearchInputText(
+        serializeSearchInput(defaultRotatedSearchInput),
+        "search-in-rotated-sorted-array"
+      )
+    ).toEqual(defaultRotatedSearchInput);
   });
 });

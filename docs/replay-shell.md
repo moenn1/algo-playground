@@ -51,7 +51,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Overview, library, and history now lean on directories and ledger-style lists instead of large hero sections or repeated card grids.
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
-- The search stage renders interval cuts, midpoint probes, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
+- The search stage renders interval cuts, midpoint probes, ordered-half signals for rotated-array search, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.
 - The dynamic-programming stage renders the full matrix, dependency cells, and traceback highlights directly from the shared execution-engine snapshots.

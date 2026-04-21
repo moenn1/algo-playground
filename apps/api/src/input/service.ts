@@ -45,6 +45,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Binary Search",
     domain: "search"
   },
+  "search-in-rotated-sorted-array": {
+    id: "search-in-rotated-sorted-array",
+    label: "Search in Rotated Sorted Array",
+    domain: "search"
+  },
   "minimum-size-subarray-sum": {
     id: "minimum-size-subarray-sum",
     label: "Minimum Size Subarray Sum",
@@ -83,7 +88,10 @@ const sortingAlgorithms = [
   supportedAlgorithms["quick-sort"],
   supportedAlgorithms["merge-sort"]
 ] as const;
-const searchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
+const binarySearchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
+const rotatedSearchAlgorithms = [
+  supportedAlgorithms["search-in-rotated-sorted-array"]
+] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
 const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
@@ -93,6 +101,10 @@ const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
   target: 23
+};
+const defaultRotatedSearchInput: SearchInputPayload = {
+  array: [15, 18, 22, 1, 3, 6, 10, 12],
+  target: 6
 };
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
@@ -287,7 +299,7 @@ function serializeSortingValues(values: number[]) {
   return values.join(", ");
 }
 
-function normalizeSearchInput(payload: unknown): SearchInputPayload {
+function normalizeIntegerSearchInput(payload: unknown): SearchInputPayload {
   const candidate =
     typeof payload === "string"
       ? (() => {
@@ -327,12 +339,6 @@ function normalizeSearchInput(payload: unknown): SearchInputPayload {
     return entry;
   });
 
-  for (let index = 1; index < array.length; index += 1) {
-    if (array[index - 1]! > array[index]!) {
-      throw new HttpError(400, "Search input array must be sorted in ascending order.");
-    }
-  }
-
   if (typeof value.target !== "number" || !Number.isInteger(value.target)) {
     throw new HttpError(400, "Search input target must be an integer.");
   }
@@ -341,6 +347,65 @@ function normalizeSearchInput(payload: unknown): SearchInputPayload {
     array,
     target: value.target
   };
+}
+
+function assertAscendingSortedSearchInput(array: number[]) {
+  for (let index = 1; index < array.length; index += 1) {
+    if (array[index - 1]! > array[index]!) {
+      throw new HttpError(400, "Binary Search input array must be sorted in ascending order.");
+    }
+  }
+}
+
+function assertRotatedSortedSearchInput(array: number[]) {
+  const seen = new Set<number>();
+  let dropCount = 0;
+
+  for (let index = 0; index < array.length; index += 1) {
+    const value = array[index]!;
+
+    if (seen.has(value)) {
+      throw new HttpError(
+        400,
+        "Search in Rotated Sorted Array requires distinct integers."
+      );
+    }
+
+    seen.add(value);
+
+    if (index > 0 && array[index - 1]! > value) {
+      dropCount += 1;
+    }
+  }
+
+  if (dropCount > 1) {
+    throw new HttpError(
+      400,
+      "Search in Rotated Sorted Array input must be a rotation of a strictly increasing array."
+    );
+  }
+
+  if (dropCount === 1 && array[array.length - 1]! >= array[0]!) {
+    throw new HttpError(
+      400,
+      "Search in Rotated Sorted Array input must wrap exactly once when the order drops."
+    );
+  }
+}
+
+function normalizeSearchInput(
+  payload: unknown,
+  algorithmId: "binary-search" | "search-in-rotated-sorted-array"
+): SearchInputPayload {
+  const input = normalizeIntegerSearchInput(payload);
+
+  if (algorithmId === "binary-search") {
+    assertAscendingSortedSearchInput(input.array);
+    return input;
+  }
+
+  assertRotatedSortedSearchInput(input.array);
+  return input;
 }
 
 function normalizeWindowInput(payload: unknown): WindowInputPayload {
@@ -733,7 +798,7 @@ function normalizeAlgorithmInput(
   }
 
   if (algorithm.domain === "search") {
-    const search = normalizeSearchInput(payload);
+    const search = normalizeSearchInput(payload, algorithm.id);
 
     return {
       input: search,
@@ -1033,11 +1098,28 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "search",
-      algorithms: searchAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: binarySearchAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: defaultSearchInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "search.rotated-reference-hit",
+      label: "Rotated reference hit",
+      description:
+        "Use a curated rotated array with a target behind the pivot so ordered-half detection stays visible in replay.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "search",
+      algorithms: rotatedSearchAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultRotatedSearchInput,
       options: {}
     })
   },
@@ -1050,13 +1132,33 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "miss",
       kind: "curated",
       domain: "search",
-      algorithms: searchAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: binarySearchAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
       input: {
         array: [3, 7, 11, 18, 24, 31, 42, 56],
         target: 19
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "search.rotated-missing-target",
+      label: "Rotated absent target",
+      description:
+        "Keep the target outside a curated rotated array so replay ends on an explicit exhausted interval after multiple ordered-half checks.",
+      scenario: "miss",
+      kind: "curated",
+      domain: "search",
+      algorithms: rotatedSearchAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        array: [30, 34, 41, 5, 9, 12, 18, 24],
+        target: 17
       },
       options: {}
     })

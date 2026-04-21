@@ -11,6 +11,7 @@ The current package covers shared sorting, search, window, interval, dynamic-pro
 - `quick-sort`
 - `merge-sort`
 - `binary-search`
+- `search-in-rotated-sorted-array`
 - `minimum-size-subarray-sum`
 - `merge-intervals`
 - `longest-common-subsequence`
@@ -40,22 +41,23 @@ The package intentionally avoids algorithm-specific comparison metrics in the sh
 
 ## Search Runtime Model
 
-Binary Search currently establishes the first interval-search runtime shape:
+Binary Search and Search in Rotated Sorted Array now share the interval-search runtime shape:
 
 - `state.array`: the sorted array snapshot used for every probe
 - `state.target`: the requested value the runtime is resolving
 - `state.low`: the inclusive left bound of the active interval, or `null` when exhausted
 - `state.high`: the inclusive right bound of the active interval, or `null` when exhausted
 - `state.mid`: the midpoint lane under inspection for the current probe step
+- `state.sortedSide`: the currently ordered half for rotated-array probes, or `null` for standard binary-search steps and exhausted frames
 - `state.eliminatedIndices`: lanes ruled out by previous interval cuts
 - `state.foundIndex`: the resolved match lane when the target is present
 
-Shared search metrics focus on the binary-search decision path:
+Shared search metrics focus on the interval-search decision path:
 
 - `probes`: midpoint inspections performed so far
 - `comparisons`: equality and directional comparisons committed so far
 
-That shape is designed to stay reusable for future interval-search variants because the visualization only depends on sorted input, active bounds, the current probe, and the terminal match state.
+That shape stays reusable across classic binary search and rotated-array search because the visualization only depends on the active bounds, current probe, ordered-half signal, discarded lanes, and terminal match state.
 
 ## Window Runtime Model
 
@@ -171,6 +173,7 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Merge sort does not mark intermediate windows as globally sorted; `sortedIndices` only advances when that claim is true for the full array position.
 - Quick sort records pivot commits and single-lane base cases explicitly so replay can jump to any partition boundary without reconstructing recursion.
 - Binary search records both midpoint probes and discard checkpoints explicitly so replay can jump between interval cuts without re-running bound updates.
+- Search in Rotated Sorted Array records ordered-half detection plus discard checkpoints explicitly so replay can jump between pivot-aware interval cuts without rerunning branch selection.
 - Minimum Size Subarray Sum records expansion, qualifying, and shrink checkpoints explicitly so replay can jump between window states without recomputing running sums.
 - Merge Intervals records sorted range order, active-span merges, and committed outputs explicitly so replay can jump between overlap checks and result commits without recomputing interval groups.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
@@ -180,6 +183,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, sliding-window replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, sliding-window replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, BFS replay, and Dijkstra replay from this package.
 - `apps/api` exposes the same sorting, search, window, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

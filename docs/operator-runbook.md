@@ -28,6 +28,8 @@ The demo seed currently materializes:
 - Selection Sort on `sorting.reverse-sorted`
 - Binary Search on `search.reference-hit`
 - Binary Search on `search.missing-target`
+- Search in Rotated Sorted Array on `search.rotated-reference-hit`
+- Search in Rotated Sorted Array on `search.rotated-missing-target`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
 - Merge Intervals on `interval.reference-overlap`

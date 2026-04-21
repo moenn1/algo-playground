@@ -125,6 +125,34 @@ describe("buildRun", () => {
     expect(getTraceStepPaths(finalStep)).toContain("state.foundIndex");
   });
 
+  it("builds rotated-search replay runs from the shared search engine", () => {
+    const run = buildRun(
+      "search-in-rotated-sorted-array",
+      JSON.stringify(
+        {
+          array: [15, 18, 22, 1, 3, 6, 10, 12],
+          target: 6
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "search") {
+      throw new Error("Expected a search run.");
+    }
+
+    const searchRun = run as SearchRun;
+    const probeSteps = searchRun.trace.steps.filter((step) => step.phase === "Probe");
+    const finalStep = searchRun.trace.steps[searchRun.trace.steps.length - 1]!;
+
+    expect(searchRun.algorithm.id).toBe("search-in-rotated-sorted-array");
+    expect(probeSteps.map((step) => step.state.sortedSide)).toEqual(["right", "left"]);
+    expect(finalStep.phase).toBe("Found");
+    expect(finalStep.state.foundIndex).toBe(5);
+    expect(getTraceStepPaths(probeSteps[0]!)).toContain("state.sortedSide");
+  });
+
   it("builds sliding-window replay runs from the shared window engine", () => {
     const run = buildRun(
       "minimum-size-subarray-sum",

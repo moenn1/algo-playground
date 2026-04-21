@@ -544,6 +544,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "9 lanes / target 23"
     });
 
+    const rotatedSearchPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/search.rotated-reference-hit/resolve",
+      payload: {
+        algorithmId: "search-in-rotated-sorted-array"
+      }
+    });
+
+    expect(rotatedSearchPreset.statusCode).toBe(200);
+    expect(rotatedSearchPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "search.rotated-reference-hit"
+      },
+      algorithm: {
+        id: "search-in-rotated-sorted-array",
+        domain: "search"
+      },
+      footprint: "8 lanes / target 6"
+    });
+
     const windowPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/window.reference-target/resolve",
@@ -673,6 +694,32 @@ describe("TraceDeck API foundation", () => {
         target: 18
       },
       footprint: "5 lanes / target 18"
+    });
+
+    const validateRotatedSearchInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "search-in-rotated-sorted-array",
+        payload: {
+          array: [15, 18, 22, 1, 3, 6, 10, 12],
+          target: 6
+        }
+      }
+    });
+
+    expect(validateRotatedSearchInput.statusCode).toBe(200);
+    expect(validateRotatedSearchInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "search-in-rotated-sorted-array",
+        domain: "search"
+      },
+      input: {
+        array: [15, 18, 22, 1, 3, 6, 10, 12],
+        target: 6
+      },
+      footprint: "8 lanes / target 6"
     });
 
     const validateWindowInput = await server.inject({
@@ -805,6 +852,27 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Every graph edge endpoint must exist in nodes."
+    });
+  });
+
+  it("rejects rotated-search payloads that are not a single rotation of ascending order", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "search-in-rotated-sorted-array",
+        payload: {
+          array: [9, 4, 12, 2, 7],
+          target: 7
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Search in Rotated Sorted Array input must be a rotation of a strictly increasing array."
     });
   });
 });

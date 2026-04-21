@@ -2,7 +2,7 @@
 
 TraceDeck is an interactive algorithm execution platform built around deterministic traces, replayable timelines, persisted run history, comparison-ready metric surfaces, and a route-based interface that separates overview, replay, reference, and saved activity.
 
-This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a multi-route web interface for replay-oriented UX, shared sorting, search, window, dynamic-programming, and graph execution engines, and a shared trace contract that execution and history features build on.
+This repository starts with the product foundation: a workspace-based codebase, a persistence-ready API boundary, a multi-route web interface for replay-oriented UX, shared sorting, search, window, interval, dynamic-programming, stack, and graph execution engines, and a shared trace contract that execution and history features build on.
 
 ## Workspace Layout
 
@@ -88,13 +88,13 @@ The API also exposes a deterministic input-service layer for preset scenarios an
 - `POST /api/input-presets/:presetId/resolve`
 - `POST /api/inputs/validate`
 
-The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, sliding-window cases, dynamic-programming references, stack-validation cases, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
+The current preset catalog covers seeded random inputs, worst-case scenarios, curated baselines, binary-search fixtures, rotated-search fixtures, sliding-window cases, interval merges, dynamic-programming references, stack-validation cases, and graph pathfinding cases across Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Search in Rotated Sorted Array, Minimum Size Subarray Sum, Merge Intervals, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra. See `docs/input-generation.md` for the contract and option details.
 
 ## Current Foundation
 
 - `apps/web` exposes the multi-route replay interface: overview, replay, a browseable algorithm library with a calmer filter rail, progression paths, dense result-ledger rows, and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison view backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
-- `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, stack, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra.
+- `packages/execution-engine` owns the shared sorting, search, window, interval, dynamic-programming, stack, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Search in Rotated Sorted Array, Minimum Size Subarray Sum, Merge Intervals, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.
 - `docs/` captures the architecture, execution-engine, workflow, persistence-model, and input-service decisions that shape execution and replay work.
 - `docs/operator-runbook.md` captures the local orchestration and seeded-demo operating flow.

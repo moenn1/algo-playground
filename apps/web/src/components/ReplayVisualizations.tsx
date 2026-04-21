@@ -353,6 +353,14 @@ export function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: num
   const activeLow = step.state.low;
   const activeHigh = step.state.high;
   const eliminatedSet = new Set(step.state.eliminatedIndices);
+  const sortedSideLabel =
+    step.state.sortedSide === "left"
+      ? "Left half ordered"
+      : step.state.sortedSide === "right"
+        ? "Right half ordered"
+        : run.algorithm.id === "search-in-rotated-sorted-array"
+          ? "Awaiting probe"
+          : "Whole interval ordered";
 
   return (
     <>
@@ -421,6 +429,10 @@ export function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: num
                 ? "Not found"
                 : "Searching"}
           </strong>
+        </div>
+        <div className="mini-card">
+          <span>Order signal</span>
+          <strong>{sortedSideLabel}</strong>
         </div>
       </div>
     </>

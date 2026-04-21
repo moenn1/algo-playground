@@ -49,14 +49,14 @@ docs/             Architecture and developer workflow
 
 - Owns deterministic sorting, search, window, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
 - Shares one replay-safe sorting state shape across Bubble Sort, Selection Sort, Quick Sort, and Merge Sort
-- Shares one replay-safe interval-search state shape for Binary Search so midpoint probes, discarded lanes, and terminal match state stay readable across replay and persistence
+- Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
 - Shares one replay-safe sliding-window state shape for Minimum Size Subarray Sum so active bounds, running sums, and best-window updates stay readable across replay and persistence
 - Shares one replay-safe interval state shape for Merge Intervals so sorted ranges, active merge spans, overlap checks, and committed outputs stay readable across replay and persistence
 - Shares one replay-safe dynamic-programming state shape for Longest Common Subsequence so table snapshots, predecessor dependencies, and traceback recovery stay readable across replay and persistence
 - Shares one replay-safe stack state shape for Valid Parentheses so cursor position, stack contents, matched pairs, and failure reasons stay readable across replay and persistence
 - Shares one replay-safe graph state shape across Breadth-First Search and Dijkstra so the UI and persistence layers can render either algorithm without special-case payload parsing
 - Publishes stable comparison metrics for sorting runs through the shared `comparisons` and `writes` counters
-- Publishes stable search semantics for midpoint probes, interval bounds, and explicit exhausted-search outcomes
+- Publishes stable search semantics for midpoint probes, ordered-half detection, interval bounds, and explicit exhausted-search outcomes
 - Publishes stable window semantics for explicit expand, candidate, shrink, and terminal no-solution frames
 - Publishes stable interval semantics for sort-first range scans, overlap merges, and committed output intervals
 - Publishes stable dynamic-programming semantics for row-major table fills, deterministic traceback ties, and recovered subsequences

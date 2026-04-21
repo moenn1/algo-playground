@@ -7,7 +7,7 @@
 The service currently covers the supported algorithms already present in the workspace:
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
-- Search: `binary-search`
+- Search: `binary-search`, `search-in-rotated-sorted-array`
 - Window: `minimum-size-subarray-sum`
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
@@ -122,8 +122,10 @@ Every graph preset can be resolved for Breadth-First Search or Dijkstra through 
 
 - `search.reference-hit`: curated sorted array where the target is present
 - `search.missing-target`: curated sorted array where the target is absent
+- `search.rotated-reference-hit`: curated rotated array where the target sits behind the pivot
+- `search.rotated-missing-target`: curated rotated array where the target is absent
 
-Both search presets currently resolve for Binary Search through the same `algorithmId` field.
+The sorted search presets resolve for Binary Search. The rotated search presets resolve for Search in Rotated Sorted Array.
 
 ### Window presets
 
@@ -163,7 +165,8 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 - Stack payloads accept either JSON objects or JSON strings.
 - Graph payloads accept either JSON objects or JSON strings.
 - Sorting inputs must contain between 2 and 24 integers.
-- Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
+- Binary Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
+- Search in Rotated Sorted Array payloads must define a distinct-integer array between 2 and 32 entries that is a rotation of a strictly increasing array, plus an integer target.
 - Window payloads must define between 2 and 32 positive integers plus a positive integer target.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.
 - Dynamic-programming payloads must define non-empty `left` and `right` strings up to 12 characters each.

@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared rotated-array search runtime for Search in Rotated Sorted Array, including deterministic ordered-half checkpoints, explicit discard frames, and stable reuse of the search `probes` and `comparisons` metrics.
+- Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to Search in Rotated Sorted Array so TraceDeck now covers a second high-signal search problem alongside classic Binary Search.
 - Added a shared interval runtime for Merge Intervals, including deterministic sort-first range scans, explicit overlap and commit checkpoints, and stable `comparisons`, `merges`, and `outputs` metrics.
 - Wired the replay shell, input-service presets, demo seed data, and validation coverage to the new interval domain so TraceDeck now includes another famous interview problem with dedicated range-merging playback.
 - Reworked the replay-first interface around a tighter tool layout: the empty hash now opens replay, overview moved to an explicit route directory, replay and comparison use a docked transport-and-timeline rail, and library/history surfaces lean on ledgers and lists instead of repeated card grids.

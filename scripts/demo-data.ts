@@ -67,6 +67,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "search", "missing-target"]
   },
   {
+    key: "search-rotated-reference-hit",
+    algorithmId: "search-in-rotated-sorted-array",
+    presetId: "search.rotated-reference-hit",
+    recordedAt: "2026-04-20T09:07:35.000Z",
+    tags: ["seeded-demo", "search", "rotated-reference-hit"]
+  },
+  {
+    key: "search-rotated-missing-target",
+    algorithmId: "search-in-rotated-sorted-array",
+    presetId: "search.rotated-missing-target",
+    recordedAt: "2026-04-20T09:07:40.000Z",
+    tags: ["seeded-demo", "search", "rotated-missing-target"]
+  },
+  {
     key: "window-reference-target",
     algorithmId: "minimum-size-subarray-sum",
     presetId: "window.reference-target",
