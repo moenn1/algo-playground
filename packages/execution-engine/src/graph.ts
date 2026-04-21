@@ -6,11 +6,11 @@ import {
   type TraceMetricDefinition
 } from "@tracedeck/trace-core";
 
-export type GraphAlgorithmId = "bfs" | "dijkstra";
+export type GraphAlgorithmId = "bfs" | "dijkstra" | "course-schedule";
 
-export const graphAlgorithmIds: GraphAlgorithmId[] = ["bfs", "dijkstra"];
+export const graphAlgorithmIds: GraphAlgorithmId[] = ["bfs", "dijkstra", "course-schedule"];
 
-export interface GraphInput extends JsonObject {
+export interface PathfindingGraphInput extends JsonObject {
   nodes: string[];
   edges: Array<[string, string, number]>;
   start: string;
@@ -18,7 +18,15 @@ export interface GraphInput extends JsonObject {
   directed: boolean;
 }
 
-export interface GraphExecutionState extends JsonObject {
+export interface CourseScheduleInput extends JsonObject {
+  courseCount: number;
+  prerequisites: Array<[number, number]>;
+}
+
+export type GraphInput = PathfindingGraphInput | CourseScheduleInput;
+
+export interface PathfindingGraphExecutionState extends JsonObject {
+  kind: "bfs" | "dijkstra";
   distances: Record<string, number | null>;
   settled: string[];
   frontier: string[];
@@ -26,6 +34,24 @@ export interface GraphExecutionState extends JsonObject {
   activeEdge: string[];
   path: string[];
 }
+
+export interface CourseScheduleExecutionState extends JsonObject {
+  kind: "course-schedule";
+  courseCount: number;
+  prerequisites: Array<[number, number]>;
+  indegrees: Record<string, number>;
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  order: string[];
+  schedulable: boolean | null;
+  cycleNodes: string[];
+}
+
+export type GraphExecutionState =
+  | PathfindingGraphExecutionState
+  | CourseScheduleExecutionState;
 
 interface GraphMetricState {
   settled: number;
@@ -45,7 +71,7 @@ interface GraphEdge {
   weight: number;
 }
 
-interface GraphRuntimeStateBase {
+interface PathfindingGraphRuntimeStateBase {
   distances: Record<string, number>;
   settled: Set<string>;
   current: string | null;
@@ -53,12 +79,23 @@ interface GraphRuntimeStateBase {
   path: string[];
 }
 
-interface BreadthFirstSearchRuntimeState extends GraphRuntimeStateBase {
+interface BreadthFirstSearchRuntimeState extends PathfindingGraphRuntimeStateBase {
   frontier: string[];
 }
 
-interface DijkstraRuntimeState extends GraphRuntimeStateBase {
+interface DijkstraRuntimeState extends PathfindingGraphRuntimeStateBase {
   frontier: Set<string>;
+}
+
+interface CourseScheduleRuntimeState {
+  indegrees: Record<string, number>;
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  order: string[];
+  schedulable: boolean | null;
+  cycleNodes: string[];
 }
 
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
@@ -71,6 +108,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "dijkstra",
     label: "Dijkstra",
     implementationVersion: "graph-engine-0.1.0"
+  },
+  "course-schedule": {
+    id: "course-schedule",
+    label: "Course Schedule",
+    implementationVersion: "graph-engine-0.2.0"
   }
 };
 
@@ -134,8 +176,36 @@ export const defaultDijkstraInput: GraphInput = {
   directed: false
 };
 
+export const defaultCourseScheduleInput: CourseScheduleInput = {
+  courseCount: 4,
+  prerequisites: [
+    [1, 0],
+    [2, 1],
+    [3, 2]
+  ]
+};
+
 function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
+  if (state.kind === "course-schedule") {
+    return {
+      kind: state.kind,
+      courseCount: state.courseCount,
+      prerequisites: state.prerequisites.map((pair) => pair.slice() as [number, number]),
+      indegrees: {
+        ...state.indegrees
+      },
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      order: state.order.slice(),
+      schedulable: state.schedulable,
+      cycleNodes: state.cycleNodes.slice()
+    };
+  }
+
   return {
+    kind: state.kind,
     distances: {
       ...state.distances
     },
@@ -180,7 +250,7 @@ function normalizeEdge(edge: unknown, index: number): [string, string, number] {
   return [from, to, weight];
 }
 
-function normalizeParsedGraph(candidate: unknown): GraphInput {
+function normalizeParsedPathfindingGraph(candidate: unknown): PathfindingGraphInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("Graph input must be an object with nodes, edges, start, and target.");
   }
@@ -234,7 +304,80 @@ function normalizeParsedGraph(candidate: unknown): GraphInput {
   };
 }
 
-export function parseGraphInputText(inputText: string): GraphInput {
+function normalizeCourseScheduleInput(candidate: unknown): CourseScheduleInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error(
+      "Course Schedule input must be an object with courseCount and prerequisites."
+    );
+  }
+
+  const value = candidate as {
+    courseCount?: unknown;
+    prerequisites?: unknown;
+  };
+
+  if (
+    typeof value.courseCount !== "number" ||
+    !Number.isInteger(value.courseCount) ||
+    value.courseCount < 2
+  ) {
+    throw new Error("Course Schedule input courseCount must be an integer of at least 2.");
+  }
+
+  if (value.courseCount > 16) {
+    throw new Error("Course Schedule input courseCount must be 16 or fewer.");
+  }
+
+  const courseCount = value.courseCount;
+
+  if (!Array.isArray(value.prerequisites)) {
+    throw new Error("Course Schedule input must include a prerequisites array.");
+  }
+
+  const prerequisites = value.prerequisites.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error(`prerequisites[${index}] must contain [course, prerequisite].`);
+    }
+
+    const course = entry[0];
+    const prerequisite = entry[1];
+
+    if (typeof course !== "number" || !Number.isInteger(course)) {
+      throw new Error(`prerequisites[${index}][0] must be an integer.`);
+    }
+
+    if (typeof prerequisite !== "number" || !Number.isInteger(prerequisite)) {
+      throw new Error(`prerequisites[${index}][1] must be an integer.`);
+    }
+
+    if (
+      course < 0 ||
+      course >= courseCount ||
+      prerequisite < 0 ||
+      prerequisite >= courseCount
+    ) {
+      throw new Error(
+        `prerequisites[${index}] must reference course ids between 0 and ${courseCount - 1}.`
+      );
+    }
+
+    if (course === prerequisite) {
+      throw new Error(`prerequisites[${index}] must not depend on the same course twice.`);
+    }
+
+    return [course, prerequisite] as [number, number];
+  });
+
+  return {
+    courseCount,
+    prerequisites
+  };
+}
+
+export function parseGraphInputText(
+  inputText: string,
+  algorithmId: GraphAlgorithmId = "dijkstra"
+): GraphInput {
   let parsed: unknown;
 
   try {
@@ -243,14 +386,32 @@ export function parseGraphInputText(inputText: string): GraphInput {
     throw new Error("Graph input must be valid JSON.");
   }
 
-  return normalizeParsedGraph(parsed);
+  return algorithmId === "course-schedule"
+    ? normalizeCourseScheduleInput(parsed)
+    : normalizeParsedPathfindingGraph(parsed);
 }
 
-export function normalizeGraphInput(input: unknown): GraphInput {
-  return normalizeParsedGraph(input);
+export function normalizeGraphInput(
+  input: unknown,
+  algorithmId: GraphAlgorithmId = "dijkstra"
+): GraphInput {
+  return algorithmId === "course-schedule"
+    ? normalizeCourseScheduleInput(input)
+    : normalizeParsedPathfindingGraph(input);
 }
 
 export function serializeGraphInput(graph: GraphInput): string {
+  if ("courseCount" in graph) {
+    return JSON.stringify(
+      {
+        courseCount: graph.courseCount,
+        prerequisites: graph.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
       nodes: graph.nodes,
@@ -264,7 +425,7 @@ export function serializeGraphInput(graph: GraphInput): string {
   );
 }
 
-function buildAdjacency(graph: GraphInput): Map<string, GraphEdge[]> {
+function buildAdjacency(graph: PathfindingGraphInput): Map<string, GraphEdge[]> {
   const adjacency = new Map(graph.nodes.map((node) => [node, [] as GraphEdge[]]));
 
   for (const [from, to, weight] of graph.edges) {
@@ -321,7 +482,7 @@ function reconstructPath(
   return path;
 }
 
-function createBreadthFirstSearchRecorder(graph: GraphInput) {
+function createBreadthFirstSearchRecorder(graph: PathfindingGraphInput) {
   return createTraceRecorder<
     BreadthFirstSearchRuntimeState,
     GraphExecutionState,
@@ -330,6 +491,7 @@ function createBreadthFirstSearchRecorder(graph: GraphInput) {
     algorithmId: "bfs",
     projectState(runtimeState) {
       return cloneGraphState({
+        kind: "bfs",
         distances: serializeDistances(graph.nodes, runtimeState.distances),
         settled: Array.from(runtimeState.settled),
         frontier: runtimeState.frontier.slice(),
@@ -353,11 +515,12 @@ function orderWeightedFrontier(
   );
 }
 
-function createDijkstraRecorder(graph: GraphInput) {
+function createDijkstraRecorder(graph: PathfindingGraphInput) {
   return createTraceRecorder<DijkstraRuntimeState, GraphExecutionState, GraphMetricState>({
     algorithmId: "dijkstra",
     projectState(runtimeState) {
       return cloneGraphState({
+        kind: "dijkstra",
         distances: serializeDistances(graph.nodes, runtimeState.distances),
         settled: Array.from(runtimeState.settled),
         frontier: orderWeightedFrontier(runtimeState.frontier, runtimeState.distances),
@@ -370,12 +533,37 @@ function createDijkstraRecorder(graph: GraphInput) {
   });
 }
 
+function createCourseScheduleRecorder(input: CourseScheduleInput) {
+  return createTraceRecorder<CourseScheduleRuntimeState, GraphExecutionState, GraphMetricState>({
+    algorithmId: "course-schedule",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "course-schedule",
+        courseCount: input.courseCount,
+        prerequisites: input.prerequisites.map((pair) => pair.slice() as [number, number]),
+        indegrees: {
+          ...runtimeState.indegrees
+        },
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        order: runtimeState.order.slice(),
+        schedulable: runtimeState.schedulable,
+        cycleNodes: runtimeState.cycleNodes.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function buildGraphEnvelope(
   definition: GraphAlgorithmDefinition,
   input: GraphInput,
   recorder:
     | ReturnType<typeof createBreadthFirstSearchRecorder>
     | ReturnType<typeof createDijkstraRecorder>
+    | ReturnType<typeof createCourseScheduleRecorder>
 ): TraceEnvelope<GraphExecutionState> {
   return createTraceEnvelope({
     algorithm: {
@@ -443,10 +631,10 @@ function syncMetrics(
 }
 
 export function buildBreadthFirstSearchTrace(
-  graph: GraphInput
+  graph: PathfindingGraphInput
 ): TraceEnvelope<GraphExecutionState> {
   const definition = graphAlgorithmDefinitions.bfs;
-  const normalizedGraph = normalizeGraphInput(graph);
+  const normalizedGraph = normalizeGraphInput(graph, "bfs") as PathfindingGraphInput;
   const adjacency = buildAdjacency(normalizedGraph);
   const distances = Object.fromEntries(
     normalizedGraph.nodes.map((node) => [node, Number.POSITIVE_INFINITY])
@@ -668,10 +856,10 @@ export function buildBreadthFirstSearchTrace(
 }
 
 export function buildDijkstraTrace(
-  graph: GraphInput
+  graph: PathfindingGraphInput
 ): TraceEnvelope<GraphExecutionState> {
   const definition = graphAlgorithmDefinitions.dijkstra;
-  const normalizedGraph = normalizeGraphInput(graph);
+  const normalizedGraph = normalizeGraphInput(graph, "dijkstra") as PathfindingGraphInput;
   const adjacency = buildAdjacency(normalizedGraph);
   const distances = Object.fromEntries(
     normalizedGraph.nodes.map((node) => [node, Number.POSITIVE_INFINITY])
@@ -891,13 +1079,243 @@ export function buildDijkstraTrace(
   return buildGraphEnvelope(definition, normalizedGraph, recorder);
 }
 
+function compareCourseIds(left: string, right: string): number {
+  return Number(left) - Number(right);
+}
+
+function insertSortedCourse(frontier: string[], course: string) {
+  frontier.push(course);
+  frontier.sort(compareCourseIds);
+}
+
+export function buildCourseScheduleTrace(
+  input: CourseScheduleInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["course-schedule"];
+  const normalizedInput = normalizeCourseScheduleInput(input);
+  const courses = Array.from({ length: normalizedInput.courseCount }, (_, index) => `${index}`);
+  const adjacency = new Map(courses.map((course) => [course, [] as string[]]));
+  const indegrees = Object.fromEntries(courses.map((course) => [course, 0])) as Record<
+    string,
+    number
+  >;
+
+  for (const [course, prerequisite] of normalizedInput.prerequisites) {
+    const prerequisiteId = `${prerequisite}`;
+    const courseId = `${course}`;
+    adjacency.get(prerequisiteId)?.push(courseId);
+    indegrees[courseId] = (indegrees[courseId] ?? 0) + 1;
+  }
+
+  for (const neighbors of adjacency.values()) {
+    neighbors.sort(compareCourseIds);
+  }
+
+  const frontier = courses.filter((course) => indegrees[course] === 0).sort(compareCourseIds);
+  const settled: string[] = [];
+  const order: string[] = [];
+  const recorder = createCourseScheduleRecorder(normalizedInput);
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let schedulable: boolean | null = null;
+  let cycleNodes: string[] = [];
+
+  const createRuntimeState = (): CourseScheduleRuntimeState => ({
+    indegrees,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    order,
+    schedulable,
+    cycleNodes
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The schedule begins with all course indegrees recorded and the zero-prerequisite queue seeded before any dependency edge is inspected.",
+    explanation: {
+      summary: "Seed the indegree ledger and initial zero-prerequisite frontier before scheduling any course.",
+      details:
+        "The first frame stores the full indegree map and queue order directly so replay never reconstructs which courses were immediately available.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "course-schedule-initial",
+        path: "state.frontier",
+        kind: "collection",
+        intent: "focus",
+        label: `${frontier.length} zero-prerequisite course${frontier.length === 1 ? "" : "s"} ready`
+      }
+    ]
+  });
+
+  while (frontier.length > 0) {
+    const currentCourse = frontier.shift();
+
+    if (!currentCourse) {
+      break;
+    }
+
+    current = currentCourse;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `Course ${current} leaves the zero-prerequisite queue and becomes the next course under inspection.`,
+      explanation: {
+        summary: "Take the next available course from the frontier in deterministic course-id order.",
+        details:
+          "The queue ordering is stable, so replay and backend consumers agree on which zero-indegree course is scheduled first.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `course-schedule-current-${current}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Schedule course ${current}`
+        }
+      ]
+    });
+
+    for (const dependent of adjacency.get(currentCourse) ?? []) {
+      activeEdge = [currentCourse, dependent];
+      metrics.inspections += 1;
+      indegrees[dependent] = Math.max(0, (indegrees[dependent] ?? 0) - 1);
+      metrics.updates += 1;
+      const unlocked = indegrees[dependent] === 0;
+
+      if (unlocked) {
+        insertSortedCourse(frontier, dependent);
+      }
+
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: unlocked ? "Unlock" : "Inspect",
+        description: unlocked
+          ? `Course ${dependent} drops to indegree 0 and joins the scheduling frontier after ${current} completes.`
+          : `Course ${dependent} still has ${indegrees[dependent]} prerequisite${indegrees[dependent] === 1 ? "" : "s"} remaining after ${current} completes.`,
+        explanation: {
+          summary: unlocked
+            ? "Decrease the dependent course indegree and unlock it once no prerequisites remain."
+            : "Decrease the dependent indegree without unlocking the course yet.",
+          details: unlocked
+            ? `The zero-indegree queue now includes ${dependent}, which makes the next scheduling choice replay-safe and explicit.`
+            : `The schedule still needs more prerequisite courses before ${dependent} can enter the frontier.`,
+          tags: ["edge", unlocked ? "frontier" : "focus"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `course-schedule-edge-${current}-${dependent}-${metrics.inspections}`,
+            path: unlocked ? "state.frontier" : `state.indegrees.${dependent}`,
+            kind: unlocked ? "collection" : "node",
+            intent: unlocked ? "frontier" : "candidate",
+          label: unlocked
+            ? `Unlock ${dependent}`
+            : `Reduce indegree of ${dependent} to ${indegrees[dependent]}`
+          }
+        ]
+      });
+    }
+
+    order.push(currentCourse);
+    settled.push(currentCourse);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `Course ${current} is sealed into the committed schedule order, so replay can jump here without re-running earlier indegree updates.`,
+      explanation: {
+        summary: "Commit the scheduled course after all outgoing prerequisite edges are processed.",
+        details:
+          "This checkpoint captures the updated indegree ledger, live queue, and committed order in one deterministic frame.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `course-schedule-settled-${current}`,
+          path: "state.order",
+          kind: "path",
+          intent: "visited",
+          label: `Order now ends with ${current}`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  cycleNodes = courses.filter((course) => !settled.includes(course)).sort(compareCourseIds);
+  schedulable = cycleNodes.length === 0;
+  metrics.settled = settled.length;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: schedulable ? "Resolution" : "Cycle",
+    description: schedulable
+      ? `All ${order.length} courses fit into the order ${order.join(" -> ")}.`
+      : `A cycle blocks the remaining courses ${cycleNodes.join(", ")}, so no full schedule exists.`,
+    explanation: {
+      summary: schedulable
+        ? "Publish the completed topological order once every course is scheduled."
+        : "Publish the blocked courses once the zero-indegree frontier is exhausted before all courses are scheduled.",
+      details: schedulable
+        ? "The terminal frame stores the full order directly so replay never recomputes the final course sequence from earlier checkpoints."
+        : "The remaining positive-indegree courses stay explicit in the terminal frame so replay can explain why scheduling failed without re-running Kahn's algorithm.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "course-schedule-final",
+        path: schedulable ? "state.order" : "state.cycleNodes",
+        kind: schedulable ? "path" : "collection",
+        intent: "result",
+        label: schedulable
+          ? `Order ${order.join(" -> ")}`
+          : `Cycle blocks ${cycleNodes.join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildGraphTrace(
   algorithmId: GraphAlgorithmId,
   graph: GraphInput
 ): TraceEnvelope<GraphExecutionState> {
-  return algorithmId === "bfs"
-    ? buildBreadthFirstSearchTrace(graph)
-    : buildDijkstraTrace(graph);
+  switch (algorithmId) {
+    case "bfs":
+      return buildBreadthFirstSearchTrace(graph as PathfindingGraphInput);
+    case "dijkstra":
+      return buildDijkstraTrace(graph as PathfindingGraphInput);
+    case "course-schedule":
+      return buildCourseScheduleTrace(graph as CourseScheduleInput);
+  }
 }
 
 export function formatGraphDistance(distance: number | null): string {

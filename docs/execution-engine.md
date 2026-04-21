@@ -20,8 +20,11 @@ The current package covers shared sorting, search, two-pointers, window, hash, i
 - `longest-common-subsequence`
 - `valid-parentheses`
 - `daily-temperatures`
+- `largest-rectangle-in-histogram`
+- `min-stack`
 - `bfs`
 - `dijkstra`
+- `course-schedule`
 
 ## Sorting Runtime Model
 
@@ -185,8 +188,11 @@ The runtime records explicit `Initialization` and `Push` checkpoints for all sta
 
 ## Graph Runtime Model
 
-Breadth-First Search and Dijkstra share one replay-safe graph state shape:
+The graph runtime family now uses a discriminated replay-safe union so pathfinding and dependency scheduling can share one metric vocabulary without collapsing into one overloaded state payload.
 
+Pathfinding state for Breadth-First Search and Dijkstra records:
+
+- `state.kind`: `"bfs"` or `"dijkstra"`
 - `state.distances`: recorded hop counts or weighted distances per node
 - `state.settled`: nodes whose expansion or shortest-path state is final for the current frame
 - `state.frontier`: queue order for BFS or weighted frontier order for Dijkstra
@@ -194,14 +200,27 @@ Breadth-First Search and Dijkstra share one replay-safe graph state shape:
 - `state.activeEdge`: the edge under inspection or relaxation
 - `state.path`: the current recovered path overlay
 
-Shared graph metrics keep the runtime readable across both algorithms:
+Course Schedule records:
+
+- `state.kind`: `"course-schedule"`
+- `state.courseCount` and `state.prerequisites`: the normalized dependency fixture
+- `state.indegrees`: the live indegree ledger per course id
+- `state.settled`: courses already committed into the topological order
+- `state.frontier`: the deterministic zero-indegree queue
+- `state.current`: the course currently being scheduled
+- `state.activeEdge`: the prerequisite edge currently reducing a dependent indegree
+- `state.order`: the committed topological order prefix
+- `state.schedulable`: `true`, `false`, or `null` while the runtime is still in progress
+- `state.cycleNodes`: the remaining blocked courses when the queue empties early
+
+Shared graph metrics keep the runtime readable across all graph-family algorithms:
 
 - `settled`: nodes finalized so far
 - `frontier`: queue or weighted-frontier size at the recorded frame
 - `inspections`: edges inspected so far
 - `updates`: predecessor or distance updates committed so far
 
-The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, while Dijkstra records the weighted frontier sorted by tentative distance and node label tie-breaks.
+The frontier representation is intentionally serialized as an ordered array. BFS records queue order directly, Dijkstra records the weighted frontier sorted by tentative distance and node-label tie-breaks, and Course Schedule records the zero-indegree queue sorted by numeric course id.
 
 ## Deterministic Emission Rules
 
@@ -223,9 +242,10 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Min Stack records push-time minimum comparisons, non-mutating `top` and `getMin` reads, and minimum recovery after pops explicitly so replay can restore the exact value stack and minimum ledger for any frame.
 - BFS records queue extraction and first-discovery checkpoints explicitly so replay can restore hop-based traversal order without hidden queue mutation.
 - Dijkstra records deterministic frontier ordering and settled-node checkpoints so weighted path playback never depends on live priority-queue state.
+- Course Schedule records initialization, queue extraction, dependency inspection, unlock checkpoints, committed-order checkpoints, and terminal cycle reporting explicitly so replay can explain both valid schedules and blocked graphs without re-running Kahn's algorithm.
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, and Dijkstra replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, Dijkstra replay, and Course Schedule replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

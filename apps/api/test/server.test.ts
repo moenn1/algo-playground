@@ -569,6 +569,48 @@ describe("TraceDeck API foundation", () => {
     expect(graphPreset.json().input.start).toBe("A");
     expect(graphPreset.json().input.target).toBe("E");
 
+    const courseSchedulePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-schedule/resolve",
+      payload: {
+        algorithmId: "course-schedule"
+      }
+    });
+
+    expect(courseSchedulePreset.statusCode).toBe(200);
+    expect(courseSchedulePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-schedule"
+      },
+      algorithm: {
+        id: "course-schedule",
+        domain: "graph"
+      },
+      footprint: "5 courses / 5 prerequisites"
+    });
+
+    const blockedCyclePreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.blocked-cycle/resolve",
+      payload: {
+        algorithmId: "course-schedule"
+      }
+    });
+
+    expect(blockedCyclePreset.statusCode).toBe(200);
+    expect(blockedCyclePreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.blocked-cycle"
+      },
+      algorithm: {
+        id: "course-schedule",
+        domain: "graph"
+      },
+      footprint: "5 courses / 5 prerequisites"
+    });
+
     const searchPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/search.reference-hit/resolve",
@@ -1111,6 +1153,40 @@ describe("TraceDeck API foundation", () => {
         ]
       },
       footprint: "5 ops"
+    });
+
+    const validateCourseScheduleInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "course-schedule",
+        payload: {
+          courseCount: 4,
+          prerequisites: [
+            [1, 0],
+            [2, 0],
+            [3, 1]
+          ]
+        }
+      }
+    });
+
+    expect(validateCourseScheduleInput.statusCode).toBe(200);
+    expect(validateCourseScheduleInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "course-schedule",
+        domain: "graph"
+      },
+      input: {
+        courseCount: 4,
+        prerequisites: [
+          [1, 0],
+          [2, 0],
+          [3, 1]
+        ]
+      },
+      footprint: "4 courses / 3 prerequisites"
     });
   });
 

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildBreadthFirstSearchTrace,
+  buildCourseScheduleTrace,
   buildDijkstraTrace,
   defaultBreadthFirstSearchInput,
+  defaultCourseScheduleInput,
   formatGraphDistance,
+  parseGraphInputText,
   serializeGraphInput
 } from "../src/index.js";
 
@@ -55,6 +58,7 @@ describe("graph execution engine", () => {
       "state.distances.E",
       "state.distances.F",
       "state.frontier",
+      "state.kind",
       "state.path",
       "state.settled"
     ]);
@@ -62,7 +66,47 @@ describe("graph execution engine", () => {
 
   it("formats graph helpers for replay-safe input and distance rendering", () => {
     expect(serializeGraphInput(defaultBreadthFirstSearchInput)).toContain('"start": "A"');
+    expect(serializeGraphInput(defaultCourseScheduleInput)).toContain('"courseCount": 4');
+    expect(parseGraphInputText(serializeGraphInput(defaultCourseScheduleInput), "course-schedule")).toEqual(
+      defaultCourseScheduleInput
+    );
     expect(formatGraphDistance(null)).toBe("inf");
     expect(formatGraphDistance(3)).toBe("3");
+  });
+
+  it("records deterministic topological scheduling and cycle failures for Course Schedule", () => {
+    const acyclicTrace = buildCourseScheduleTrace({
+      courseCount: 4,
+      prerequisites: [
+        [1, 0],
+        [2, 1],
+        [3, 1]
+      ]
+    });
+    const cyclicTrace = buildCourseScheduleTrace({
+      courseCount: 2,
+      prerequisites: [
+        [1, 0],
+        [0, 1]
+      ]
+    });
+    const acyclicFinalStep = acyclicTrace.steps[acyclicTrace.steps.length - 1]!;
+    const cyclicFinalStep = cyclicTrace.steps[cyclicTrace.steps.length - 1]!;
+
+    expect(acyclicFinalStep.phase).toBe("Resolution");
+    expect(acyclicFinalStep.state.kind).toBe("course-schedule");
+    if (acyclicFinalStep.state.kind !== "course-schedule") {
+      throw new Error("Expected the course-schedule state.");
+    }
+    expect(acyclicFinalStep.state.schedulable).toBe(true);
+    expect(acyclicFinalStep.state.order).toEqual(["0", "1", "2", "3"]);
+
+    expect(cyclicFinalStep.phase).toBe("Cycle");
+    expect(cyclicFinalStep.state.kind).toBe("course-schedule");
+    if (cyclicFinalStep.state.kind !== "course-schedule") {
+      throw new Error("Expected the course-schedule state.");
+    }
+    expect(cyclicFinalStep.state.schedulable).toBe(false);
+    expect(cyclicFinalStep.state.cycleNodes).toEqual(["0", "1"]);
   });
 });

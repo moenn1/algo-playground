@@ -16,6 +16,7 @@ import {
   type GraphRun,
   type HashRun,
   type IntervalRun,
+  isCourseScheduleInput,
   type SearchRun,
   type SortingRun,
   type StackRun,
@@ -132,10 +133,14 @@ export function buildGraphLayout(nodes: string[]): Record<string, GraphPoint> {
   );
 }
 
-function getGraphNodeTone(
+function getPathfindingGraphNodeTone(
   node: string,
   step: TraceStep<GraphExecutionState>
 ): "current" | "path" | "settled" | "frontier" | "idle" {
+  if (step.state.kind === "course-schedule") {
+    return "idle";
+  }
+
   if (step.state.current === node) {
     return "current";
   }
@@ -160,7 +165,11 @@ function formatGraphNodeStatus(
   step: TraceStep<GraphExecutionState>,
   run: GraphRun
 ): string {
-  const tone = getGraphNodeTone(node, step);
+  if (step.state.kind === "course-schedule" || isCourseScheduleInput(run.input)) {
+    return "Blocked";
+  }
+
+  const tone = getPathfindingGraphNodeTone(node, step);
 
   switch (tone) {
     case "current":
@@ -185,6 +194,10 @@ function formatGraphNodeStatus(
 }
 
 function formatGraphNodeMeta(node: string, run: GraphRun): string {
+  if (isCourseScheduleInput(run.input)) {
+    return "Course node";
+  }
+
   const labels: string[] = [];
 
   if (run.input.start === node) {
@@ -208,6 +221,66 @@ function formatActiveEdge(activeEdge: string[]): string {
   }
 
   return `${activeEdge[0]} -> ${activeEdge[1]}`;
+}
+
+function getCourseNodeTone(
+  course: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "course-schedule" }>>
+): "current" | "path" | "settled" | "frontier" | "idle" {
+  if (step.state.current === course) {
+    return "current";
+  }
+
+  if (step.state.settled.includes(course)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(course)) {
+    return "frontier";
+  }
+
+  if (step.state.cycleNodes.includes(course)) {
+    return "path";
+  }
+
+  return "idle";
+}
+
+function formatCourseNodeStatus(
+  course: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "course-schedule" }>>
+): string {
+  const tone = getCourseNodeTone(course, step);
+
+  switch (tone) {
+    case "current":
+      return "Current";
+    case "settled":
+      return "Scheduled";
+    case "frontier":
+      return "Ready";
+    case "path":
+      return step.state.schedulable === false ? "Cycle" : "Ordered";
+    default:
+      return step.state.indegrees[course] === 0 ? "Waiting" : "Blocked";
+  }
+}
+
+function formatCourseNodeMeta(
+  course: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "course-schedule" }>>
+): string {
+  const orderIndex = step.state.order.indexOf(course);
+
+  if (orderIndex >= 0) {
+    return `Order #${orderIndex + 1}`;
+  }
+
+  if (step.state.cycleNodes.includes(course)) {
+    return "Unresolved dependency cycle";
+  }
+
+  return `Indegree ${step.state.indegrees[course] ?? 0}`;
 }
 
 function formatInterval(interval: number[]): string {
@@ -775,157 +848,321 @@ export function TwoPointersStage({
 
 export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
-  const layout = buildGraphLayout(run.input.nodes);
-  const settledSet = new Set(step.state.settled);
-  const frontierSet = new Set(step.state.frontier);
-  const pathPairs = new Set(
-    step.state.path.slice(0, -1).map((node, index) => `${node}->${step.state.path[index + 1]}`)
-  );
-  const activeEdgeKey =
-    step.state.activeEdge.length === 2
-      ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
-      : "";
+  if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
+    const courses = Array.from({ length: run.input.courseCount }, (_, index) => `${index}`);
+    const layout = buildGraphLayout(courses);
+    const settledSet = new Set(step.state.settled);
+    const frontierSet = new Set(step.state.frontier);
+    const cycleSet = new Set(step.state.cycleNodes);
+    const activeEdgeKey =
+      step.state.activeEdge.length === 2
+        ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
+        : "";
 
-  return (
-    <>
-      <div className="visual-heading">
-        <div>
-          <p className="eyebrow">Live State</p>
-          <h2>{run.algorithm.name} network</h2>
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} dependency graph</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
         </div>
-        <p className="visual-meta">Current phase: {step.phase}</p>
-      </div>
-      <div className="graph-legend" aria-label="Graph status legend">
-        <span className="graph-legend-pill graph-legend-pill-current">Current node</span>
-        <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
-        <span className="graph-legend-pill graph-legend-pill-settled">Settled</span>
-        <span className="graph-legend-pill graph-legend-pill-path">Recovered route</span>
-      </div>
-      <div className="graph-visual-grid">
-        <div className="graph-stage">
-          <svg viewBox="0 0 360 300" role="img" aria-label="Weighted graph replay">
-            {run.input.edges.map(([from, to, weight]) => {
-              const start = layout[from]!;
-              const end = layout[to]!;
-              const classNames = [
-                "graph-edge",
-                activeEdgeKey === `${from}->${to}` || activeEdgeKey === `${to}->${from}`
-                  ? "graph-edge-active"
-                  : "",
-                pathPairs.has(`${from}->${to}`) || pathPairs.has(`${to}->${from}`)
-                  ? "graph-edge-path"
-                  : ""
-              ]
-                .filter(Boolean)
-                .join(" ");
+        <div className="graph-legend" aria-label="Course schedule status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Current course</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Ready queue</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Scheduled</span>
+          <span className="graph-legend-pill graph-legend-pill-path">
+            {step.state.schedulable === false ? "Cycle" : "Blocked"}
+          </span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Course dependency replay">
+              {run.input.prerequisites.map(([course, prerequisite]) => {
+                const from = `${prerequisite}`;
+                const to = `${course}`;
+                const start = layout[from]!;
+                const end = layout[to]!;
+                const classNames = [
+                  "graph-edge",
+                  activeEdgeKey === `${from}->${to}` ? "graph-edge-active" : "",
+                  cycleSet.has(from) && cycleSet.has(to) ? "graph-edge-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
 
-              return (
-                <g key={`${from}-${to}`}>
-                  <line
-                    className={classNames}
-                    x1={start.x}
-                    y1={start.y}
-                    x2={end.x}
-                    y2={end.y}
-                  />
-                  <text
-                    className="graph-weight"
-                    x={(start.x + end.x) / 2}
-                    y={(start.y + end.y) / 2 - 8}
+                return (
+                  <g key={`${from}-${to}`}>
+                    <line className={classNames} x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
+                  </g>
+                );
+              })}
+
+              {courses.map((course) => {
+                const { x, y } = layout[course]!;
+                const classNames = [
+                  "graph-node",
+                  step.state.current === course ? "graph-node-current" : "",
+                  settledSet.has(course) ? "graph-node-settled" : "",
+                  frontierSet.has(course) ? "graph-node-frontier" : "",
+                  cycleSet.has(course) ? "graph-node-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g className={classNames} key={course}>
+                    <circle cx={x} cy={y} r="26" />
+                    <text className="graph-label" x={x} y={y - 2}>
+                      {course}
+                    </text>
+                    <text className="graph-distance" x={x} y={y + 16}>
+                      in {step.state.indegrees[course] ?? 0}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Scheduling focus</span>
+              <strong>{step.state.current ?? "Pending extraction"}</strong>
+              <p>{formatActiveEdge(step.state.activeEdge)}</p>
+            </article>
+            <div className="graph-node-grid">
+              {courses.map((course) => {
+                const tone = getCourseNodeTone(course, step);
+
+                return (
+                  <article
+                    className={`graph-node-card graph-node-card-${tone}`}
+                    key={`course-${course}`}
                   >
-                    {weight}
-                  </text>
-                </g>
-              );
-            })}
-
-            {run.input.nodes.map((node) => {
-              const { x, y } = layout[node]!;
-              const distance = step.state.distances[node] ?? null;
-              const classNames = [
-                "graph-node",
-                step.state.current === node ? "graph-node-current" : "",
-                settledSet.has(node) ? "graph-node-settled" : "",
-                frontierSet.has(node) ? "graph-node-frontier" : "",
-                step.state.path.includes(node) ? "graph-node-path" : ""
-              ]
-                .filter(Boolean)
-                .join(" ");
-
-              return (
-                <g className={classNames} key={node}>
-                  <circle cx={x} cy={y} r="26" />
-                  <text className="graph-label" x={x} y={y - 2}>
-                    {node}
-                  </text>
-                  <text className="graph-distance" x={x} y={y + 16}>
-                    {formatDistance(distance)}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-        <div className="graph-state-rail">
-          <article className="mini-card graph-summary-card">
-            <span>Traversal focus</span>
-            <strong>{step.state.current ?? "Pending expansion"}</strong>
-            <p>{formatActiveEdge(step.state.activeEdge)}</p>
-          </article>
-          <div className="graph-node-grid">
-            {run.input.nodes.map((node) => {
-              const tone = getGraphNodeTone(node, step);
-
-              return (
-                <article className={`graph-node-card graph-node-card-${tone}`} key={`node-${node}`}>
-                  <div className="graph-node-card-header">
-                    <strong>{node}</strong>
-                    <span className="graph-node-status">
-                      {formatGraphNodeStatus(node, step, run)}
+                    <div className="graph-node-card-header">
+                      <strong>{course}</strong>
+                      <span className="graph-node-status">
+                        {formatCourseNodeStatus(course, step)}
+                      </span>
+                    </div>
+                    <span className="graph-node-distance">
+                      Indegree {step.state.indegrees[course] ?? 0}
                     </span>
-                  </div>
-                  <span className="graph-node-distance">
-                    Distance {formatDistance(step.state.distances[node] ?? null)}
+                    <span className="graph-node-meta">{formatCourseNodeMeta(course, step)}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Ready queue</span>
+            <div className="pill-row">
+              {step.state.frontier.length > 0 ? (
+                step.state.frontier.map((course) => (
+                  <span className="pill" key={course}>
+                    {course}
                   </span>
-                  <span className="graph-node-meta">{formatGraphNodeMeta(node, run)}</span>
-                </article>
-              );
-            })}
+                ))
+              ) : (
+                <span className="empty-pill">Queue empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Committed order</span>
+            <strong>{step.state.order.length > 0 ? step.state.order.join(" -> ") : "Pending"}</strong>
+            <p>
+              {step.state.order.length > 0
+                ? `${step.state.order.length} course${step.state.order.length === 1 ? "" : "s"} scheduled`
+                : "No courses committed yet"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>
+              {step.state.schedulable === null
+                ? "Scheduling"
+                : step.state.schedulable
+                  ? "Schedulable"
+                  : "Cycle detected"}
+            </strong>
+            <p>
+              {step.state.schedulable === false && step.state.cycleNodes.length > 0
+                ? `Blocked: ${step.state.cycleNodes.join(", ")}`
+                : "Replay publishes the queue, indegrees, and final order directly."}
+            </p>
           </div>
         </div>
-      </div>
-      <div className="mini-grid">
-        <div className="mini-card">
-          <span>Frontier</span>
-          <div className="pill-row">
-            {step.state.frontier.length > 0 ? (
-              step.state.frontier.map((node) => (
-                <span className="pill" key={node}>
-                  {node}
-                </span>
-              ))
-            ) : (
-              <span className="empty-pill">Frontier empty</span>
-            )}
+      </>
+    );
+  }
+
+  if (!isCourseScheduleInput(run.input)) {
+    const layout = buildGraphLayout(run.input.nodes);
+    const settledSet = new Set(step.state.settled);
+    const frontierSet = new Set(step.state.frontier);
+    const pathPairs = new Set(
+      step.state.kind === "course-schedule"
+        ? []
+        : step.state.path
+            .slice(0, -1)
+            .map((node, index) => `${node}->${step.state.path[index + 1]}`)
+    );
+    const activeEdgeKey =
+      step.state.activeEdge.length === 2
+        ? `${step.state.activeEdge[0]}->${step.state.activeEdge[1]}`
+        : "";
+
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} network</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Graph status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Current node</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Recovered route</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage">
+            <svg viewBox="0 0 360 300" role="img" aria-label="Weighted graph replay">
+              {run.input.edges.map(([from, to, weight]) => {
+                const start = layout[from]!;
+                const end = layout[to]!;
+                const classNames = [
+                  "graph-edge",
+                  activeEdgeKey === `${from}->${to}` || activeEdgeKey === `${to}->${from}`
+                    ? "graph-edge-active"
+                    : "",
+                  pathPairs.has(`${from}->${to}`) || pathPairs.has(`${to}->${from}`)
+                    ? "graph-edge-path"
+                    : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g key={`${from}-${to}`}>
+                    <line
+                      className={classNames}
+                      x1={start.x}
+                      y1={start.y}
+                      x2={end.x}
+                      y2={end.y}
+                    />
+                    <text
+                      className="graph-weight"
+                      x={(start.x + end.x) / 2}
+                      y={(start.y + end.y) / 2 - 8}
+                    >
+                      {weight}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {run.input.nodes.map((node) => {
+                const { x, y } = layout[node]!;
+                const distance = step.state.kind === "course-schedule" ? null : step.state.distances[node] ?? null;
+                const classNames = [
+                  "graph-node",
+                  step.state.current === node ? "graph-node-current" : "",
+                  settledSet.has(node) ? "graph-node-settled" : "",
+                  frontierSet.has(node) ? "graph-node-frontier" : "",
+                  step.state.kind === "course-schedule" ? "" : step.state.path.includes(node) ? "graph-node-path" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <g className={classNames} key={node}>
+                    <circle cx={x} cy={y} r="26" />
+                    <text className="graph-label" x={x} y={y - 2}>
+                      {node}
+                    </text>
+                    <text className="graph-distance" x={x} y={y + 16}>
+                      {formatDistance(distance)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Traversal focus</span>
+              <strong>{step.state.current ?? "Pending expansion"}</strong>
+              <p>{formatActiveEdge(step.state.activeEdge)}</p>
+            </article>
+            <div className="graph-node-grid">
+              {run.input.nodes.map((node) => {
+                const tone = getPathfindingGraphNodeTone(node, step);
+
+                return (
+                  <article className={`graph-node-card graph-node-card-${tone}`} key={`node-${node}`}>
+                    <div className="graph-node-card-header">
+                      <strong>{node}</strong>
+                      <span className="graph-node-status">
+                        {formatGraphNodeStatus(node, step, run)}
+                      </span>
+                    </div>
+                    <span className="graph-node-distance">
+                      Distance {formatDistance(step.state.kind === "course-schedule" ? null : step.state.distances[node] ?? null)}
+                    </span>
+                    <span className="graph-node-meta">{formatGraphNodeMeta(node, run)}</span>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         </div>
-        <div className="mini-card">
-          <span>Settled</span>
-          <strong>{step.state.settled.length}</strong>
-          <p>{step.state.settled.length > 0 ? step.state.settled.join(", ") : "No nodes settled"}</p>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Frontier</span>
+            <div className="pill-row">
+              {step.state.frontier.length > 0 ? (
+                step.state.frontier.map((node) => (
+                  <span className="pill" key={node}>
+                    {node}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">Frontier empty</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Settled</span>
+            <strong>{step.state.settled.length}</strong>
+            <p>
+              {step.state.settled.length > 0 ? step.state.settled.join(", ") : "No nodes settled"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Route</span>
+            <strong>{step.state.kind === "course-schedule" ? "Pending" : step.state.path.length > 0 ? step.state.path.join(" -> ") : "Pending"}</strong>
+            <p>
+              {step.state.kind === "course-schedule"
+                ? "The trace has not recovered a target route yet."
+                : step.state.path.length > 0
+                  ? `${step.state.path.length} nodes on the recovered route`
+                  : "The trace has not recovered a target route yet."}
+            </p>
+          </div>
         </div>
-        <div className="mini-card">
-          <span>Route</span>
-          <strong>{step.state.path.length > 0 ? step.state.path.join(" -> ") : "Pending"}</strong>
-          <p>
-            {step.state.path.length > 0
-              ? `${step.state.path.length} nodes on the recovered route`
-              : "The trace has not recovered a target route yet."}
-          </p>
-        </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  }
+
+  throw new Error("Course Schedule runs require course-schedule state.");
 }
 
 export function StackStage({ run, stepIndex }: { run: StackRun; stepIndex: number }) {

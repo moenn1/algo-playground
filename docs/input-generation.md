@@ -13,8 +13,8 @@ The service currently covers the supported algorithms already present in the wor
 - Hash: `two-sum`
 - Interval: `merge-intervals`
 - Dynamic Programming: `longest-common-subsequence`
-- Stack: `valid-parentheses`, `daily-temperatures`
-- Graph: `bfs`, `dijkstra`
+- Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
+- Graph: `bfs`, `dijkstra`, `course-schedule`
 
 ## Endpoints
 
@@ -116,9 +116,13 @@ Every sorting preset can be resolved for Bubble Sort, Selection Sort, Quick Sort
 - `graph.reference-route`: fixed weighted graph aligned with the replay shell
 - `graph.disconnected-target`: curated no-route scenario
 - `graph.weighted-detour`: curated pathfinding case with a cheaper multi-hop route
+- `graph.reference-schedule`: curated prerequisite graph with a deterministic topological order
+- `graph.blocked-cycle`: curated prerequisite graph where a dependency cycle blocks completion
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
-Every graph preset can be resolved for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
+The first three graph presets plus `graph.random-network` resolve for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
+
+The scheduling presets resolve for Course Schedule and use `{ "courseCount": number, "prerequisites": [[course, prerequisite], ...] }` as the normalized contract.
 
 ### Search presets
 
@@ -202,7 +206,8 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Daily Temperatures payloads must define between 2 and 24 integer temperatures in the inclusive range `0` through `150`.
 - Largest Rectangle in Histogram payloads must define between 1 and 24 integer heights in the inclusive range `0` through `150`.
 - Min Stack payloads must define between 1 and 24 operations using `push`, `pop`, `top`, and `getMin`; `push` values must be integers in the inclusive range `-999` through `999`; and non-push operations cannot run on an empty stack.
-- Graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
+- Pathfinding graph payloads must define valid node ids, positive edge weights, and edge endpoints that exist in the node set.
+- Course Schedule payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 
 ## Design Notes

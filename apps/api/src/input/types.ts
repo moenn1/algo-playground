@@ -18,7 +18,8 @@ export const supportedAlgorithmIds = [
   "largest-rectangle-in-histogram",
   "min-stack",
   "bfs",
-  "dijkstra"
+  "dijkstra",
+  "course-schedule"
 ] as const;
 
 export type SupportedAlgorithmId = (typeof supportedAlgorithmIds)[number];
@@ -29,13 +30,22 @@ export interface SupportedAlgorithmDescriptor {
   domain: AlgorithmDomain;
 }
 
-export interface GraphInputPayload extends JsonObject {
+export interface PathfindingGraphInputPayload extends JsonObject {
   nodes: string[];
   edges: Array<[string, string, number]>;
   start: string;
   target: string | null;
   directed: boolean;
 }
+
+export interface CourseScheduleInputPayload extends JsonObject {
+  courseCount: number;
+  prerequisites: Array<[number, number]>;
+}
+
+export type GraphInputPayload =
+  | PathfindingGraphInputPayload
+  | CourseScheduleInputPayload;
 
 export interface SearchInputPayload extends JsonObject {
   array: number[];

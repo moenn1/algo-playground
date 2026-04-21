@@ -11,6 +11,7 @@ import {
   defaultLongestCommonSubsequenceInput,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
+  defaultCourseScheduleInput,
   defaultContainerWithMostWaterInput,
   defaultDailyTemperaturesInput,
   defaultDijkstraInput,
@@ -223,6 +224,18 @@ export type ReplayRun =
   | IntervalRun
   | DynamicProgrammingRun
   | StackRun;
+
+export function isCourseScheduleInput(
+  input: GraphInput
+): input is Extract<GraphInput, { courseCount: number }> {
+  return "courseCount" in input;
+}
+
+export function isPathfindingGraphInput(
+  input: GraphInput
+): input is Extract<GraphInput, { nodes: string[] }> {
+  return "nodes" in input;
+}
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
@@ -495,6 +508,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with nodes, edges, start, and target",
     defaultInput: serializeGraphInput(defaultDijkstraInput),
     domain: "graph"
+  },
+  {
+    id: "course-schedule",
+    name: "Course Schedule",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "Topological scheduling replay with deterministic zero-indegree queue updates and explicit cycle reporting.",
+    inputLabel: "Graph Input",
+    inputHint: "JSON with courseCount and prerequisite pairs as [course, prerequisite].",
+    defaultInput: serializeGraphInput(defaultCourseScheduleInput),
+    domain: "graph"
   }
 ];
 
@@ -688,7 +713,7 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildStackRunFromInput(algorithm, input);
   }
 
-  const input = parseGraphInputText(inputText);
+  const input = parseGraphInputText(inputText, algorithm.id);
   return buildGraphRunFromInput(algorithm, input);
 }
 
@@ -731,7 +756,9 @@ export function describeInputFootprint(run: ReplayRun): string {
           : `${run.input.operations.length} ops`;
   }
 
-  return `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
+  return isCourseScheduleInput(run.input)
+    ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
+    : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
 }
 
 export function getTraceStepPaths<State extends JsonObject>(

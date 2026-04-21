@@ -101,6 +101,41 @@ describe("buildRun", () => {
     expect(run.trace.summary.finalMetrics.settled).toBeGreaterThan(0);
   });
 
+  it("builds course-schedule replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "course-schedule",
+      JSON.stringify(
+        {
+          courseCount: 4,
+          prerequisites: [
+            [1, 0],
+            [2, 0],
+            [3, 1]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("course-schedule");
+    expect(finalStep.state.kind).toBe("course-schedule");
+    if (finalStep.state.kind !== "course-schedule") {
+      throw new Error("Expected the course-schedule graph state.");
+    }
+    expect(finalStep.state.order).toEqual(["0", "1", "2", "3"]);
+    expect(finalStep.state.schedulable).toBe(true);
+    expect(
+      run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.order"))
+    ).toBe(true);
+  });
+
   it("builds binary-search replay runs from the shared search engine", () => {
     const run = buildRun(
       "binary-search",

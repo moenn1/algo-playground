@@ -48,6 +48,7 @@ import {
   formatDistance,
   getAlgorithmById,
   getTraceStepPaths,
+  isCourseScheduleInput,
   type AccentTone,
   type DynamicProgrammingRun,
   type GraphRun,
@@ -164,10 +165,10 @@ const domainReference: Record<
     checkpoints: "Storyboard stops call out the decisive mismatch, warmer-day resolution burst, histogram pop, minimum read, or clean terminal ledger instead of inferring stack outcomes after the fact."
   },
   graph: {
-    lens: "Show frontier churn, active edge inspection, settled nodes, and recovered routes in one replay surface.",
-    flow: "Graph playback is shared between BFS and Dijkstra so queue order and weighted frontier order stay deterministic.",
-    metrics: "Graph runs surface settled-node progress and route completion through the trace envelope instead of browser-only state.",
-    checkpoints: "Checkpoint windows anchor around frontier shifts so graph playback stays navigable even with larger traces."
+    lens: "Show frontier churn, active dependency inspection, settled nodes, and published outcomes whether the graph is recovering a path or proving a schedule.",
+    flow: "Graph playback now spans BFS, Dijkstra, and Course Schedule through deterministic queue ordering plus serialization-safe union state.",
+    metrics: "Graph runs surface settled progress, queue pressure, inspections, and updates directly from the trace envelope instead of browser-only state.",
+    checkpoints: "Checkpoint windows anchor around frontier shifts, unlock events, and terminal cycle reporting so graph playback stays navigable even with larger traces."
   }
 };
 
@@ -695,15 +696,37 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
 
   const step = getRunStep(run, stepIndex);
 
-  if (Array.isArray(step.state.path) && step.state.path.length > 0) {
-    return truncateText(step.state.path.join(" -> "), 56);
+  if (isGraphRun(run)) {
+    if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
+      if (step.state.schedulable === false && step.state.cycleNodes.length > 0) {
+        return `Cycle blocks ${step.state.cycleNodes.join(", ")}`;
+      }
+
+      if (step.state.order.length > 0) {
+        return `Order ${truncateText(step.state.order.join(" -> "), 44)}`;
+      }
+
+      if (step.state.current) {
+        return `Schedule course ${step.state.current}`;
+      }
+
+      return `${run.input.courseCount} courses queued for scheduling`;
+    }
+
+    if (step.state.kind !== "course-schedule") {
+      if (step.state.path.length > 0) {
+        return truncateText(step.state.path.join(" -> "), 56);
+      }
+
+      if (step.state.current) {
+        return `Current node ${step.state.current}`;
+      }
+
+      return "Route pending";
+    }
   }
 
-  if (step.state.current) {
-    return `Current node ${step.state.current}`;
-  }
-
-  return "Route pending";
+  return "Snapshot ready";
 }
 
 function formatTimestamp(timestamp: string): string {
@@ -1008,7 +1031,15 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
               return `${stackStep.state.processedIndices.length} bars scanned`;
             })()
-        : `${getRunStep(run, stepIndex).state.settled.length} nodes settled`;
+        : (() => {
+            const graphStep = getRunStep(run, stepIndex);
+
+            if (graphStep.state.kind === "course-schedule") {
+              return `${graphStep.state.order.length} courses scheduled`;
+            }
+
+            return `${graphStep.state.settled.length} nodes settled`;
+          })();
 
   return (
     <section className="focus-strip" aria-label="Active frame briefing">
@@ -1302,14 +1333,57 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
 
 function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
   if (isGraphRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.kind === "course-schedule" && isCourseScheduleInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Courses</span>
+              <strong>{run.input.courseCount}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Ready queue</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Committed</span>
+              <strong>{step.state.order.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.schedulable === null
+                  ? "Scheduling"
+                  : step.state.schedulable
+                    ? "Schedulable"
+                    : "Cycle"}
+              </strong>
+            </div>
+          </div>
+          <div className="distance-grid">
+            {Array.from({ length: run.input.courseCount }, (_, index) => `${index}`).map((course) => (
+              <div className="distance-row" key={course}>
+                <span>Course {course}</span>
+                <strong>in {step.state.indegrees[course] ?? 0}</strong>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     return (
       <div className="distance-grid">
-        {Object.entries(getRunStep(run, stepIndex).state.distances).map(([node, distance]) => (
-          <div className="distance-row" key={node}>
-            <span>{node}</span>
-            <strong>{formatDistance(distance)}</strong>
-          </div>
-        ))}
+        {Object.entries(step.state.kind === "course-schedule" ? {} : step.state.distances).map(
+          ([node, distance]) => (
+            <div className="distance-row" key={node}>
+              <span>{node}</span>
+              <strong>{formatDistance(distance)}</strong>
+            </div>
+          )
+        )}
       </div>
     );
   }

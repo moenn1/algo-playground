@@ -307,6 +307,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "One of the most recognizable interview problems in the catalog and a strong bridge from arrays into interval reasoning.",
     nextAlgorithmIds: ["longest-common-subsequence", "dijkstra"]
   },
+  "course-schedule": {
+    stage: "core",
+    focus: "dependencies",
+    order: 13.5,
+    timeToExplore: "7 min",
+    complexity: "The queue stays readable, but each unlock depends on a live indegree ledger and deterministic dependency processing.",
+    outcome: "See exactly when a course leaves the ready queue, when a dependent unlocks, and when a cycle blocks the remaining schedule.",
+    metricsLens: "Settled, frontier, inspections, and updates expose how much dependency work happened before the order resolved or failed.",
+    skills: ["indegree ledgers", "topological order", "cycle detection"],
+    spotlight: "A clean bridge from pathfinding into graph dependencies because the same graph metrics now explain a very different runtime story.",
+    nextAlgorithmIds: ["longest-common-subsequence", "dijkstra"]
+  },
   "merge-sort": {
     stage: "core",
     focus: "partitioning",

@@ -2,6 +2,10 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Course Schedule, including deterministic zero-indegree queue ordering, explicit indegree ledgers, committed topological-order checkpoints, and terminal cycle reporting through the execution engine.
+- Wired Course Schedule through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a second reusable graph story beyond pathfinding.
+- Added a tag-driven GitHub release workflow that revalidates the workspace from the tagged commit on `main`, packages versioned build artifacts plus checksums, and creates or refreshes GitHub Releases with generated notes.
+- Added a local `release:package` helper and documented the release-bundle contract so tagged delivery can be reproduced and inspected before publishing.
 - Hardened the GitHub Actions verification install path by switching to lockfile-exact `npm ci`, enabling npm cache restores keyed to the root `package-lock.json`, and documenting the CI dependency contract for cache and lockfile maintenance.
 - Added a shared stack runtime for Min Stack, including deterministic push-time minimum comparisons, explicit `top` and `getMin` read checkpoints, minimum recovery after pops, and reuse of the shared `comparisons`, `pushes`, and `pops` metrics.
 - Wired Min Stack through the replay shell, input-service presets and validation, demo seed data, library catalog, and stack-domain documentation so TraceDeck now covers a fourth reusable stack problem with product-grade replay support.

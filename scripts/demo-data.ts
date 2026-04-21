@@ -233,6 +233,20 @@ const demoRunPlans: DemoRunPlan[] = [
     presetId: "graph.weighted-detour",
     recordedAt: "2026-04-20T09:10:00.000Z",
     tags: ["seeded-demo", "graph", "weighted-detour"]
+  },
+  {
+    key: "graph-reference-schedule",
+    algorithmId: "course-schedule",
+    presetId: "graph.reference-schedule",
+    recordedAt: "2026-04-20T09:11:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-schedule"]
+  },
+  {
+    key: "graph-blocked-cycle",
+    algorithmId: "course-schedule",
+    presetId: "graph.blocked-cycle",
+    recordedAt: "2026-04-20T09:12:00.000Z",
+    tags: ["seeded-demo", "graph", "blocked-cycle"]
   }
 ];
 

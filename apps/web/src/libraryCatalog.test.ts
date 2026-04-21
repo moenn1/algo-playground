@@ -120,6 +120,20 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("min-stack");
   });
 
+  it("surfaces course-schedule study paths through dependency metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        focus: "dependencies",
+        q: "topological cycle"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("course-schedule");
+  });
+
   it("sorts by persisted activity when requested", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms.filter((algorithm) => algorithm.domain === "sorting"),

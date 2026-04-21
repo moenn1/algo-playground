@@ -3,11 +3,13 @@ import type { AlgorithmDomain, JsonObject, JsonValue } from "@tracedeck/trace-co
 import { HttpError } from "../lib/http.js";
 
 import type {
+  CourseScheduleInputPayload,
   DynamicProgrammingInputPayload,
   GraphInputPayload,
   HashInputPayload,
   IntervalInputPayload,
   InputPresetListQuery,
+  PathfindingGraphInputPayload,
   InputPresetSummary,
   ResolveInputPresetInput,
   ResolvedInputPreset,
@@ -111,6 +113,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "dijkstra",
     label: "Dijkstra",
     domain: "graph"
+  },
+  "course-schedule": {
+    id: "course-schedule",
+    label: "Course Schedule",
+    domain: "graph"
   }
 };
 
@@ -136,7 +143,11 @@ const largestRectangleAlgorithms = [
   supportedAlgorithms["largest-rectangle-in-histogram"]
 ] as const;
 const minStackAlgorithms = [supportedAlgorithms["min-stack"]] as const;
-const graphAlgorithms = [supportedAlgorithms.bfs, supportedAlgorithms.dijkstra] as const;
+const pathfindingGraphAlgorithms = [
+  supportedAlgorithms.bfs,
+  supportedAlgorithms.dijkstra
+] as const;
+const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
@@ -192,7 +203,7 @@ const defaultMinStackInput: StackInputPayload = {
     { type: "getMin" }
   ]
 };
-const defaultGraphInput: GraphInputPayload = {
+const defaultGraphInput: PathfindingGraphInputPayload = {
   nodes: ["A", "B", "C", "D", "E", "F"],
   edges: [
     ["A", "B", 4],
@@ -208,6 +219,16 @@ const defaultGraphInput: GraphInputPayload = {
   start: "A",
   target: "F",
   directed: false
+};
+const defaultCourseScheduleInput: CourseScheduleInputPayload = {
+  courseCount: 5,
+  prerequisites: [
+    [1, 0],
+    [2, 0],
+    [3, 1],
+    [3, 2],
+    [4, 3]
+  ]
 };
 
 interface NormalizedInputPayload {
@@ -1105,7 +1126,7 @@ function normalizeGraphEdge(edge: unknown, label: string): [string, string, numb
   return [from.trim(), to.trim(), Number(weight)];
 }
 
-function normalizeGraphInput(payload: unknown): GraphInputPayload {
+function normalizePathfindingGraphInput(payload: unknown): PathfindingGraphInputPayload {
   const candidate =
     typeof payload === "string"
       ? (() => {
@@ -1195,7 +1216,122 @@ function normalizeGraphInput(payload: unknown): GraphInputPayload {
   };
 }
 
+function normalizeCourseScheduleInput(payload: unknown): CourseScheduleInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Course Schedule input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(
+      400,
+      "Course Schedule input must be an object with courseCount and prerequisites."
+    );
+  }
+
+  const value = candidate as {
+    courseCount?: unknown;
+    prerequisites?: unknown;
+  };
+
+  if (
+    typeof value.courseCount !== "number" ||
+    !Number.isInteger(value.courseCount) ||
+    value.courseCount < 2
+  ) {
+    throw new HttpError(
+      400,
+      "Course Schedule input courseCount must be an integer of at least 2."
+    );
+  }
+
+  if (value.courseCount > 16) {
+    throw new HttpError(400, "Course Schedule input courseCount must be 16 or fewer.");
+  }
+
+  if (!Array.isArray(value.prerequisites)) {
+    throw new HttpError(
+      400,
+      "Course Schedule input must include a prerequisites array."
+    );
+  }
+
+  const prerequisites = value.prerequisites.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new HttpError(
+        400,
+        `prerequisites[${index}] must contain [course, prerequisite].`
+      );
+    }
+
+    const [course, prerequisite] = entry;
+
+    if (typeof course !== "number" || !Number.isInteger(course)) {
+      throw new HttpError(400, `prerequisites[${index}][0] must be an integer.`);
+    }
+
+    if (typeof prerequisite !== "number" || !Number.isInteger(prerequisite)) {
+      throw new HttpError(400, `prerequisites[${index}][1] must be an integer.`);
+    }
+
+    if (
+      course < 0 ||
+      course >= value.courseCount ||
+      prerequisite < 0 ||
+      prerequisite >= value.courseCount
+    ) {
+      throw new HttpError(
+        400,
+        `prerequisites[${index}] must reference course ids between 0 and ${value.courseCount - 1}.`
+      );
+    }
+
+    if (course === prerequisite) {
+      throw new HttpError(
+        400,
+        `prerequisites[${index}] must not depend on the same course twice.`
+      );
+    }
+
+    return [course, prerequisite] as [number, number];
+  });
+
+  return {
+    courseCount: value.courseCount,
+    prerequisites
+  };
+}
+
+function normalizeGraphInput(
+  payload: unknown,
+  algorithmId: SupportedAlgorithmId
+): GraphInputPayload {
+  return algorithmId === "course-schedule"
+    ? normalizeCourseScheduleInput(payload)
+    : normalizePathfindingGraphInput(payload);
+}
+
 function serializeGraphInput(input: GraphInputPayload) {
+  if ("courseCount" in input) {
+    return JSON.stringify(
+      {
+        courseCount: input.courseCount,
+        prerequisites: input.prerequisites
+      },
+      null,
+      2
+    );
+  }
+
   return JSON.stringify(
     {
       nodes: input.nodes,
@@ -1310,12 +1446,15 @@ function normalizeAlgorithmInput(
     };
   }
 
-  const graph = normalizeGraphInput(payload);
+  const graph = normalizeGraphInput(payload, algorithm.id);
 
   return {
     input: graph,
     normalizedInputText: serializeGraphInput(graph),
-    footprint: `${graph.nodes.length} nodes / ${graph.edges.length} edges`
+    footprint:
+      "courseCount" in graph
+        ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
+        : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
   };
 }
 
@@ -2011,7 +2150,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "baseline",
       kind: "curated",
       domain: "graph",
-      algorithms: graphAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: pathfindingGraphAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -2028,7 +2167,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "no-route",
       kind: "curated",
       domain: "graph",
-      algorithms: graphAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: pathfindingGraphAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -2056,7 +2195,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "weighted-detour",
       kind: "curated",
       domain: "graph",
-      algorithms: graphAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: pathfindingGraphAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: false
     },
     resolve: () => ({
@@ -2081,6 +2220,49 @@ const presetDefinitions: InputPresetDefinition[] = [
   },
   {
     summary: {
+      id: "graph.reference-schedule",
+      label: "Reference course schedule",
+      description:
+        "Layer prerequisite chains and one converging dependency so deterministic queue ordering and committed topological order stay readable in replay.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: courseScheduleAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultCourseScheduleInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.blocked-cycle",
+      label: "Blocked prerequisite cycle",
+      description:
+        "Leave one dependency cycle unresolved so the runtime can publish the blocked course set after the zero-indegree queue empties.",
+      scenario: "cycle",
+      kind: "curated",
+      domain: "graph",
+      algorithms: courseScheduleAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        courseCount: 5,
+        prerequisites: [
+          [1, 0],
+          [2, 1],
+          [3, 2],
+          [1, 3],
+          [4, 2]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
       id: "graph.random-network",
       label: "Seeded random network",
       description:
@@ -2088,7 +2270,7 @@ const presetDefinitions: InputPresetDefinition[] = [
       scenario: "random",
       kind: "generated",
       domain: "graph",
-      algorithms: graphAlgorithms.map(cloneAlgorithmDescriptor),
+      algorithms: pathfindingGraphAlgorithms.map(cloneAlgorithmDescriptor),
       supportsSeed: true,
       defaultSeed: 29,
       defaultOptions: {
