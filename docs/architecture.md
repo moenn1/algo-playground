@@ -48,7 +48,7 @@ docs/             Architecture and developer workflow
 ### `packages/execution-engine`
 
 - Owns deterministic sorting, search, two-pointers, window, hash, heap, interval, dynamic-programming, stack, and graph runtime models plus trace emitters
-- Shares one replay-safe sorting state shape across Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, Merge Sort, and Heap Sort
+- Shares one replay-safe sorting state shape across Bubble Sort, Insertion Sort, Shell Sort, Selection Sort, Quick Sort, Merge Sort, and Heap Sort
 - Shares one replay-safe interval-search state shape across Binary Search and Search in Rotated Sorted Array so midpoint probes, ordered-half signals, discarded lanes, and terminal match state stay readable across replay and persistence
 - Shares replay-safe two-pointer state shapes across Container With Most Water and Trapping Rain Water so active walls, boundary maxima, basin fills, pruning moves, and terminal results stay readable across replay and persistence
 - Shares a replay-safe sliding-window runtime family for Minimum Size Subarray Sum and Longest Substring Without Repeating Characters so active bounds, running sums or substrings, duplicate pressure, and best-window updates stay readable across replay and persistence
@@ -110,7 +110,7 @@ docs/             Architecture and developer workflow
 - Runtime-only structures must be projected into JSON-safe step state before they enter the envelope; replay never depends on live `Set`, `Map`, or class instances.
 - Diff generation should stay readable as well as deterministic: object leaves can change independently, while array-oriented views publish collection-level changes.
 - Comparison metrics must be declared up front and present on the terminal step when they are used for run-to-run comparisons.
-- Sorting engines currently share `comparisons` and `writes` so bubble, selection, quick, and merge traces stay comparable without overloading algorithm-specific counters.
+- Sorting engines currently share `comparisons` and `writes` so bubble, insertion, shell, selection, quick, merge, and heap traces stay comparable without overloading algorithm-specific counters.
 - Search engines currently publish `probes` and `comparisons` so interval-search traces can compare midpoint work without reconstructing the decision path in consumers.
 - Two-pointer engines currently publish stable per-algorithm comparison keys: Container With Most Water uses `evaluations`, `moves`, and `bestUpdates`, while Trapping Rain Water uses `evaluations`, `moves`, and `fills`.
 - Window engines currently publish `expansions`, `shrinks`, and `bestUpdates` so sliding-window traces can compare scan pressure and qualifying-window churn without replay-time derivation.

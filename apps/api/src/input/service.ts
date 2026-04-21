@@ -38,6 +38,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Insertion Sort",
     domain: "sorting"
   },
+  "shell-sort": {
+    id: "shell-sort",
+    label: "Shell Sort",
+    domain: "sorting"
+  },
   "selection-sort": {
     id: "selection-sort",
     label: "Selection Sort",
@@ -168,6 +173,7 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
 const sortingAlgorithms = [
   supportedAlgorithms["bubble-sort"],
   supportedAlgorithms["insertion-sort"],
+  supportedAlgorithms["shell-sort"],
   supportedAlgorithms["selection-sort"],
   supportedAlgorithms["quick-sort"],
   supportedAlgorithms["merge-sort"],

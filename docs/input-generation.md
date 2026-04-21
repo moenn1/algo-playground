@@ -6,7 +6,7 @@
 
 The service currently covers the supported algorithms already present in the workspace:
 
-- Sorting: `bubble-sort`, `insertion-sort`, `selection-sort`, `quick-sort`, `merge-sort`, `heap-sort`
+- Sorting: `bubble-sort`, `insertion-sort`, `shell-sort`, `selection-sort`, `quick-sort`, `merge-sort`, `heap-sort`
 - Search: `binary-search`, `search-in-rotated-sorted-array`
 - Two-pointers: `container-with-most-water`, `trapping-rain-water`
 - Window: `minimum-size-subarray-sum`, `longest-substring-without-repeating-characters`
@@ -110,7 +110,7 @@ The response includes the normalized `input`, `normalizedInputText`, and `footpr
 - `sorting.nearly-sorted`: seeded near-best-case scenario with `size` and `swaps`
 - `sorting.random-distinct`: seeded random distinct integers with `size`, `minimum`, and `maximum`
 
-Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Selection Sort, Quick Sort, Merge Sort, or Heap Sort through the same `algorithmId` field.
+Every sorting preset can be resolved for Bubble Sort, Insertion Sort, Shell Sort, Selection Sort, Quick Sort, Merge Sort, or Heap Sort through the same `algorithmId` field.
 
 ### Graph presets
 

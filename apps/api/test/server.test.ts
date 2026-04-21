@@ -665,6 +665,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "7 lanes"
     });
 
+    const shellSortPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/sorting.baseline/resolve",
+      payload: {
+        algorithmId: "shell-sort"
+      }
+    });
+
+    expect(shellSortPreset.statusCode).toBe(200);
+    expect(shellSortPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "sorting.baseline"
+      },
+      algorithm: {
+        id: "shell-sort",
+        domain: "sorting"
+      },
+      footprint: "7 lanes"
+    });
+
     const heapSortPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/sorting.baseline/resolve",

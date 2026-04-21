@@ -9,6 +9,7 @@ import {
 export type SortingAlgorithmId =
   | "bubble-sort"
   | "insertion-sort"
+  | "shell-sort"
   | "selection-sort"
   | "quick-sort"
   | "merge-sort"
@@ -41,6 +42,11 @@ const sortingAlgorithmDefinitions: Record<SortingAlgorithmId, SortingAlgorithmDe
   "insertion-sort": {
     id: "insertion-sort",
     label: "Insertion Sort",
+    implementationVersion: "sorting-engine-0.1.0"
+  },
+  "shell-sort": {
+    id: "shell-sort",
+    label: "Shell Sort",
     implementationVersion: "sorting-engine-0.1.0"
   },
   "selection-sort": {
@@ -507,6 +513,203 @@ function buildInsertionSortTrace(numbers: number[]): TraceEnvelope<SortingExecut
     highlights: [
       {
         key: "insertion-final-state",
+        path: "state.array",
+        kind: "collection",
+        intent: "result",
+        label: "Final sorted order"
+      }
+    ]
+  });
+
+  return buildSortingEnvelope(definition, numbers, recorder);
+}
+
+function buildShellSortTrace(numbers: number[]): TraceEnvelope<SortingExecutionState> {
+  const definition = sortingAlgorithmDefinitions["shell-sort"];
+  const values = numbers.slice();
+  const recorder = createSortingRecorder(definition.id);
+  const metrics: SortingMetricState = {
+    comparisons: 0,
+    writes: 0
+  };
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "Replay starts from the seeded array snapshot so each later gap pass can restore directly from recorded state.",
+    explanation: {
+      summary: "Capture the input array before the gap schedule starts shrinking.",
+      details:
+        "Shell sort reuses the same visible array for every gap pass, so the replay records each checkpoint without asking the UI to recompute hidden subsequences.",
+      tags: ["snapshot", "input"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: [],
+      swapPair: [],
+      sortedIndices: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "shell-seed-array",
+        path: "state.array",
+        kind: "range",
+        intent: "focus",
+        label: "Loaded seed array",
+        metadata: {
+          start: 0,
+          end: values.length - 1
+        }
+      }
+    ]
+  });
+
+  for (let gap = Math.floor(values.length / 2); gap > 0; gap = Math.floor(gap / 2)) {
+    recorder.push({
+      phase: "Gap",
+      description:
+        gap === 1
+          ? "The final gap collapses to one lane, so the trace becomes a standard insertion-style cleanup pass."
+          : `A gap-${gap} pass begins, so the trace compares and repairs values that sit ${gap} lanes apart.`,
+      explanation: {
+        summary: `Start the gap-${gap} shell-sort pass.`,
+        details:
+          gap === 1
+            ? "The last pass locks the remaining local inversions with ordinary adjacent insertion work."
+            : "Larger gaps move distant inversions earlier so the later passes need fewer local repairs.",
+        tags: ["gap-pass", gap === 1 ? "cleanup" : "preconditioning"]
+      },
+      runtimeState: {
+        array: values,
+        activeIndices: [],
+        swapPair: [],
+        sortedIndices: []
+      },
+      metrics,
+      highlights: [
+        {
+          key: `shell-gap-${gap}`,
+          path: "state.array",
+          kind: "collection",
+          intent: "focus",
+          label: gap === 1 ? "Final adjacent cleanup pass" : `Gap-${gap} pass`
+        }
+      ]
+    });
+
+    for (let current = gap; current < values.length; current += 1) {
+      let position = current;
+
+      while (position >= gap) {
+        const leftIndex = position - gap;
+        const rightIndex = position;
+        const leftValue = values[leftIndex]!;
+        const rightValue = values[rightIndex]!;
+        const requiresSwap = leftValue > rightValue;
+
+        metrics.comparisons += 1;
+
+        recorder.push({
+          phase: "Gap Compare",
+          description: requiresSwap
+            ? `Value ${rightValue} must jump left across the gap-${gap} window because ${leftValue} is larger.`
+            : `Values ${leftValue} and ${rightValue} already respect the gap-${gap} ordering, so this local gapped insertion stops shifting.`,
+          explanation: {
+            summary: "Compare the active gapped pair before deciding whether to keep shifting left.",
+            details: requiresSwap
+              ? "Shell sort uses the current gap to surface distant inversions before the final adjacent pass."
+              : "Once the gapped pair is ordered, the candidate has reached its deterministic position for this pass.",
+            tags: ["comparison", requiresSwap ? "mutation" : "focus"]
+          },
+          runtimeState: {
+            array: values,
+            activeIndices: [leftIndex, rightIndex],
+            swapPair: [],
+            sortedIndices: []
+          },
+          metrics,
+          highlights: [
+            {
+              key: `shell-compare-${gap}-${current}-${position}`,
+              path: "state.activeIndices",
+              kind: "range",
+              intent: requiresSwap ? "candidate" : "focus",
+              label: `Inspect lanes ${leftIndex} and ${rightIndex} across gap ${gap}`,
+              metadata: {
+                start: leftIndex,
+                end: rightIndex
+              }
+            }
+          ]
+        });
+
+        if (!requiresSwap) {
+          break;
+        }
+
+        [values[leftIndex], values[rightIndex]] = [rightValue, leftValue];
+        metrics.writes += 2;
+
+        recorder.push({
+          phase: "Gap Swap",
+          description:
+            "The replay records the gapped swap immediately so the candidate's jump never depends on re-running earlier gap comparisons.",
+          explanation: {
+            summary: "Swap the inverted gapped pair so the candidate moves left by one gap step.",
+            details:
+              "This swap-based shell-sort trace keeps the mutation model aligned with the shared sorting stage while still exposing long-distance repairs.",
+            tags: ["mutation", "gap-pass"]
+          },
+          runtimeState: {
+            array: values,
+            activeIndices: [leftIndex, rightIndex],
+            swapPair: [leftIndex, rightIndex],
+            sortedIndices: []
+          },
+          metrics,
+          highlights: [
+            {
+              key: `shell-swap-${gap}-${current}-${position}`,
+              path: "state.swapPair",
+              kind: "range",
+              intent: "mutation",
+              label: `Shift value across gap ${gap}`,
+              metadata: {
+                start: leftIndex,
+                end: rightIndex
+              }
+            }
+          ]
+        });
+
+        position -= gap;
+      }
+    }
+  }
+
+  const allSorted = createInclusiveRange(0, values.length - 1);
+
+  recorder.push({
+    phase: "Done",
+    description:
+      "The terminal snapshot records the fully ordered array so shell sort can line up with the rest of the shared sorting family in compare mode.",
+    explanation: {
+      summary: "Publish the final sorted snapshot and terminal shell-sort metrics.",
+      details:
+        "Shell sort's counters show how much early gapped repair work reduced the cost of the final adjacent cleanup pass.",
+      tags: ["result", "metrics"]
+    },
+    runtimeState: {
+      array: values,
+      activeIndices: [],
+      swapPair: [],
+      sortedIndices: allSorted
+    },
+    metrics,
+    highlights: [
+      {
+        key: "shell-final-state",
         path: "state.array",
         kind: "collection",
         intent: "result",
@@ -1693,6 +1896,8 @@ export function buildSortingTrace(
       return buildBubbleSortTrace(numbers);
     case "insertion-sort":
       return buildInsertionSortTrace(numbers);
+    case "shell-sort":
+      return buildShellSortTrace(numbers);
     case "selection-sort":
       return buildSelectionSortTrace(numbers);
     case "quick-sort":

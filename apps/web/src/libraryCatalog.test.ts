@@ -133,6 +133,19 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("insertion-sort");
   });
 
+  it("surfaces shell-sort study paths through gap-pass metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "gap scheduling gapped swaps preconditioning"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("shell-sort");
+  });
+
   it("surfaces heap-sort study paths through heapify metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

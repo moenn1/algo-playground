@@ -3,6 +3,7 @@ import type { AlgorithmDomain, JsonObject, JsonValue } from "@tracedeck/trace-co
 export const supportedAlgorithmIds = [
   "bubble-sort",
   "insertion-sort",
+  "shell-sort",
   "selection-sort",
   "quick-sort",
   "merge-sort",

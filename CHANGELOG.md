@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared sorting replay for Shell Sort, including deterministic gap-pass checkpoints, explicit gapped swaps, and reuse of the shared `comparisons` and `writes` metrics.
+- Wired Shell Sort through the input-service presets and validation, replay shell, library catalog, seeded demo data, and sorting-family documentation so TraceDeck now covers a seventh shared sorting replay without widening the sorting state contract.
 - Added a shared sorting replay for Heap Sort, including deterministic heapify comparisons, explicit root-extraction swaps, sift-down repair checkpoints, and reuse of the shared `comparisons` and `writes` metrics.
 - Wired Heap Sort through the input-service presets and validation, replay shell, library catalog, seeded demo data, and sorting-family documentation so TraceDeck now covers a sixth shared sorting replay without introducing a second sorting state model.
 - Added a shared sorting replay for Insertion Sort, including deterministic adjacent-pair insertion checks, explicit candidate-shift swaps, and reuse of the shared `comparisons` and `writes` metrics.

@@ -161,6 +161,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Comparisons and writes show how a mostly ordered prefix can still absorb expensive late insertions.",
     skills: ["prefix growth", "adjacent candidate shifts", "settling points"],
     spotlight: "A clean second sorting stop when you want deterministic prefix-building without jumping into recursive state yet.",
+    nextAlgorithmIds: ["shell-sort", "selection-sort"]
+  },
+  "shell-sort": {
+    stage: "core",
+    focus: "tradeoffs",
+    order: 5.75,
+    timeToExplore: "6 min",
+    complexity: "The same array carries long-distance gap repairs first, then a final adjacent cleanup pass once the gap collapses to one.",
+    outcome: "See exactly when far-apart inversions are repaired early and how that changes the cost of the final insertion-style sweep.",
+    metricsLens: "Comparisons and writes show how much work shifts into early gap passes before the last adjacent pass finishes the array.",
+    skills: ["gap scheduling", "gapped swaps", "preconditioning passes"],
+    spotlight: "A useful bridge between simple insertion logic and heavier advanced sorting because it keeps one visible array while changing the movement pattern completely.",
     nextAlgorithmIds: ["selection-sort", "merge-sort"]
   },
   "binary-search": {
@@ -479,7 +491,7 @@ export const libraryPathways: LibraryPathway[] = [
     label: "Compare strategy families",
     description:
       "Browse the sorting family together to see how similar inputs expose very different replay signatures.",
-    previewAlgorithmIds: ["selection-sort", "merge-sort", "quick-sort"],
+    previewAlgorithmIds: ["shell-sort", "merge-sort", "quick-sort"],
     filters: { domain: "sorting", sort: "most-saved" }
   },
   {

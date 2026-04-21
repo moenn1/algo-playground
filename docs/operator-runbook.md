@@ -24,10 +24,12 @@ The demo seed currently materializes:
 
 - Bubble Sort on `sorting.baseline`
 - Insertion Sort on `sorting.baseline`
+- Shell Sort on `sorting.baseline`
 - Selection Sort on `sorting.baseline`
 - Heap Sort on `sorting.baseline`
 - Bubble Sort on `sorting.reverse-sorted`
 - Insertion Sort on `sorting.reverse-sorted`
+- Shell Sort on `sorting.reverse-sorted`
 - Selection Sort on `sorting.reverse-sorted`
 - Heap Sort on `sorting.reverse-sorted`
 - Binary Search on `search.reference-hit`
@@ -73,7 +75,7 @@ The demo seed currently materializes:
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 24 algorithms with runs, 48 runs total, and 2 saved comparisons.
+That seed currently produces 25 algorithms with runs, 50 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

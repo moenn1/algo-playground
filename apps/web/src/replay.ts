@@ -385,6 +385,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "sorting"
   },
   {
+    id: "shell-sort",
+    name: "Shell Sort",
+    badge: "Sorting",
+    accent: "gold",
+    description:
+      "Gap-driven replay surfaces long-distance swaps first, then the final adjacent cleanup pass inside the shared sorting stage.",
+    inputLabel: "Array Input",
+    inputHint: "Comma-separated integers",
+    defaultInput: "18, 7, 12, 3, 15, 4, 11",
+    domain: "sorting"
+  },
+  {
     id: "selection-sort",
     name: "Selection Sort",
     badge: "Sorting",

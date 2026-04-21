@@ -42,6 +42,28 @@ describe("buildSortingTrace", () => {
     expect(trace.summary.finalMetrics.writes).toBeGreaterThan(0);
   });
 
+  it("records shell sort as gapped swaps without inventing early locked lanes", () => {
+    const trace = buildSortingTrace("shell-sort", [23, 12, 1, 8, 34, 54, 2, 3]);
+    const gapSteps = trace.steps.filter((step) => step.phase === "Gap");
+    const gappedSwapStep = trace.steps.find(
+      (step) => step.phase === "Gap Swap" && Math.abs(step.state.swapPair[0]! - step.state.swapPair[1]!) > 1
+    );
+    const lastNonTerminalStep = trace.steps[trace.steps.length - 2]!;
+    const finalStep = trace.steps[trace.steps.length - 1]!;
+
+    expect(gapSteps.map((step) => step.explanation.summary)).toEqual([
+      "Start the gap-4 shell-sort pass.",
+      "Start the gap-2 shell-sort pass.",
+      "Start the gap-1 shell-sort pass."
+    ]);
+    expect(gappedSwapStep).toBeDefined();
+    expect(lastNonTerminalStep.state.sortedIndices).toEqual([]);
+    expect(finalStep.state.array).toEqual([1, 2, 3, 8, 12, 23, 34, 54]);
+    expect(finalStep.state.sortedIndices).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(trace.summary.finalMetrics.comparisons).toBeGreaterThan(0);
+    expect(trace.summary.finalMetrics.writes).toBeGreaterThan(0);
+  });
+
   it("records heap sort suffix growth while preserving deterministic heap writes", () => {
     const trace = buildSortingTrace("heap-sort", [4, 10, 3, 5, 1]);
     const extractedSuffixStep = trace.steps.find((step) => step.state.sortedIndices.length > 0);

@@ -726,11 +726,12 @@ describe("buildComparisonRuns", () => {
   it("builds multiple sorting runs from the same normalized input", () => {
     const runs = buildComparisonRuns("9,3,7,1");
 
-    expect(runs).toHaveLength(6);
+    expect(runs).toHaveLength(7);
     expect(new Set(runs.map((run) => run.normalizedInputText))).toEqual(new Set(["9, 3, 7, 1"]));
     expect(runs.map((run) => run.algorithm.id)).toEqual([
       "bubble-sort",
       "insertion-sort",
+      "shell-sort",
       "selection-sort",
       "quick-sort",
       "merge-sort",

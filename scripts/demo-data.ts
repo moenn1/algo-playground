@@ -46,6 +46,13 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "sorting", "baseline"]
   },
   {
+    key: "sorting-baseline-shell",
+    algorithmId: "shell-sort",
+    presetId: "sorting.baseline",
+    recordedAt: "2026-04-20T09:03:15.000Z",
+    tags: ["seeded-demo", "sorting", "baseline"]
+  },
+  {
     key: "sorting-reverse-bubble",
     algorithmId: "bubble-sort",
     presetId: "sorting.reverse-sorted",
@@ -64,6 +71,13 @@ const demoRunPlans: DemoRunPlan[] = [
     algorithmId: "insertion-sort",
     presetId: "sorting.reverse-sorted",
     recordedAt: "2026-04-20T09:06:30.000Z",
+    tags: ["seeded-demo", "sorting", "worst-case"]
+  },
+  {
+    key: "sorting-reverse-shell",
+    algorithmId: "shell-sort",
+    presetId: "sorting.reverse-sorted",
+    recordedAt: "2026-04-20T09:06:37.500Z",
     tags: ["seeded-demo", "sorting", "worst-case"]
   },
   {
