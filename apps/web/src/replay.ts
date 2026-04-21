@@ -34,6 +34,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
+  defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
   defaultMapOfHighestPeakInput,
@@ -350,6 +351,22 @@ export function isNearestExitFromEntranceInMazeInput(
     input.entrance.length === 2 &&
     input.grid.every((row) =>
       row.every((cell) => typeof cell === "string" && (cell === "." || cell === "+"))
+    )
+  );
+}
+
+export function isShortestPathToGetFoodInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: string[][] }> {
+  return (
+    "grid" in input &&
+    !("entrance" in input) &&
+    input.grid.every((row) =>
+      row.every(
+        (cell) =>
+          typeof cell === "string" &&
+          (cell === "X" || cell === "O" || cell === "*" || cell === "#")
+      )
     )
   );
 }
@@ -960,6 +977,18 @@ export const algorithms: ReplayAlgorithm[] = [
     domain: "graph"
   },
   {
+    id: "shortest-path-to-get-food",
+    name: "Shortest Path to Get Food",
+    badge: "Graph",
+    accent: "teal",
+    description:
+      "Blocked-pantry replay records start-seeded BFS waves, deterministic food discovery, and explicit traceback into the shortest route to the food cell.",
+    inputLabel: "Graph Input",
+    inputHint: 'JSON with a grid using "*" for start, "#" for food, "O" for open cells, and "X" for blocked cells.',
+    defaultInput: serializeGraphInput(defaultShortestPathToGetFoodInput),
+    domain: "graph"
+  },
+  {
     id: "01-matrix",
     name: "01 Matrix",
     badge: "Graph",
@@ -1287,6 +1316,7 @@ export function describeInputFootprint(run: ReplayRun): string {
         isShortestBridgeInput(run.input) ||
         isShortestPathBinaryMatrixInput(run.input) ||
         isNearestExitFromEntranceInMazeInput(run.input) ||
+        isShortestPathToGetFoodInput(run.input) ||
         isSurroundedRegionsInput(run.input) ||
         isWallsAndGatesInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`

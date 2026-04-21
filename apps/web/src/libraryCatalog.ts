@@ -581,7 +581,7 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much blocked-cell scanning and queue churn happened before the shortest route locked in.",
     skills: ["8-direction bfs", "traceback", "blocked-cell ledgers"],
     spotlight: "A strong graph continuation because it keeps the grid frontier model while adding an explicit path-recovery phase instead of stopping at reachability alone.",
-    nextAlgorithmIds: ["nearest-exit-from-entrance-in-maze", "01-matrix"]
+    nextAlgorithmIds: ["nearest-exit-from-entrance-in-maze", "shortest-path-to-get-food"]
   },
   "nearest-exit-from-entrance-in-maze": {
     stage: "core",
@@ -593,7 +593,19 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Settled, frontier, inspections, and updates show how much corridor search and wall checking happened before the shortest escape path locked in.",
     skills: ["4-direction bfs", "boundary exits", "traceback"],
     spotlight: "A strong follow-up to blocked-grid pathfinding because it reuses explicit frontier instrumentation while switching the terminal condition from one fixed target to the nearest valid boundary exit.",
-    nextAlgorithmIds: ["shortest-path-binary-matrix", "01-matrix"]
+    nextAlgorithmIds: ["shortest-path-to-get-food", "01-matrix"]
+  },
+  "shortest-path-to-get-food": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.947,
+    timeToExplore: "6 min",
+    complexity: "The BFS stays grid-local, but the replay has to preserve blocked pantry walls, one explicit food target, and a separate traceback phase before the route is complete.",
+    outcome: "See exactly when an open pantry cell is discovered, when the food first appears on the frontier, and how traceback rebuilds the shortest route from the start to the food.",
+    metricsLens: "Settled, frontier, inspections, and updates show how much corridor search and wall checking happened before the shortest food path locked in.",
+    skills: ["4-direction bfs", "target discovery", "traceback"],
+    spotlight: "A strong follow-up to maze exit replay because it reuses the same blocked-grid frontier instrumentation while switching the terminal condition from any valid boundary exit to one explicit target cell.",
+    nextAlgorithmIds: ["nearest-exit-from-entrance-in-maze", "01-matrix"]
   },
   "surrounded-regions": {
     stage: "core",

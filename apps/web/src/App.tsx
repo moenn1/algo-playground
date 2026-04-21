@@ -54,6 +54,7 @@ import {
   isRottingOrangesInput,
   isZeroOneMatrixInput,
   isNearestExitFromEntranceInMazeInput,
+  isShortestPathToGetFoodInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
   isWallsAndGatesInput,
@@ -826,6 +827,22 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
       return `${step.state.frontier.length} corridor cell${step.state.frontier.length === 1 ? "" : "s"} queued`;
     }
 
+    if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
+      if (step.state.reachable === false && step.state.stepsToFood === -1) {
+        return "No food path · return -1";
+      }
+
+      if (step.state.reachable === true && step.state.stepsToFood !== null) {
+        return `Food in ${step.state.stepsToFood} step${step.state.stepsToFood === 1 ? "" : "s"}`;
+      }
+
+      if (step.state.current) {
+        return `Pantry wave from ${step.state.current}`;
+      }
+
+      return `${step.state.frontier.length} pantry cell${step.state.frontier.length === 1 ? "" : "s"} queued`;
+    }
+
     if (
       step.state.kind === "as-far-from-land-as-possible" &&
       isAsFarFromLandAsPossibleInput(run.input)
@@ -1440,6 +1457,12 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
               return graphStep.state.reachable === false
                 ? "Maze returns -1"
                 : `Exit in ${graphStep.state.stepsToExit ?? 0} step${graphStep.state.stepsToExit === 1 ? "" : "s"}`;
+            }
+
+            if (graphStep.state.kind === "shortest-path-to-get-food") {
+              return graphStep.state.reachable === false
+                ? "Food path returns -1"
+                : `Food in ${graphStep.state.stepsToFood ?? 0} step${graphStep.state.stepsToFood === 1 ? "" : "s"}`;
             }
 
             if (graphStep.state.kind === "01-matrix") {
@@ -2275,11 +2298,71 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
       );
     }
 
+    if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Start</span>
+              <strong>{step.state.start}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Food</span>
+              <strong>{step.state.food}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.reachable === true
+                  ? `${step.state.stepsToFood ?? 0} step${step.state.stepsToFood === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "-1"
+                    : "Searching"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) =>
+              row.map((cell, columnIndex) => {
+                const coordinate = `${rowIndex},${columnIndex}`;
+                const label =
+                  cell === "X"
+                    ? "Wall"
+                    : coordinate === step.state.food
+                      ? "Food"
+                      : coordinate === step.state.start
+                        ? "Start"
+                        : step.state.path.includes(coordinate)
+                          ? "Path"
+                          : step.state.frontier.includes(coordinate)
+                            ? "Queued"
+                            : step.state.visitedOpen.includes(coordinate)
+                              ? "Seen"
+                              : "Open";
+
+                return (
+                  <div className="distance-row" key={coordinate}>
+                    <span>{coordinate}</span>
+                    <strong>{label}</strong>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      );
+    }
+
     return (
       <div className="distance-grid">
         {Object.entries(
           step.state.kind === "course-schedule" ||
             step.state.kind === "nearest-exit-from-entrance-in-maze" ||
+            step.state.kind === "shortest-path-to-get-food" ||
             step.state.kind === "01-matrix" ||
             step.state.kind === "as-far-from-land-as-possible" ||
             step.state.kind === "map-of-highest-peak" ||

@@ -585,6 +585,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "graph", "sealed-maze-exit"]
   },
   {
+    key: "graph-reference-food-path",
+    algorithmId: "shortest-path-to-get-food",
+    presetId: "graph.reference-food-path",
+    recordedAt: "2026-04-21T18:06:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-food-path"]
+  },
+  {
+    key: "graph-sealed-food-path",
+    algorithmId: "shortest-path-to-get-food",
+    presetId: "graph.sealed-food-path",
+    recordedAt: "2026-04-21T18:07:00.000Z",
+    tags: ["seeded-demo", "graph", "sealed-food-path"]
+  },
+  {
     key: "graph-reference-zero-matrix",
     algorithmId: "01-matrix",
     presetId: "graph.reference-zero-matrix",

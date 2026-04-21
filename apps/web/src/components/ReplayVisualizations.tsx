@@ -26,6 +26,7 @@ import {
   isShortestBridgeInput,
   isShortestPathBinaryMatrixInput,
   isNearestExitFromEntranceInMazeInput,
+  isShortestPathToGetFoodInput,
   isZeroOneMatrixInput,
   isAsFarFromLandAsPossibleInput,
   isMapOfHighestPeakInput,
@@ -955,6 +956,68 @@ function formatNearestExitMazeCellStatus(
 
   if (step.state.visitedOpen.includes(cell)) {
     return step.state.phaseMode === "traceback" ? "Reachable corridor" : "Discovered corridor";
+  }
+
+  return "Open";
+}
+
+function getFoodPathCellTone(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-path-to-get-food" }>>
+): "current" | "frontier" | "scan" | "active" | "settled" | "land" | "water" {
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return "settled";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "water";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return "active";
+  }
+
+  return "land";
+}
+
+function formatFoodPathCellStatus(
+  cell: string,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "shortest-path-to-get-food" }>>
+): string {
+  if (step.state.current === cell) {
+    return step.state.phaseMode === "traceback" ? "Traceback focus" : "Search focus";
+  }
+
+  if (step.state.path.includes(cell)) {
+    return cell === step.state.food ? "Food path target" : cell === step.state.start ? "Start" : "Food path";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "Queued pantry cell";
+  }
+
+  if (step.state.blockedCells.includes(cell)) {
+    return "Wall";
+  }
+
+  if (cell === step.state.start) {
+    return "Start";
+  }
+
+  if (cell === step.state.food) {
+    return "Food";
+  }
+
+  if (step.state.visitedOpen.includes(cell)) {
+    return step.state.phaseMode === "traceback" ? "Reachable pantry cell" : "Discovered pantry cell";
   }
 
   return "Open";
@@ -3842,6 +3905,175 @@ export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: numbe
                 : step.state.reachable === false
                   ? "Replay stores the reachable corridor ledger directly when no exit can be reached."
                   : "The maze frontier is still expanding toward the boundary."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (step.state.kind === "shortest-path-to-get-food" && isShortestPathToGetFoodInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} pantry grid</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Shortest Path to Get Food status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active cell</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Food path</span>
+          <span className="graph-legend-pill graph-legend-pill-path">Discovered pantry</span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage island-stage">
+            <div className="island-banner">
+              <span>Food target {step.state.food}</span>
+              <strong>
+                {step.state.reachable === true
+                  ? `Food reached in ${step.state.stepsToFood ?? 0} step${step.state.stepsToFood === 1 ? "" : "s"}`
+                  : step.state.reachable === false
+                    ? "Food remains unreachable"
+                    : `${step.state.frontier.length} pantry cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current ?? step.state.start}
+              </p>
+            </div>
+            <div
+              className="island-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getFoodPathCellTone(cell, step);
+                  const className = ["island-cell", `island-cell-${tone}`].filter(Boolean).join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="island-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="island-cell-value">
+                        {value === "X"
+                          ? "Wall"
+                          : value === "*"
+                            ? "Start"
+                            : value === "#"
+                              ? "Food"
+                              : "Open"}
+                      </strong>
+                      <span className="island-cell-status">{formatFoodPathCellStatus(cell, step)}</span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Pantry focus</span>
+              <strong>{step.state.current ?? step.state.start}</strong>
+              <p>
+                {step.state.phaseMode === "traceback"
+                  ? `${step.state.path.length} path cell${step.state.path.length === 1 ? "" : "s"} published`
+                  : `${step.state.visitedOpen.length} pantry cell${step.state.visitedOpen.length === 1 ? "" : "s"} discovered`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued pantry cells</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0 ? step.state.frontier.join(" · ") : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Visited open</strong>
+                  <span className="graph-node-status">{step.state.visitedOpen.length}</span>
+                </div>
+                <span className="graph-node-distance">Reachable pantry cells</span>
+                <span className="graph-node-meta">
+                  {step.state.visitedOpen.length > 0
+                    ? step.state.visitedOpen.join(" · ")
+                    : "No pantry cells discovered"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Food path</strong>
+                  <span className="graph-node-status">{step.state.path.length}</span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.stepsToFood !== null
+                    ? `${step.state.stepsToFood} step${step.state.stepsToFood === 1 ? "" : "s"}`
+                    : "No path yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.path.length > 0 ? step.state.path.join(" · ") : "No traced route"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.reachable === null
+                      ? step.state.phaseMode === "traceback"
+                        ? "Traceback"
+                        : "Searching"
+                      : step.state.reachable
+                        ? "Resolved"
+                        : "No path"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">{step.state.phaseMode}</span>
+                <span className="graph-node-meta">
+                  {step.state.reachable === true
+                    ? `Food ${step.state.food}`
+                    : `${step.state.blockedCells.length} wall${step.state.blockedCells.length === 1 ? "" : "s"} recorded`}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Start</span>
+            <strong>{step.state.start}</strong>
+            <p>The BFS search always seeds from the same pantry start cell.</p>
+          </div>
+          <div className="mini-card">
+            <span>Food</span>
+            <strong>{step.state.food}</strong>
+            <p>Replay keeps the target food cell explicit instead of inferring it from the grid later.</p>
+          </div>
+          <div className="mini-card">
+            <span>Outcome</span>
+            <strong>
+              {step.state.reachable === true
+                ? `${step.state.stepsToFood ?? 0} step${step.state.stepsToFood === 1 ? "" : "s"}`
+                : step.state.reachable === false
+                  ? "-1"
+                  : "Pending"}
+            </strong>
+            <p>
+              {step.state.reachable === true
+                ? "Replay stores the full food route directly from the start to the target cell."
+                : step.state.reachable === false
+                  ? "Replay stores the reachable pantry ledger directly when the food cannot be reached."
+                  : "The pantry frontier is still expanding toward the food target."}
             </p>
           </div>
         </div>

@@ -19,6 +19,7 @@ import {
   buildShortestBridgeTrace,
   buildShortestPathBinaryMatrixTrace,
   buildNearestExitFromEntranceInMazeTrace,
+  buildShortestPathToGetFoodTrace,
   buildZeroOneMatrixTrace,
   buildAsFarFromLandAsPossibleTrace,
   buildMapOfHighestPeakTrace,
@@ -39,6 +40,7 @@ import {
   defaultShortestBridgeInput,
   defaultShortestPathBinaryMatrixInput,
   defaultNearestExitFromEntranceInMazeInput,
+  defaultShortestPathToGetFoodInput,
   defaultZeroOneMatrixInput,
   defaultAsFarFromLandAsPossibleInput,
   defaultMapOfHighestPeakInput,
@@ -874,6 +876,45 @@ describe("graph execution engine", () => {
     expect(sealedFinalStep.state.path).toEqual([]);
     expect(sealedFinalStep.state.visitedOpen).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3"]);
     expect(sealedFinalStep.state.exits).toEqual(["4,4"]);
+  });
+
+  it("records deterministic pantry routes and sealed food targets for Shortest Path to Get Food", () => {
+    const firstTrace = buildShortestPathToGetFoodTrace(defaultShortestPathToGetFoodInput);
+    const secondTrace = buildShortestPathToGetFoodTrace(defaultShortestPathToGetFoodInput);
+    const sealedTrace = buildShortestPathToGetFoodTrace({
+      grid: [
+        ["X", "X", "X", "X", "X"],
+        ["X", "*", "O", "O", "X"],
+        ["X", "X", "X", "O", "X"],
+        ["X", "X", "X", "O", "X"],
+        ["X", "X", "X", "X", "#"]
+      ]
+    });
+    const referenceFinalStep = firstTrace.steps[firstTrace.steps.length - 1]!;
+    const sealedFinalStep = sealedTrace.steps[sealedTrace.steps.length - 1]!;
+
+    expect(firstTrace).toEqual(secondTrace);
+    expect(referenceFinalStep.phase).toBe("Resolution");
+    expect(referenceFinalStep.state.kind).toBe("shortest-path-to-get-food");
+    if (referenceFinalStep.state.kind !== "shortest-path-to-get-food") {
+      throw new Error("Expected the shortest-path-to-get-food state.");
+    }
+    expect(referenceFinalStep.state.phaseMode).toBe("resolved");
+    expect(referenceFinalStep.state.reachable).toBe(true);
+    expect(referenceFinalStep.state.stepsToFood).toBe(5);
+    expect(referenceFinalStep.state.food).toBe("3,4");
+    expect(referenceFinalStep.state.path).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3", "3,4"]);
+
+    expect(sealedFinalStep.phase).toBe("No Path");
+    expect(sealedFinalStep.state.kind).toBe("shortest-path-to-get-food");
+    if (sealedFinalStep.state.kind !== "shortest-path-to-get-food") {
+      throw new Error("Expected the shortest-path-to-get-food state.");
+    }
+    expect(sealedFinalStep.state.reachable).toBe(false);
+    expect(sealedFinalStep.state.stepsToFood).toBe(-1);
+    expect(sealedFinalStep.state.path).toEqual([]);
+    expect(sealedFinalStep.state.visitedOpen).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3"]);
+    expect(sealedFinalStep.state.food).toBe("4,4");
   });
 
   it("records deterministic nearest-zero fills and missing-source stalls for 01 Matrix", () => {

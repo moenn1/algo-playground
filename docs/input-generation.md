@@ -183,6 +183,8 @@ The binary-matrix path presets resolve for Shortest Path in Binary Matrix and us
 
 The maze-exit presets resolve for Nearest Exit from Entrance in Maze and use `{ "grid": string[][], "entrance": [row, column] }` as the normalized contract, where `"."` is an open corridor cell, `"+"` is a wall, and the entrance must point at an open cell. The curated pair covers one reachable boundary exit and one isolated boundary exit so replay can show both traceback and stalled-frontier `-1` outcomes.
 
+The food-path presets resolve for Shortest Path to Get Food and use `{ "grid": string[][] }` as the normalized contract, where `"*"` is the start, `"#"` is the food target, `"O"` is open pantry space, and `"X"` is a wall. The curated pair covers one reachable food route and one isolated food target so replay can show both traceback and stalled-frontier `-1` outcomes.
+
 The shoreline presets resolve for As Far from Land as Possible and use `{ "grid": number[][] }` as the normalized contract, where `1` is land and `0` is water.
 
 The highest-peak presets resolve for Map of Highest Peak and use `{ "grid": number[][] }` as the normalized contract, where `1` is water and `0` is land.
@@ -287,6 +289,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Pacific Atlantic Water Flow payloads must define a rectangular grid up to `8 x 8` and every height must be a non-negative integer.
 - Shortest Path in Binary Matrix payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
 - Nearest Exit from Entrance in Maze payloads must define a rectangular grid up to `8 x 8`, every cell must be `"."` or `"+"`, and the entrance must point at an open in-bounds cell.
+- Shortest Path to Get Food payloads must define a rectangular grid up to `8 x 8`, every cell must be `"X"`, `"O"`, `"*"`, or `"#"`, and the grid must contain exactly one start cell plus exactly one food cell.
 - As Far from Land as Possible payloads must define a rectangular grid up to `8 x 8` and every cell must be either `0` or `1`.
 - Map of Highest Peak payloads must define a rectangular grid up to `8 x 8`, every cell must be either `0` or `1`, and at least one water cell must be present.
 - Surrounded Regions payloads must define a rectangular grid up to `8 x 8` and every cell must normalize to `"X"` or `"O"`.

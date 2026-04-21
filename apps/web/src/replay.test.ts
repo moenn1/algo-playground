@@ -250,6 +250,42 @@ describe("buildRun", () => {
     );
   });
 
+  it("builds food-path replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "shortest-path-to-get-food",
+      JSON.stringify(
+        {
+          grid: [
+            ["X", "X", "X", "X", "X"],
+            ["X", "*", "O", "O", "X"],
+            ["X", "X", "X", "O", "X"],
+            ["X", "X", "X", "O", "#"],
+            ["X", "X", "X", "X", "X"]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+    expect(run.algorithm.id).toBe("shortest-path-to-get-food");
+    expect(finalStep.state.kind).toBe("shortest-path-to-get-food");
+    if (finalStep.state.kind !== "shortest-path-to-get-food") {
+      throw new Error("Expected the food-path graph state.");
+    }
+    expect(finalStep.state.reachable).toBe(true);
+    expect(finalStep.state.stepsToFood).toBe(5);
+    expect(finalStep.state.path).toEqual(["1,1", "1,2", "1,3", "2,3", "3,3", "3,4"]);
+    expect(run.trace.steps.some((step) => getTraceStepPaths(step).includes("state.path"))).toBe(
+      true
+    );
+  });
+
   it("builds count-connected-components replay runs from the shared graph engine", () => {
     const run = buildRun(
       "count-connected-components",

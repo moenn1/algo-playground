@@ -25,6 +25,7 @@ export type GraphAlgorithmId =
   | "shortest-bridge"
   | "shortest-path-binary-matrix"
   | "nearest-exit-from-entrance-in-maze"
+  | "shortest-path-to-get-food"
   | "01-matrix"
   | "as-far-from-land-as-possible"
   | "map-of-highest-peak"
@@ -50,6 +51,7 @@ export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "shortest-bridge",
   "shortest-path-binary-matrix",
   "nearest-exit-from-entrance-in-maze",
+  "shortest-path-to-get-food",
   "01-matrix",
   "as-far-from-land-as-possible",
   "map-of-highest-peak",
@@ -100,6 +102,10 @@ export interface NearestExitFromEntranceInMazeInput extends JsonObject {
   entrance: [number, number];
 }
 
+export interface ShortestPathToGetFoodInput extends JsonObject {
+  grid: string[][];
+}
+
 export interface ZeroOneMatrixInput extends JsonObject {
   grid: number[][];
 }
@@ -130,6 +136,7 @@ export type GraphInput =
   | ShortestBridgeInput
   | ShortestPathBinaryMatrixInput
   | NearestExitFromEntranceInMazeInput
+  | ShortestPathToGetFoodInput
   | ZeroOneMatrixInput
   | AsFarFromLandAsPossibleInput
   | MapOfHighestPeakInput
@@ -376,6 +383,23 @@ export interface NearestExitFromEntranceInMazeExecutionState extends JsonObject 
   exit: string | null;
 }
 
+export interface ShortestPathToGetFoodExecutionState extends JsonObject {
+  kind: "shortest-path-to-get-food";
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  food: string;
+  path: string[];
+  visitedOpen: string[];
+  blockedCells: string[];
+  stepsToFood: number | null;
+  reachable: boolean | null;
+}
+
 export interface ZeroOneMatrixExecutionState extends JsonObject {
   kind: "01-matrix";
   grid: number[][];
@@ -470,6 +494,7 @@ export type GraphExecutionState =
   | ShortestBridgeExecutionState
   | ShortestPathBinaryMatrixExecutionState
   | NearestExitFromEntranceInMazeExecutionState
+  | ShortestPathToGetFoodExecutionState
   | ZeroOneMatrixExecutionState
   | AsFarFromLandAsPossibleExecutionState
   | MapOfHighestPeakExecutionState
@@ -797,6 +822,22 @@ interface NearestExitFromEntranceInMazeRuntimeState {
   exit: string | null;
 }
 
+interface ShortestPathToGetFoodRuntimeState {
+  grid: string[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  phaseMode: "search" | "traceback" | "resolved";
+  start: string;
+  food: string;
+  path: string[];
+  visitedOpen: string[];
+  blockedCells: string[];
+  stepsToFood: number | null;
+  reachable: boolean | null;
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -887,6 +928,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "nearest-exit-from-entrance-in-maze",
     label: "Nearest Exit from Entrance in Maze",
     implementationVersion: "graph-engine-0.19.0"
+  },
+  "shortest-path-to-get-food": {
+    id: "shortest-path-to-get-food",
+    label: "Shortest Path to Get Food",
+    implementationVersion: "graph-engine-0.20.0"
   },
   "01-matrix": {
     id: "01-matrix",
@@ -1117,6 +1163,16 @@ export const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceI
     ["+", "+", "+", "+", "+"]
   ],
   entrance: [1, 1]
+};
+
+export const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInput = {
+  grid: [
+    ["X", "X", "X", "X", "X"],
+    ["X", "*", "O", "O", "X"],
+    ["X", "X", "X", "O", "X"],
+    ["X", "X", "X", "O", "#"],
+    ["X", "X", "X", "X", "X"]
+  ]
 };
 
 export const defaultZeroOneMatrixInput: ZeroOneMatrixInput = {
@@ -1445,6 +1501,25 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
       stepsToExit: state.stepsToExit,
       reachable: state.reachable,
       exit: state.exit
+    };
+  }
+
+  if (state.kind === "shortest-path-to-get-food") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      phaseMode: state.phaseMode,
+      start: state.start,
+      food: state.food,
+      path: state.path.slice(),
+      visitedOpen: state.visitedOpen.slice(),
+      blockedCells: state.blockedCells.slice(),
+      stepsToFood: state.stepsToFood,
+      reachable: state.reachable
     };
   }
 
@@ -2095,6 +2170,72 @@ function normalizeNearestExitFromEntranceInMazeInput(
   };
 }
 
+function normalizeShortestPathToGetFoodInput(candidate: unknown): ShortestPathToGetFoodInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Shortest Path to Get Food input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Shortest Path to Get Food input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Shortest Path to Get Food input must use 8 rows or fewer.");
+  }
+
+  let startCount = 0;
+  let foodCount = 0;
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty food row.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (
+        typeof cell !== "string" ||
+        (cell !== "X" && cell !== "O" && cell !== "*" && cell !== "#")
+      ) {
+        throw new Error(`grid[${rowIndex}][${columnIndex}] must be "X", "O", "*", or "#".`);
+      }
+
+      if (cell === "*") {
+        startCount += 1;
+      } else if (cell === "#") {
+        foodCount += 1;
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Shortest Path to Get Food input rows must all be the same length.");
+  }
+
+  if (startCount !== 1) {
+    throw new Error("Shortest Path to Get Food input must contain exactly one start cell.");
+  }
+
+  if (foodCount !== 1) {
+    throw new Error("Shortest Path to Get Food input must contain exactly one food cell.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeZeroOneMatrixInput(candidate: unknown): ZeroOneMatrixInput {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
     throw new Error("01 Matrix input must be an object with a grid field.");
@@ -2389,6 +2530,8 @@ export function parseGraphInputText(
       return normalizeShortestPathBinaryMatrixInput(parsed);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(parsed);
+    case "shortest-path-to-get-food":
+      return normalizeShortestPathToGetFoodInput(parsed);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(parsed);
     case "as-far-from-land-as-possible":
@@ -2436,6 +2579,8 @@ export function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(input);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(input);
+    case "shortest-path-to-get-food":
+      return normalizeShortestPathToGetFoodInput(input);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(input);
     case "as-far-from-land-as-possible":
@@ -3162,6 +3307,35 @@ function createNearestExitFromEntranceInMazeRecorder() {
   });
 }
 
+function createShortestPathToGetFoodRecorder() {
+  return createTraceRecorder<
+    ShortestPathToGetFoodRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "shortest-path-to-get-food",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "shortest-path-to-get-food",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        phaseMode: runtimeState.phaseMode,
+        start: runtimeState.start,
+        food: runtimeState.food,
+        path: runtimeState.path.slice(),
+        visitedOpen: runtimeState.visitedOpen.slice(),
+        blockedCells: runtimeState.blockedCells.slice(),
+        stepsToFood: runtimeState.stepsToFood,
+        reachable: runtimeState.reachable
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function createZeroOneMatrixRecorder() {
   return createTraceRecorder<ZeroOneMatrixRuntimeState, GraphExecutionState, GraphMetricState>({
     algorithmId: "01-matrix",
@@ -3313,6 +3487,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createShortestBridgeRecorder>
     | ReturnType<typeof createShortestPathBinaryMatrixRecorder>
     | ReturnType<typeof createNearestExitFromEntranceInMazeRecorder>
+    | ReturnType<typeof createShortestPathToGetFoodRecorder>
     | ReturnType<typeof createZeroOneMatrixRecorder>
     | ReturnType<typeof createAsFarFromLandAsPossibleRecorder>
     | ReturnType<typeof createMapOfHighestPeakRecorder>
@@ -8825,6 +9000,443 @@ export function buildNearestExitFromEntranceInMazeTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildShortestPathToGetFoodTrace(
+  input: ShortestPathToGetFoodInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["shortest-path-to-get-food"];
+  const normalizedInput = normalizeShortestPathToGetFoodInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  let startCell = "";
+  let foodCell = "";
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+      const cell = grid[rowIndex]![columnIndex];
+      const cellId = makeCellId(rowIndex, columnIndex);
+
+      if (cell === "*") {
+        startCell = cellId;
+      } else if (cell === "#") {
+        foodCell = cellId;
+      }
+    }
+  }
+
+  const settled: string[] = [];
+  const frontier: string[] = [startCell];
+  const visitedOpen = [startCell];
+  const visitedOpenSet = new Set(visitedOpen);
+  const path: string[] = [];
+  const blockedCells = grid
+    .flatMap((row, rowIndex) =>
+      row.flatMap((cell, columnIndex) =>
+        cell === "X" ? [makeCellId(rowIndex, columnIndex)] : []
+      )
+    )
+    .sort(compareCellIds);
+  const predecessors = new Map<string, string>();
+  const recorder = createShortestPathToGetFoodRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: frontier.length,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let phaseMode: "search" | "traceback" | "resolved" = "search";
+  let reachable: boolean | null = null;
+  let stepsToFood: number | null = null;
+
+  const createRuntimeState = (): ShortestPathToGetFoodRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    phaseMode,
+    start: startCell,
+    food: foodCell,
+    path,
+    visitedOpen,
+    blockedCells,
+    stepsToFood,
+    reachable
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description: `${formatCellLabel(startCell)} seeds the food search, while ${formatCellLabel(foodCell)} stays marked as the deterministic target corridor cell.`,
+    explanation: {
+      summary: "Publish the start cell, target food cell, and blocked-cell ledger before the BFS search begins.",
+      details:
+        "The opening frame keeps the pantry target and blocked-cell topology explicit so replay never has to infer where the route starts or what counts as a wall.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-to-get-food-initial",
+        path: "state.food",
+        kind: "node",
+        intent: "focus",
+        label: `Food ${formatCellLabel(foodCell)}`
+      }
+    ]
+  });
+
+  searchLoop: while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `${formatCellLabel(currentCell)} leaves the BFS queue as the next food-search source.`,
+      explanation: {
+        summary: "Expand the next reachable open cell in deterministic queue order.",
+        details:
+          "Each extract frame records the active pantry-search source before neighbor inspection begins, which keeps the frontier explicit across the entire shortest-food search.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-to-get-food-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Expand ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    if (currentCell === foodCell) {
+      reachable = true;
+      settled.push(currentCell);
+      metrics.settled = settled.length;
+
+      recorder.push({
+        phase: "Food",
+        description: `${formatCellLabel(currentCell)} is the food cell, so the BFS search can stop and switch to traceback.`,
+        explanation: {
+          summary: "Stop search on the first food extract because BFS guarantees the fewest movement steps.",
+          details:
+            "The food frame locks the winning corridor cell before traceback reconstructs the shortest route directly into the replay state.",
+          tags: ["result", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-to-get-food-food-${currentCell}`,
+            path: "state.food",
+            kind: "node",
+            intent: "result",
+            label: `Food ${formatCellLabel(currentCell)}`
+          }
+        ]
+      });
+      break;
+    }
+
+    const { row, column } = parseCellId(currentCell);
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (grid[neighborRow]![neighborColumn] === "X") {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and stop because that pantry cell is blocked.`,
+          explanation: {
+            summary: "Reject a blocked pantry wall during the BFS expansion.",
+            details:
+              "Blocked cells stay explicit in the recorded grid and never enter the frontier, so replay does not infer wall handling from browser-only logic.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-to-get-food-blocked-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.blockedCells",
+              kind: "collection",
+              intent: "candidate",
+              label: `${formatCellLabel(neighbor)} blocked`
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (visitedOpenSet.has(neighbor)) {
+        recorder.push({
+          phase: "Inspect",
+          description: `Inspect ${formatCellLabel(neighbor)} and keep the queue stable because BFS already discovered that open pantry cell.`,
+          explanation: {
+            summary: "Skip a previously discovered pantry cell without re-enqueuing it.",
+            details:
+              "This preserves a deterministic visited ledger and avoids hidden deduplication during playback.",
+            tags: ["edge", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-to-get-food-known-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: "state.visitedOpen",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(neighbor)} already discovered`
+            }
+          ]
+        });
+        continue;
+      }
+
+      visitedOpenSet.add(neighbor);
+      visitedOpen.push(neighbor);
+      frontier.push(neighbor);
+      predecessors.set(neighbor, currentCell);
+      metrics.frontier = frontier.length;
+      metrics.updates += 1;
+
+      const reachesFood = neighbor === foodCell;
+
+      recorder.push({
+        phase: reachesFood ? "Food Found" : "Enqueue",
+        description: reachesFood
+          ? `${formatCellLabel(neighbor)} is the first discovered food cell, so replay locks that shortest pantry route candidate before traceback.`
+          : `${formatCellLabel(neighbor)} is open, so BFS records it as a new food-path candidate.`,
+        explanation: {
+          summary: reachesFood
+            ? "Discover the food and stop once this shortest frontier expansion is recorded."
+            : "Queue one newly discovered open pantry cell for later expansion.",
+          details:
+            "The state update records queue growth, the visited-open ledger, and the predecessor link together so replay can justify every later traceback edge.",
+          tags: ["frontier", "edge"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-to-get-food-enqueue-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: reachesFood ? "state.food" : "state.visitedOpen",
+            kind: reachesFood ? "node" : "collection",
+            intent: reachesFood ? "result" : "frontier",
+            label: reachesFood
+              ? `Food ${formatCellLabel(neighbor)} queued`
+              : `${formatCellLabel(neighbor)} discovered`
+          }
+        ]
+      });
+
+      if (reachesFood) {
+        reachable = true;
+        settled.push(currentCell);
+        metrics.settled = settled.length;
+        activeEdge = [];
+
+        recorder.push({
+          phase: "Checkpoint",
+          description: `${formatCellLabel(currentCell)} is sealed after discovering the food on its search frontier.`,
+          explanation: {
+            summary: "Close the final search source before the trace transitions into traceback.",
+            details:
+              "This checkpoint keeps the BFS search and the path reconstruction phases distinct while preserving the settled and frontier ledgers exactly as they stood when the food was found.",
+            tags: ["checkpoint", "visited"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `shortest-path-to-get-food-checkpoint-${currentCell}`,
+              path: "state.settled",
+              kind: "collection",
+              intent: "visited",
+              label: `${formatCellLabel(currentCell)} settled`
+            }
+          ]
+        });
+
+        break searchLoop;
+      }
+    }
+
+    if (reachable) {
+      break;
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed after all 4-direction pantry neighbor checks.`,
+      explanation: {
+        summary: "Seal one open pantry cell after its BFS expansion finishes.",
+        details:
+          "The checkpoint frame stores the queue and visited ledger directly so replay can jump to any settled corridor boundary without rerunning neighbor scans.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `shortest-path-to-get-food-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} settled`
+        }
+      ]
+    });
+  }
+
+  if (reachable) {
+    phaseMode = "traceback";
+    current = foodCell;
+    activeEdge = [];
+
+    recorder.push({
+      phase: "Traceback",
+      description:
+        "Switch from pantry BFS expansion to predecessor traceback so replay can build the shortest route directly from the discovered food cell.",
+      explanation: {
+        summary: "Begin reconstructing the shortest path from the food cell back to the start.",
+        details:
+          "The path is published as an explicit ledger instead of being inferred from hidden predecessor tables during playback.",
+        tags: ["checkpoint", "path"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-to-get-food-traceback-start",
+          path: "state.phaseMode",
+          kind: "value",
+          intent: "focus",
+          label: "Traceback"
+        }
+      ]
+    });
+
+    let tracebackCell: string | null = foodCell;
+
+    while (tracebackCell) {
+      current = tracebackCell;
+      const previousCell: string | null = predecessors.get(tracebackCell) ?? null;
+      activeEdge = previousCell ? [previousCell, tracebackCell] : [];
+      path.unshift(tracebackCell);
+
+      recorder.push({
+        phase: "Traceback",
+        description: previousCell
+          ? `${formatCellLabel(tracebackCell)} joins the food route, then traceback follows its predecessor to ${formatCellLabel(previousCell)}.`
+          : `${formatCellLabel(tracebackCell)} closes the traceback as the start cell.`,
+        explanation: {
+          summary: previousCell
+            ? "Prepend one predecessor-linked pantry cell to the shortest path ledger."
+            : "Finish the shortest food path at the start cell.",
+          details:
+            "Each traceback frame grows the path ledger directly so the final route never depends on hidden predecessor reconstruction in the viewer.",
+          tags: ["path", "checkpoint"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `shortest-path-to-get-food-path-${tracebackCell}-${path.length}`,
+            path: "state.path",
+            kind: "collection",
+            intent: "result",
+            label: `${path.length} path cell${path.length === 1 ? "" : "s"}`
+          }
+        ]
+      });
+
+      tracebackCell = previousCell;
+    }
+
+    stepsToFood = path.length - 1;
+  } else {
+    phaseMode = "resolved";
+    current = null;
+    activeEdge = [];
+    reachable = false;
+    stepsToFood = -1;
+
+    recorder.push({
+      phase: "No Path",
+      description:
+        "The BFS queue is empty before the food cell is discovered, so the pantry has no open route from the start to the food.",
+      explanation: {
+        summary: "Publish the unreachable result once the pantry frontier stalls.",
+        details:
+          "The terminal frame preserves the visited-open ledger directly, so replay can explain which cells were reachable even though no food path exists.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "shortest-path-to-get-food-no-path",
+          path: "state.reachable",
+          kind: "value",
+          intent: "result",
+          label: "Return -1"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  phaseMode = "resolved";
+  current = null;
+  activeEdge = [];
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: "Resolution",
+    description: `The shortest pantry route reaches ${formatCellLabel(foodCell)} after ${stepsToFood ?? 0} step${stepsToFood === 1 ? "" : "s"} of BFS and traceback.`,
+    explanation: {
+      summary: "Publish the final food path together with the returned step count.",
+      details:
+        "The terminal frame stores the exact food cell, route ledger, and returned step count directly so replay can justify the pantry answer without recomputing predecessor chains.",
+      tags: ["result", "path"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "shortest-path-to-get-food-final",
+        path: "state.path",
+        kind: "collection",
+        intent: "result",
+        label: `${stepsToFood ?? 0} step${stepsToFood === 1 ? "" : "s"}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildZeroOneMatrixTrace(
   input: ZeroOneMatrixInput
 ): TraceEnvelope<GraphExecutionState> {
@@ -10469,6 +11081,8 @@ export function buildGraphTrace(
       return buildShortestPathBinaryMatrixTrace(graph as ShortestPathBinaryMatrixInput);
     case "nearest-exit-from-entrance-in-maze":
       return buildNearestExitFromEntranceInMazeTrace(graph as NearestExitFromEntranceInMazeInput);
+    case "shortest-path-to-get-food":
+      return buildShortestPathToGetFoodTrace(graph as ShortestPathToGetFoodInput);
     case "01-matrix":
       return buildZeroOneMatrixTrace(graph as ZeroOneMatrixInput);
     case "as-far-from-land-as-possible":

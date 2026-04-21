@@ -164,6 +164,19 @@ describe("libraryCatalog", () => {
     );
   });
 
+  it("surfaces food-path study paths through target-traceback metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "food target traceback blocked pantry"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("shortest-path-to-get-food");
+  });
+
   it("surfaces top-k-frequent study paths through frequency-heap metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

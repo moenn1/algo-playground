@@ -17,6 +17,7 @@ import type {
   ShortestBridgeInputPayload,
   ShortestPathBinaryMatrixInputPayload,
   NearestExitFromEntranceInMazeInputPayload,
+  ShortestPathToGetFoodInputPayload,
   ZeroOneMatrixInputPayload,
   AsFarFromLandAsPossibleInputPayload,
   MapOfHighestPeakInputPayload,
@@ -237,6 +238,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Nearest Exit from Entrance in Maze",
     domain: "graph"
   },
+  "shortest-path-to-get-food": {
+    id: "shortest-path-to-get-food",
+    label: "Shortest Path to Get Food",
+    domain: "graph"
+  },
   "01-matrix": {
     id: "01-matrix",
     label: "01 Matrix",
@@ -324,6 +330,7 @@ const shortestPathBinaryMatrixAlgorithms = [
 const nearestExitFromEntranceInMazeAlgorithms = [
   supportedAlgorithms["nearest-exit-from-entrance-in-maze"]
 ] as const;
+const shortestPathToGetFoodAlgorithms = [supportedAlgorithms["shortest-path-to-get-food"]] as const;
 const zeroOneMatrixAlgorithms = [supportedAlgorithms["01-matrix"]] as const;
 const asFarFromLandAsPossibleAlgorithms = [
   supportedAlgorithms["as-far-from-land-as-possible"]
@@ -545,6 +552,15 @@ const defaultNearestExitFromEntranceInMazeInput: NearestExitFromEntranceInMazeIn
     ["+", "+", "+", "+", "+"]
   ],
   entrance: [1, 1]
+};
+const defaultShortestPathToGetFoodInput: ShortestPathToGetFoodInputPayload = {
+  grid: [
+    ["X", "X", "X", "X", "X"],
+    ["X", "*", "O", "O", "X"],
+    ["X", "X", "X", "O", "X"],
+    ["X", "X", "X", "O", "#"],
+    ["X", "X", "X", "X", "X"]
+  ]
 };
 const defaultZeroOneMatrixInput: ZeroOneMatrixInputPayload = {
   grid: [
@@ -2338,6 +2354,83 @@ function normalizeNearestExitFromEntranceInMazeInput(
   };
 }
 
+function normalizeShortestPathToGetFoodInput(payload: unknown): ShortestPathToGetFoodInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Shortest Path to Get Food input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Shortest Path to Get Food input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Shortest Path to Get Food input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Shortest Path to Get Food input must use 8 rows or fewer.");
+  }
+
+  let startCount = 0;
+  let foodCount = 0;
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty food row.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (
+        typeof cell !== "string" ||
+        (cell !== "X" && cell !== "O" && cell !== "*" && cell !== "#")
+      ) {
+        throw new HttpError(400, `grid[${rowIndex}][${columnIndex}] must be "X", "O", "*", or "#".`);
+      }
+
+      if (cell === "*") {
+        startCount += 1;
+      } else if (cell === "#") {
+        foodCount += 1;
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Shortest Path to Get Food input rows must all be the same length.");
+  }
+
+  if (startCount !== 1) {
+    throw new HttpError(400, "Shortest Path to Get Food input must contain exactly one start cell.");
+  }
+
+  if (foodCount !== 1) {
+    throw new HttpError(400, "Shortest Path to Get Food input must contain exactly one food cell.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeZeroOneMatrixInput(payload: unknown): ZeroOneMatrixInputPayload {
   const candidate =
     typeof payload === "string"
@@ -2691,6 +2784,8 @@ function normalizeGraphInput(
       return normalizeShortestPathBinaryMatrixInput(payload);
     case "nearest-exit-from-entrance-in-maze":
       return normalizeNearestExitFromEntranceInMazeInput(payload);
+    case "shortest-path-to-get-food":
+      return normalizeShortestPathToGetFoodInput(payload);
     case "01-matrix":
       return normalizeZeroOneMatrixInput(payload);
     case "as-far-from-land-as-possible":
@@ -2723,6 +2818,7 @@ function isGridGraphPayload(
   | ShortestBridgeInputPayload
   | ShortestPathBinaryMatrixInputPayload
   | NearestExitFromEntranceInMazeInputPayload
+  | ShortestPathToGetFoodInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
   | SurroundedRegionsInputPayload
@@ -4370,6 +4466,48 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["+", "+", "+", "+", "."]
         ],
         entrance: [1, 1]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-food-path",
+      label: "Reference food path",
+      description:
+        "Use a pantry corridor with one clear route to the food so replay shows blocked-wall inspections, queue growth, and explicit shortest-path traceback from the start.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestPathToGetFoodAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultShortestPathToGetFoodInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.sealed-food-path",
+      label: "Sealed food path",
+      description:
+        "Leave the food isolated behind blocked pantry walls so replay can show the BFS frontier exhausting every reachable corridor before publishing the -1 result.",
+      scenario: "sealed-target",
+      kind: "curated",
+      domain: "graph",
+      algorithms: shortestPathToGetFoodAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          ["X", "X", "X", "X", "X"],
+          ["X", "*", "O", "O", "X"],
+          ["X", "X", "X", "O", "X"],
+          ["X", "X", "X", "O", "X"],
+          ["X", "X", "X", "X", "#"]
+        ]
       },
       options: {}
     })

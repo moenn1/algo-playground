@@ -1056,6 +1056,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
+    const foodPathPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-food-path/resolve",
+      payload: {
+        algorithmId: "shortest-path-to-get-food"
+      }
+    });
+
+    expect(foodPathPreset.statusCode).toBe(200);
+    expect(foodPathPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-food-path"
+      },
+      algorithm: {
+        id: "shortest-path-to-get-food",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
+    const sealedFoodPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.sealed-food-path/resolve",
+      payload: {
+        algorithmId: "shortest-path-to-get-food"
+      }
+    });
+
+    expect(sealedFoodPreset.statusCode).toBe(200);
+    expect(sealedFoodPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.sealed-food-path"
+      },
+      algorithm: {
+        id: "shortest-path-to-get-food",
+        domain: "graph"
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const redundantPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/graph.reference-redundant/resolve",
@@ -2675,6 +2717,42 @@ describe("TraceDeck API foundation", () => {
       footprint: "5 x 5 grid"
     });
 
+    const validateFoodPathInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-path-to-get-food",
+        payload: {
+          grid: [
+            ["X", "X", "X", "X", "X"],
+            ["X", "*", "O", "O", "X"],
+            ["X", "X", "X", "O", "X"],
+            ["X", "X", "X", "O", "#"],
+            ["X", "X", "X", "X", "X"]
+          ]
+        }
+      }
+    });
+
+    expect(validateFoodPathInput.statusCode).toBe(200);
+    expect(validateFoodPathInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "shortest-path-to-get-food",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          ["X", "X", "X", "X", "X"],
+          ["X", "*", "O", "O", "X"],
+          ["X", "X", "X", "O", "X"],
+          ["X", "X", "X", "O", "#"],
+          ["X", "X", "X", "X", "X"]
+        ]
+      },
+      footprint: "5 x 5 grid"
+    });
+
     const validateCountComponentsInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -3064,6 +3142,30 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Nearest Exit from Entrance in Maze entrance must start on an open cell."
+    });
+  });
+
+  it("rejects shortest-path-to-get-food payloads without a food cell", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "shortest-path-to-get-food",
+        payload: {
+          grid: [
+            ["X", "X", "X"],
+            ["X", "*", "O"],
+            ["X", "X", "X"]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "Shortest Path to Get Food input must contain exactly one food cell."
     });
   });
 
