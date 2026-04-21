@@ -11,7 +11,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - `#/overview` is the overview index for route selection, persistence status, and recent activity.
 - An empty hash now resolves to `#/playground/:algorithmId?`, so first load opens replay instead of the overview route.
 - `#/playground/:algorithmId?` is the dedicated single-run workspace for live replay, transport, timeline, and step inspection.
-- `#/library` now acts as a browseable catalog with route-backed search, domain, progression-stage, learning-goal, and sort filters plus curated pathways into focused reference pages.
+- `#/library` now acts as a browseable catalog with a docked filter rail, route-backed search, domain, progression-stage, learning-goal, and sort filters, plus curated pathways into focused reference pages.
 - `#/algorithms/:algorithmId` captures per-algorithm guidance, input format, and replay expectations without crowding the live replay surface.
 - `#/history` surfaces saved runs and saved comparison records as lightweight summaries first, then hydrates a replay only when the user resumes one.
 - `#/compare` reserves synchronized sorting playback, trend charts, and leaderboard metrics for a dedicated comparison route.
@@ -33,6 +33,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - The visual system should read as an intentional replay tool rather than a generic dashboard: solid surfaces, bolder section separation, and a distinct palette shift should be visible on first load.
 - Above-the-fold framing on desktop should fit a common laptop viewport without horizontal page scrolling or a long first-load stack.
 - Repeated bordered cards should not be the default composition pattern when a rail, shelf, list, or docked panel communicates the job more clearly.
+- Browse-heavy surfaces should privilege calm rails, compact toolbars, and dense result ledgers over stacks of individually framed promo cards.
 - Motion should clarify replay state instead of adding ambient ornament: panel entrances can stage dense information, while live playback cues should stay tied to the transport surface and timeline progress.
 - Any animated replay affordance needs a reduced-motion fallback so deterministic stepping remains comfortable during long inspection sessions.
 - Tablet and mobile layouts should keep controls in explicit grids and let dense navigation rows scroll horizontally instead of compressing core replay actions into cramped wraps.
@@ -44,7 +45,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Single-run replay exposes domain-aware sorting, search, sliding-window, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
-- The library should feel like a discovery surface, not a flattened appendix: category rails, progression cues, and saved-activity signals should help users understand breadth before they open a replay.
+- The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
 - Single replay adds an active-frame briefing strip with a snapshot lens and recorded-signal summary before the detailed inspector panels.
 - Single replay now pairs the main visualization stage with a docked transport-and-timeline rail so playback controls stay visible without forcing the page wider than a laptop frame.
 - Overview, library, and history now lean on directories and ledger-style lists instead of large hero sections or repeated card grids.

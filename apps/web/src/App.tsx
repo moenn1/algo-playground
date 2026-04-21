@@ -2051,6 +2051,20 @@ function LibraryPage({
   );
   const activeStage = filters.stage !== "all" ? getLibraryStage(filters.stage) : null;
   const activeFocus = filters.focus !== "all" ? getLibraryFocusArea(filters.focus) : null;
+  const activeSortMode =
+    librarySortModes.find((sortMode) => sortMode.id === filters.sort) ?? librarySortModes[0]!;
+  const activePathway =
+    libraryPathways.find((pathway) =>
+      Object.entries(pathway.filters).every(
+        ([key, value]) => filters[key as keyof LibraryFilters] === value
+      )
+    ) ?? null;
+  const activeFilterTokens = [
+    filters.domain === "all" ? null : domainLabels[filters.domain],
+    activeStage?.label ?? null,
+    activeFocus?.label ?? null,
+    filters.q ? `Query: ${filters.q}` : null
+  ].filter((token): token is string => Boolean(token));
 
   function updateFilters(nextPatch: Partial<LibraryFilters>) {
     const nextFilters = {
@@ -2077,8 +2091,8 @@ function LibraryPage({
             </a>
           </>
         }
-        copy="Browse algorithms by domain, progression stage, or learning goal, then move into references or replay without mixing discovery into the active workspace."
-        eyebrow="Algorithm Library"
+        copy="Use the library as a route-backed study index: narrow by domain, stage, or learning goal, then jump directly into references or replay."
+        eyebrow="Algorithm Index"
         stats={[
           {
             label: "Visible systems",
@@ -2101,321 +2115,348 @@ function LibraryPage({
               "Discovery spans foundation walkthroughs, dense-state systems, and compare-ready sorting decks."
           }
         ]}
-        title="Browse algorithms without crowding the replay workspace."
+        title="Reference library for replayable algorithms."
       />
 
-      <section className="panel library-discovery-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Discovery Controls</p>
-            <h2>Search, narrow, and reorder the library.</h2>
-          </div>
-          <p className="panel-copy">
-            Browse state now lives in the route so filtered library views stay shareable and
-            recoverable.
-          </p>
-        </div>
-
-        <div className="library-discovery-grid">
-          <label className="library-search-shell" htmlFor="library-search">
-            <span>Search algorithms</span>
-            <input
-              id="library-search"
-              onChange={(event) => {
-                updateFilters({ q: event.target.value });
-              }}
-              placeholder="Search by algorithm, metric, or learning goal"
-              type="search"
-              value={filters.q}
-            />
-          </label>
-
-          <div className="library-discovery-summary">
-            <div className="metric-inline">
-              <span>Browse state</span>
-              <strong>
-                {filters.domain === "all" ? "All domains" : domainLabels[filters.domain]}
-              </strong>
-            </div>
-            <div className="metric-inline">
-              <span>Learning stage</span>
-              <strong>{activeStage?.label ?? "Any stage"}</strong>
-            </div>
-            <div className="metric-inline">
-              <span>Primary goal</span>
-              <strong>{activeFocus?.label ?? "Any goal"}</strong>
-            </div>
-            <button
-              className="segmented"
-              onClick={() => {
-                updateFilters(defaultLibraryFilters);
-              }}
-              type="button"
-            >
-              Reset filters
-            </button>
-          </div>
-        </div>
-
-        <div className="library-domain-rail">
-          <button
-            className={`library-domain-card ${filters.domain === "all" ? "library-domain-card-active" : ""}`}
-            onClick={() => {
-              updateFilters({ domain: "all" });
-            }}
-            type="button"
-          >
-            <span>All domains</span>
-            <strong>{filteredAlgorithms.length}</strong>
-            <p>Keep the full catalog in view while stage and goal filters do the narrowing.</p>
-          </button>
-          {libraryDomainOrder.map((domain) => {
-            const domainCount = resolveLibraryAlgorithms(
-              algorithms,
-              { ...deferredFilters, domain },
-              savedRunCounts
-            ).length;
-
-            return (
-              <button
-                className={`library-domain-card ${
-                  filters.domain === domain ? "library-domain-card-active" : ""
-                }`}
-                key={domain}
-                onClick={() => {
-                  updateFilters({ domain });
-                }}
-                type="button"
-              >
-                <span>{domainLabels[domain]}</span>
-                <strong>{domainCount}</strong>
-                <p>{domainReference[domain].lens}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="library-filter-stack">
-          <div className="filter-row">
-            <span className="filter-label">Stage</span>
-            <div className="filter-chip-row">
-              <button
-                className={`segmented ${filters.stage === "all" ? "segmented-active" : ""}`}
-                onClick={() => {
-                  updateFilters({ stage: "all" });
-                }}
-                type="button"
-              >
-                All
-              </button>
-              {libraryStages.map((stage) => (
-                <button
-                  className={`segmented ${filters.stage === stage.id ? "segmented-active" : ""}`}
-                  key={stage.id}
-                  onClick={() => {
-                    updateFilters({ stage: stage.id });
-                  }}
-                  type="button"
-                >
-                  {stage.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="filter-row">
-            <span className="filter-label">Learning goal</span>
-            <div className="filter-chip-row">
-              <button
-                className={`segmented ${filters.focus === "all" ? "segmented-active" : ""}`}
-                onClick={() => {
-                  updateFilters({ focus: "all" });
-                }}
-                type="button"
-              >
-                All
-              </button>
-              {libraryFocusAreas.map((focus) => (
-                <button
-                  className={`segmented ${filters.focus === focus.id ? "segmented-active" : ""}`}
-                  key={focus.id}
-                  onClick={() => {
-                    updateFilters({ focus: focus.id });
-                  }}
-                  type="button"
-                >
-                  {focus.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="filter-row">
-            <span className="filter-label">Sort</span>
-            <div className="filter-chip-row">
-              {librarySortModes.map((sortMode) => (
-                <button
-                  className={`segmented ${filters.sort === sortMode.id ? "segmented-active" : ""}`}
-                  key={sortMode.id}
-                  onClick={() => {
-                    updateFilters({ sort: sortMode.id });
-                  }}
-                  type="button"
-                >
-                  {sortMode.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="library-pathway-grid">
-        {libraryPathways.map((pathway) => {
-          const previewNames = pathway.previewAlgorithmIds.map(
-            (algorithmId) => getAlgorithmById(algorithmId).name
-          );
-          const isActive = Object.entries(pathway.filters).every(
-            ([key, value]) => filters[key as keyof LibraryFilters] === value
-          );
-
-          return (
-            <article
-              className={`panel library-pathway-card ${
-                isActive ? "library-pathway-card-active" : ""
-              }`}
-              key={pathway.id}
-            >
-              <div className="panel-heading">
+      <section className="panel library-browser-panel">
+        <div className="library-browser-shell">
+          <aside className="library-filter-rail">
+            <div className="library-rail-block">
+              <div className="library-rail-heading">
                 <div>
-                  <p className="eyebrow">Curated Path</p>
-                  <h2>{pathway.label}</h2>
+                  <p className="eyebrow">Browse State</p>
+                  <h2>Filter the index</h2>
                 </div>
+                <span>{activeSortMode.label}</span>
               </div>
-              <p className="panel-copy">{pathway.description}</p>
-              <div className="compare-pill-row">
-                {previewNames.map((name) => (
-                  <span className="compare-pill" key={`${pathway.id}-${name}`}>
-                    {name}
-                  </span>
-                ))}
-              </div>
-              <button
-                className="segmented segmented-active"
-                onClick={() => {
-                  updateFilters({
-                    ...defaultLibraryFilters,
-                    ...pathway.filters
-                  });
-                }}
-                type="button"
-              >
-                Browse this path
-              </button>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="panel library-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">Catalog Results</p>
-            <h2>
-              {filteredAlgorithms.length === 1
-                ? "1 algorithm matches this browse state."
-                : `${filteredAlgorithms.length} algorithms match this browse state.`}
-            </h2>
-          </div>
-          <p className="panel-copy">
-            Results carry progression cues, saved-run activity, and next-step recommendations so
-            the library stays useful before you ever hit play.
-          </p>
-        </div>
-
-        {filteredAlgorithms.length > 0 ? (
-          <div className="library-grid library-grid-rich">
-            {filteredAlgorithms.map((algorithm) => {
-              const persistedRecord = statsByAlgorithmId.get(algorithm.id);
-              const profile = getLibraryProfile(algorithm.id);
-              const stage = getLibraryStage(profile.stage);
-              const focus = getLibraryFocusArea(profile.focus);
-              const nextNames = profile.nextAlgorithmIds.map(
-                (algorithmId) => getAlgorithmById(algorithmId).name
-              );
-
-              return (
-                <article className="library-card" key={algorithm.id}>
-                  <div className="library-card-header">
-                    <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
-                      {algorithm.badge}
+              <p className="panel-copy">
+                Route-backed filters keep the library shareable and let reference work stay
+                separate from the active replay workspace.
+              </p>
+              <label className="library-search-shell" htmlFor="library-search">
+                <span>Search algorithms</span>
+                <input
+                  id="library-search"
+                  onChange={(event) => {
+                    updateFilters({ q: event.target.value });
+                  }}
+                  placeholder="Search by algorithm, metric, or learning goal"
+                  type="search"
+                  value={filters.q}
+                />
+              </label>
+              <div className="library-active-filters">
+                {activeFilterTokens.length > 0 ? (
+                  activeFilterTokens.map((token) => (
+                    <span className="library-active-filter" key={token}>
+                      {token}
                     </span>
-                    <span className="library-stage-pill">{stage.label}</span>
-                  </div>
-                  <h3>{algorithm.name}</h3>
-                  <p>{algorithm.description}</p>
-                  <p className="library-card-highlight">{profile.outcome}</p>
-                  <div className="library-card-meta library-card-meta-grid">
-                    <div>
-                      <span>Learning goal</span>
-                      <strong>{focus.label}</strong>
-                    </div>
-                    <div>
-                      <span>Saved runs</span>
-                      <strong>{persistedRecord?.runCount ?? 0}</strong>
-                    </div>
-                    <div>
-                      <span>Explore time</span>
-                      <strong>{profile.timeToExplore}</strong>
-                    </div>
-                    <div>
-                      <span>Trace lens</span>
-                      <strong>{algorithm.inputLabel}</strong>
-                    </div>
-                  </div>
-                  <div className="library-skill-row">
-                    {profile.skills.map((skill) => (
-                      <span className="library-skill-pill" key={`${algorithm.id}-${skill}`}>
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="library-next-step">
-                    <span>Next up</span>
-                    <strong>{nextNames.join(" -> ")}</strong>
-                    <p>{profile.spotlight}</p>
-                  </div>
-                  <div className="library-card-actions">
-                    <a
-                      className="segmented"
-                      href={buildRouteHref({
-                        page: "algorithm-detail",
-                        algorithmId: algorithm.id
-                      })}
-                    >
-                      Reference
-                    </a>
+                  ))
+                ) : (
+                  <span className="library-active-filter">No narrow filters applied</span>
+                )}
+              </div>
+              <div className="library-rail-actions">
+                <button
+                  className="segmented"
+                  onClick={() => {
+                    updateFilters(defaultLibraryFilters);
+                  }}
+                  type="button"
+                >
+                  Reset filters
+                </button>
+              </div>
+            </div>
+
+            <div className="library-rail-block">
+              <div className="library-rail-heading">
+                <div>
+                  <p className="eyebrow">Domains</p>
+                  <h2>Pick a system family</h2>
+                </div>
+                <span>{filters.domain === "all" ? "All domains" : domainLabels[filters.domain]}</span>
+              </div>
+              <div className="library-domain-list">
+                <button
+                  className={`library-domain-row ${
+                    filters.domain === "all" ? "library-domain-row-active" : ""
+                  }`}
+                  onClick={() => {
+                    updateFilters({ domain: "all" });
+                  }}
+                  type="button"
+                >
+                  <span>All domains</span>
+                  <strong>{filteredAlgorithms.length}</strong>
+                  <p>Keep the full catalog in view while stage and goal filters do the narrowing.</p>
+                </button>
+                {libraryDomainOrder.map((domain) => {
+                  const domainCount = resolveLibraryAlgorithms(
+                    algorithms,
+                    { ...deferredFilters, domain },
+                    savedRunCounts
+                  ).length;
+
+                  return (
                     <button
-                      className="launch-button"
+                      className={`library-domain-row ${
+                        filters.domain === domain ? "library-domain-row-active" : ""
+                      }`}
+                      key={domain}
                       onClick={() => {
-                        onOpenPlayground(algorithm.id);
+                        updateFilters({ domain });
                       }}
                       type="button"
                     >
-                      Open replay
+                      <span>{domainLabels[domain]}</span>
+                      <strong>{domainCount}</strong>
+                      <p>{domainReference[domain].lens}</p>
                     </button>
-                  </div>
-                </article>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="library-rail-block">
+              <div className="library-rail-heading">
+                <div>
+                  <p className="eyebrow">Progression Paths</p>
+                  <h2>Browse a study sequence</h2>
+                </div>
+                <span>{activePathway?.label ?? "Custom browse state"}</span>
+              </div>
+              <div className="library-path-list">
+                {libraryPathways.map((pathway) => {
+                  const previewNames = pathway.previewAlgorithmIds.map(
+                    (algorithmId) => getAlgorithmById(algorithmId).name
+                  );
+                  const isActive = Object.entries(pathway.filters).every(
+                    ([key, value]) => filters[key as keyof LibraryFilters] === value
+                  );
+
+                  return (
+                    <button
+                      className={`library-path-row ${isActive ? "library-path-row-active" : ""}`}
+                      key={pathway.id}
+                      onClick={() => {
+                        updateFilters({
+                          ...defaultLibraryFilters,
+                          ...pathway.filters
+                        });
+                      }}
+                      type="button"
+                    >
+                      <span>{pathway.label}</span>
+                      <strong>{previewNames.join(" -> ")}</strong>
+                      <p>{pathway.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          <div className="library-results-column">
+            <div className="library-results-header">
+              <div>
+                <p className="eyebrow">Algorithm Catalog</p>
+                <h2>
+                  {filteredAlgorithms.length === 1
+                    ? "1 algorithm matches this browse state."
+                    : `${filteredAlgorithms.length} algorithms match this browse state.`}
+                </h2>
+                <p className="panel-copy">
+                  The results stay dense on purpose: you can scan progression, saved-run activity,
+                  and replay readiness without opening every reference page first.
+                </p>
+              </div>
+              <div className="library-results-summary">
+                <div className="metric-inline">
+                  <span>Sort</span>
+                  <strong>{activeSortMode.label}</strong>
+                </div>
+                <div className="metric-inline">
+                  <span>Saved runs</span>
+                  <strong>{visibleSavedRuns}</strong>
+                </div>
+                <div className="metric-inline">
+                  <span>Current path</span>
+                  <strong>{activePathway?.label ?? "Custom browse state"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="library-toolbar">
+              <div className="library-toolbar-row">
+                <span className="filter-label">Stage</span>
+                <div className="filter-chip-row">
+                  <button
+                    className={`segmented ${filters.stage === "all" ? "segmented-active" : ""}`}
+                    onClick={() => {
+                      updateFilters({ stage: "all" });
+                    }}
+                    type="button"
+                  >
+                    All
+                  </button>
+                  {libraryStages.map((stage) => (
+                    <button
+                      className={`segmented ${filters.stage === stage.id ? "segmented-active" : ""}`}
+                      key={stage.id}
+                      onClick={() => {
+                        updateFilters({ stage: stage.id });
+                      }}
+                      type="button"
+                    >
+                      {stage.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="library-toolbar-row">
+                <span className="filter-label">Learning goal</span>
+                <div className="filter-chip-row">
+                  <button
+                    className={`segmented ${filters.focus === "all" ? "segmented-active" : ""}`}
+                    onClick={() => {
+                      updateFilters({ focus: "all" });
+                    }}
+                    type="button"
+                  >
+                    All
+                  </button>
+                  {libraryFocusAreas.map((focus) => (
+                    <button
+                      className={`segmented ${filters.focus === focus.id ? "segmented-active" : ""}`}
+                      key={focus.id}
+                      onClick={() => {
+                        updateFilters({ focus: focus.id });
+                      }}
+                      type="button"
+                    >
+                      {focus.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="library-toolbar-row">
+                <span className="filter-label">Sort</span>
+                <div className="filter-chip-row">
+                  {librarySortModes.map((sortMode) => (
+                    <button
+                      className={`segmented ${filters.sort === sortMode.id ? "segmented-active" : ""}`}
+                      key={sortMode.id}
+                      onClick={() => {
+                        updateFilters({ sort: sortMode.id });
+                      }}
+                      type="button"
+                    >
+                      {sortMode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {filteredAlgorithms.length > 0 ? (
+              <div className="library-result-list">
+                {filteredAlgorithms.map((algorithm) => {
+                  const persistedRecord = statsByAlgorithmId.get(algorithm.id);
+                  const profile = getLibraryProfile(algorithm.id);
+                  const stage = getLibraryStage(profile.stage);
+                  const focus = getLibraryFocusArea(profile.focus);
+                  const nextNames = profile.nextAlgorithmIds.map(
+                    (algorithmId) => getAlgorithmById(algorithmId).name
+                  );
+
+                  return (
+                    <article className="library-result-row" key={algorithm.id}>
+                      <div className="library-result-main">
+                        <div className="library-result-heading">
+                          <span className={`algorithm-badge algorithm-badge-${algorithm.accent}`}>
+                            {algorithm.badge}
+                          </span>
+                          <span className="library-stage-pill">{stage.label}</span>
+                          <span className="library-result-domain">
+                            {domainLabels[algorithm.domain]}
+                          </span>
+                        </div>
+                        <div className="library-result-title-row">
+                          <h3>{algorithm.name}</h3>
+                          <strong>{focus.label}</strong>
+                        </div>
+                        <p>{algorithm.description}</p>
+                        <p className="library-card-highlight">{profile.outcome}</p>
+                        <div className="library-skill-row">
+                          {profile.skills.map((skill) => (
+                            <span className="library-skill-pill" key={`${algorithm.id}-${skill}`}>
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="library-result-ledger">
+                        <div>
+                          <span>Saved runs</span>
+                          <strong>{persistedRecord?.runCount ?? 0}</strong>
+                        </div>
+                        <div>
+                          <span>Explore time</span>
+                          <strong>{profile.timeToExplore}</strong>
+                        </div>
+                        <div>
+                          <span>Trace lens</span>
+                          <strong>{algorithm.inputLabel}</strong>
+                        </div>
+                        <div>
+                          <span>Next up</span>
+                          <strong>{nextNames.join(" -> ")}</strong>
+                        </div>
+                      </div>
+
+                      <div className="library-result-actions">
+                        <p>{profile.spotlight}</p>
+                        <div className="library-card-actions">
+                          <a
+                            className="segmented"
+                            href={buildRouteHref({
+                              page: "algorithm-detail",
+                              algorithmId: algorithm.id
+                            })}
+                          >
+                            Reference
+                          </a>
+                          <button
+                            className="launch-button"
+                            onClick={() => {
+                              onOpenPlayground(algorithm.id);
+                            }}
+                            type="button"
+                          >
+                            Open replay
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span>Empty browse state</span>
+                <strong>No algorithms match this filter set yet.</strong>
+                <p>
+                  Reset the current filters or widen the search terms to bring the catalog back
+                  into view.
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="empty-state">
-            <span>Empty browse state</span>
-            <strong>No algorithms match this filter set yet.</strong>
-            <p>Reset the current filters or widen the search terms to bring the catalog back into view.</p>
-          </div>
-        )}
+        </div>
       </section>
     </>
   );

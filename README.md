@@ -53,7 +53,7 @@ The web app is organized into distinct routes instead of one vertically condense
 
 - `#/overview` overview index with route selection, persistence status, and recent activity
 - `#/playground/:algorithmId?` single-run replay workspace, and the default first-load route when the hash is empty
-- `#/library` algorithm catalog with shareable browse state for domain, stage, goal, sort, and search filters
+- `#/library` algorithm catalog with a docked filter rail, shareable browse state for domain, stage, goal, sort, and search filters, and dense result rows for reference-first scanning
 - `#/algorithms/:algorithmId` focused reference pages for each algorithm
 - `#/history` saved runs and saved comparison records
 - `#/compare` synchronized sorting comparison view
@@ -92,7 +92,7 @@ The current preset catalog covers seeded random inputs, worst-case scenarios, cu
 
 ## Current Foundation
 
-- `apps/web` exposes the multi-route replay interface: overview, replay, a browseable algorithm library with progression paths and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison view backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
+- `apps/web` exposes the multi-route replay interface: overview, replay, a browseable algorithm library with a calmer filter rail, progression paths, dense result-ledger rows, and shareable discovery filters, algorithm detail pages, saved-run history, and a dedicated comparison view backed by seeded traces, deterministic timeline scrubbing, active-frame step inspection, reusable visualization modules, domain-specific replay stages, and synchronized sorting matchups.
 - `apps/api` serves durable run persistence, input preset resolution, comparison APIs, foundation metadata, and the health endpoint that local development depends on.
 - `packages/execution-engine` owns the shared sorting, search, window, dynamic-programming, stack, and graph runtimes, deterministic replay state projection, and trace emitters for Bubble Sort, Selection Sort, Quick Sort, Merge Sort, Binary Search, Minimum Size Subarray Sum, Longest Common Subsequence, Valid Parentheses, Breadth-First Search, and Dijkstra.
 - `packages/trace-core` holds the deterministic trace envelope contract, replay invariants, validation helpers, and shared instrumentation primitives for runtime-to-trace projection.
