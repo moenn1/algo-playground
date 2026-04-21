@@ -7,6 +7,7 @@ export const supportedAlgorithmIds = [
   "merge-sort",
   "binary-search",
   "search-in-rotated-sorted-array",
+  "container-with-most-water",
   "minimum-size-subarray-sum",
   "two-sum",
   "merge-intervals",
@@ -35,6 +36,10 @@ export interface GraphInputPayload extends JsonObject {
 export interface SearchInputPayload extends JsonObject {
   array: number[];
   target: number;
+}
+
+export interface TwoPointersInputPayload extends JsonObject {
+  heights: number[];
 }
 
 export interface WindowInputPayload extends JsonObject {

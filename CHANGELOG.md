@@ -2,8 +2,11 @@
 
 ## 2026-04-21
 
+- Added a shared two-pointer runtime for Container With Most Water, including deterministic wall-pair evaluations, explicit pointer-pruning checkpoints, and stable `evaluations`, `moves`, and `bestUpdates` metrics.
+- Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to the new two-pointers domain so TraceDeck now includes its first classic inward-sweep container problem with product-grade replay support.
 - Simplified the shared web visual system with calmer borders, flatter controls, stronger typography rhythm, and quieter ledger-style section interiors so overview, replay, library, reference, comparison, and history now read more consistently as one tool.
 - Refined the library again into a more practical reference explorer: the rail now stays navigation-focused, the results header is less promotional, and detail/history interiors lean further away from noisy boxed card treatments.
+- Fixed `packages/execution-engine/src/twoPointers.ts` type declarations so the current Container With Most Water branch state builds and typechecks cleanly.
 - Added a shared hash runtime for Two Sum, including deterministic complement lookups, explicit lookup-table store checkpoints, and stable `inspections`, `lookups`, and `stores` metrics.
 - Wired the replay shell, input-service presets, demo seed data, library catalog, and validation coverage to the new hash domain so TraceDeck now includes its first classic array-and-hash interview problem with a named product-grade replay.
 - Tightened the multi-route replay shell with neutral route headers, a stage-first replay layout that keeps transport and timeline docks inside the desktop frame, and stronger per-route composition across library, reference, comparison, and history surfaces.

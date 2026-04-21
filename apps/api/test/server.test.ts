@@ -611,6 +611,27 @@ describe("TraceDeck API foundation", () => {
       footprint: "8 lanes / target 6"
     });
 
+    const twoPointersPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/two-pointers.reference-basin/resolve",
+      payload: {
+        algorithmId: "container-with-most-water"
+      }
+    });
+
+    expect(twoPointersPreset.statusCode).toBe(200);
+    expect(twoPointersPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "two-pointers.reference-basin"
+      },
+      algorithm: {
+        id: "container-with-most-water",
+        domain: "two-pointers"
+      },
+      footprint: "9 heights"
+    });
+
     const windowPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/window.reference-target/resolve",
@@ -768,6 +789,30 @@ describe("TraceDeck API foundation", () => {
       footprint: "8 lanes / target 6"
     });
 
+    const validateTwoPointersInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "container-with-most-water",
+        payload: {
+          heights: [1, 8, 6, 2, 5, 4, 8, 3, 7]
+        }
+      }
+    });
+
+    expect(validateTwoPointersInput.statusCode).toBe(200);
+    expect(validateTwoPointersInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "container-with-most-water",
+        domain: "two-pointers"
+      },
+      input: {
+        heights: [1, 8, 6, 2, 5, 4, 8, 3, 7]
+      },
+      footprint: "9 heights"
+    });
+
     const validateWindowInput = await server.inject({
       method: "POST",
       url: "/api/inputs/validate",
@@ -919,6 +964,26 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: "Search in Rotated Sorted Array input must be a rotation of a strictly increasing array."
+    });
+  });
+
+  it("rejects two-pointer payloads with non-positive heights", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "container-with-most-water",
+        payload: {
+          heights: [1, 0, 6]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "heights[1] must be a positive integer."
     });
   });
 });

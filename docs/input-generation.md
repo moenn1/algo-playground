@@ -8,6 +8,7 @@ The service currently covers the supported algorithms already present in the wor
 
 - Sorting: `bubble-sort`, `selection-sort`, `quick-sort`, `merge-sort`
 - Search: `binary-search`, `search-in-rotated-sorted-array`
+- Two-pointers: `container-with-most-water`
 - Window: `minimum-size-subarray-sum`
 - Hash: `two-sum`
 - Interval: `merge-intervals`
@@ -135,6 +136,13 @@ The sorted search presets resolve for Binary Search. The rotated search presets 
 
 Both window presets currently resolve for Minimum Size Subarray Sum through the same `algorithmId` field.
 
+### Two-pointers presets
+
+- `two-pointers.reference-basin`: curated classic wall array with an early large container and clear outward-to-inward pruning
+- `two-pointers.inner-peak`: curated wall array where the best container appears after several inward pointer moves
+
+Both two-pointers presets currently resolve for Container With Most Water through the same `algorithmId` field.
+
 ### Hash presets
 
 - `hash.reference-hit`: curated classic Two Sum case with an early complement hit
@@ -167,6 +175,7 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 
 - Sorting payloads accept either integer arrays or comma-separated integer strings.
 - Search payloads accept either JSON objects or JSON strings.
+- Two-pointer payloads accept either JSON objects or JSON strings.
 - Window payloads accept either JSON objects or JSON strings.
 - Hash payloads accept either JSON objects or JSON strings.
 - Interval payloads accept either JSON objects or JSON strings.
@@ -176,6 +185,7 @@ Both stack presets currently resolve for Valid Parentheses through the same `alg
 - Sorting inputs must contain between 2 and 24 integers.
 - Binary Search payloads must define a sorted integer array between 2 and 32 entries plus an integer target.
 - Search in Rotated Sorted Array payloads must define a distinct-integer array between 2 and 32 entries that is a rotation of a strictly increasing array, plus an integer target.
+- Two-pointer payloads must define between 2 and 24 positive integers in `heights`.
 - Window payloads must define between 2 and 32 positive integers plus a positive integer target.
 - Hash payloads must define between 2 and 24 integers plus an integer target, and they must contain exactly one valid solution pair so replay stays deterministic.
 - Interval payloads must define between 1 and 12 `[start, end]` integer pairs where `start <= end`.

@@ -30,6 +30,8 @@ The demo seed currently materializes:
 - Binary Search on `search.missing-target`
 - Search in Rotated Sorted Array on `search.rotated-reference-hit`
 - Search in Rotated Sorted Array on `search.rotated-missing-target`
+- Container With Most Water on `two-pointers.reference-basin`
+- Container With Most Water on `two-pointers.inner-peak`
 - Minimum Size Subarray Sum on `window.reference-target`
 - Minimum Size Subarray Sum on `window.no-solution`
 - Two Sum on `hash.reference-hit`

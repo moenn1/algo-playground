@@ -1,6 +1,7 @@
 import {
   type GraphExecutionState,
-  type SortingExecutionState
+  type SortingExecutionState,
+  type TwoPointersExecutionState
 } from "@tracedeck/execution-engine";
 import { type JsonObject, type TraceStep } from "@tracedeck/trace-core";
 
@@ -11,7 +12,8 @@ import {
   type IntervalRun,
   type SearchRun,
   type SortingRun,
-  type StackRun
+  type StackRun,
+  type TwoPointersRun
 } from "../replay.js";
 
 type SortingStageDensity = "detailed" | "compact";
@@ -264,6 +266,40 @@ function formatStackTokenStatus(
   }
 }
 
+function getTwoPointersLaneTone(
+  index: number,
+  step: TwoPointersRun["trace"]["steps"][number]
+): "active" | "sorted" | "idle" {
+  if (step.state.left === index || step.state.right === index) {
+    return "active";
+  }
+
+  if (step.state.bestLeft === index || step.state.bestRight === index) {
+    return "sorted";
+  }
+
+  return "idle";
+}
+
+function formatTwoPointersStatus(
+  index: number,
+  step: TwoPointersRun["trace"]["steps"][number]
+): string {
+  if (step.state.left === index) {
+    return "Left";
+  }
+
+  if (step.state.right === index) {
+    return "Right";
+  }
+
+  if (step.state.bestLeft === index || step.state.bestRight === index) {
+    return "Best";
+  }
+
+  return "Idle";
+}
+
 export function SortingStage({
   run,
   stepIndex,
@@ -443,6 +479,104 @@ export function SearchStage({ run, stepIndex }: { run: SearchRun; stepIndex: num
           <span>Order signal</span>
           <strong>{sortedSideLabel}</strong>
         </div>
+      </div>
+    </>
+  );
+}
+
+export function TwoPointersStage({
+  run,
+  stepIndex
+}: {
+  run: TwoPointersRun;
+  stepIndex: number;
+}) {
+  const step = getStep(run.trace.steps, stepIndex);
+  const values = step.state.heights;
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = Math.max(1, maxValue - minValue);
+  const activePairLabel =
+    step.state.left !== null && step.state.right !== null
+      ? `${step.state.left} and ${step.state.right}`
+      : "Sweep complete";
+  const bestPairLabel =
+    step.state.bestLeft !== null && step.state.bestRight !== null
+      ? `${step.state.bestLeft} and ${step.state.bestRight}`
+      : "Pending";
+
+  return (
+    <>
+      <div className="visual-heading">
+        <div>
+          <p className="eyebrow">Live State</p>
+          <h2>{run.algorithm.name} walls</h2>
+        </div>
+        <p className="visual-meta">Current phase: {step.phase}</p>
+      </div>
+      <div className="sort-stage-shell">
+        <div className="sort-stage">
+          {values.map((value, index) => {
+            const tone = getTwoPointersLaneTone(index, step);
+            const className = [
+              "sort-bar",
+              tone === "active" ? "sort-bar-active" : "",
+              tone === "sorted" ? "sort-bar-sorted" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <div className={className} key={`two-pointers-${index}-${value}`}>
+                <span className="sort-bar-value">{value}</span>
+                <div
+                  className="sort-bar-rod"
+                  style={{ height: `${18 + ((value - minValue + 1) / (range + 1)) * 180}px` }}
+                />
+                <span className="sort-bar-index">{index}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Active pair</span>
+            <strong>{activePairLabel}</strong>
+            <p>{step.state.currentArea !== null ? `Area ${step.state.currentArea}` : "No active container"}</p>
+          </div>
+          <div className="mini-card">
+            <span>Width / height</span>
+            <strong>
+              {step.state.width !== null && step.state.limitingHeight !== null
+                ? `${step.state.width} x ${step.state.limitingHeight}`
+                : "Sweep complete"}
+            </strong>
+            <p>
+              {step.state.movedPointer
+                ? `${step.state.movedPointer === "left" ? "Left" : "Right"} pointer moved last`
+                : "Waiting for first pruning move"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Best container</span>
+            <strong>{step.state.bestArea}</strong>
+            <p>{bestPairLabel}</p>
+          </div>
+        </div>
+      </div>
+      <div className="sort-lane-strip" aria-label="Two-pointer wall ledger">
+        {values.map((value, index) => (
+          <article
+            className={`lane-chip lane-chip-${getTwoPointersLaneTone(index, step)}`}
+            key={`two-pointers-lane-${index}`}
+          >
+            <div className="lane-chip-header">
+              <span>Wall {index}</span>
+              <strong>{value}</strong>
+            </div>
+            <span className="lane-chip-status">{formatTwoPointersStatus(index, step)}</span>
+          </article>
+        ))}
       </div>
     </>
   );

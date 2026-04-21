@@ -25,7 +25,8 @@ import {
   IntervalStage,
   SearchStage,
   SortingStage,
-  StackStage
+  StackStage,
+  TwoPointersStage
 } from "./components/ReplayVisualizations.js";
 import {
   fetchPersistedRunDetail,
@@ -57,6 +58,7 @@ import {
   type SearchRun,
   type StackRun,
   type SortingRun,
+  type TwoPointersRun,
   type WindowRun
 } from "./replay.js";
 
@@ -95,6 +97,7 @@ const assuredDefaultComparisonAlgorithm = defaultComparisonAlgorithm;
 const domainLabels: Record<ReplayAlgorithm["domain"], string> = {
   sorting: "Sorting systems",
   search: "Search systems",
+  "two-pointers": "Two-pointer systems",
   window: "Window systems",
   hash: "Hash systems",
   interval: "Interval systems",
@@ -123,6 +126,12 @@ const domainReference: Record<
     flow: "Search playback uses full snapshots of `low`, `high`, `mid`, and eliminated lanes for deterministic jumps.",
     metrics: "Recorded `probes` and `comparisons` capture search work without reconstructing the decision tree in the UI.",
     checkpoints: "Checkpoint cards frame the active interval so long traces still stay readable on mobile."
+  },
+  "two-pointers": {
+    lens: "Track active walls, computed area, and the exact pruning move that discards one side of the container search.",
+    flow: "Two-pointer playback records both boundary positions, the limiting wall, and the best container directly in every snapshot.",
+    metrics: "Two-pointer metrics emphasize `evaluations`, `moves`, and `bestUpdates` so boundary-pruning work stays readable across future pointer sweeps.",
+    checkpoints: "Checkpoint stops separate area evaluations, best-pair updates, and pruning moves so pointer logic stays easy to scrub."
   },
   window: {
     lens: "Track expansions, candidate hits, contractions, and shortest-window updates without hiding intermediate state.",
@@ -165,6 +174,7 @@ const domainReference: Record<
 const libraryDomainOrder = [
   "sorting",
   "search",
+  "two-pointers",
   "window",
   "hash",
   "interval",
@@ -238,6 +248,10 @@ function isSearchRun(run: ReplayRun): run is SearchRun {
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
   return run.algorithm.domain === "window";
+}
+
+function isTwoPointersRun(run: ReplayRun): run is TwoPointersRun {
+  return run.algorithm.domain === "two-pointers";
 }
 
 function isHashRun(run: ReplayRun): run is HashRun {
@@ -495,6 +509,20 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     return "Target not reached";
   }
 
+  if (isTwoPointersRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    if (step.state.bestLeft !== null && step.state.bestRight !== null) {
+      return `Best walls ${step.state.bestLeft}-${step.state.bestRight} · area ${step.state.bestArea}`;
+    }
+
+    if (step.state.left !== null && step.state.right !== null && step.state.currentArea !== null) {
+      return `Evaluate walls ${step.state.left}-${step.state.right} · area ${step.state.currentArea}`;
+    }
+
+    return "Pointer sweep complete";
+  }
+
   if (isHashRun(run)) {
     const step = getRunStep(run, stepIndex);
 
@@ -665,6 +693,8 @@ function getAlgorithmMetricsLabel(algorithm: ReplayAlgorithm): string {
       return "Comparisons and writes";
     case "search":
       return "Probes and comparisons";
+    case "two-pointers":
+      return "Evaluations, moves, and best updates";
     case "window":
       return "Expansions, shrinks, and best updates";
     case "hash":
@@ -745,6 +775,24 @@ function SingleReplayBriefing({ run, stepIndex }: { run: ReplayRun; stepIndex: n
 
             return "Window waiting for first hit";
           })()
+        : isTwoPointersRun(run)
+          ? (() => {
+              const twoPointersStep = getRunStep(run, stepIndex);
+
+              if (twoPointersStep.state.bestLeft !== null && twoPointersStep.state.bestRight !== null) {
+                return `Best container ${twoPointersStep.state.bestArea} across ${twoPointersStep.state.bestLeft} and ${twoPointersStep.state.bestRight}`;
+              }
+
+              if (
+                twoPointersStep.state.left !== null &&
+                twoPointersStep.state.right !== null &&
+                twoPointersStep.state.currentArea !== null
+              ) {
+                return `Area ${twoPointersStep.state.currentArea} between walls ${twoPointersStep.state.left} and ${twoPointersStep.state.right}`;
+              }
+
+              return `${twoPointersStep.state.evaluatedPairs.length} pair evaluations recorded`;
+            })()
         : isHashRun(run)
           ? (() => {
               const hashStep = getRunStep(run, stepIndex);
@@ -1083,6 +1131,10 @@ function renderSingleStage(run: ReplayRun, stepIndex: number) {
     return <WindowStage run={run} stepIndex={stepIndex} />;
   }
 
+  if (isTwoPointersRun(run)) {
+    return <TwoPointersStage run={run} stepIndex={stepIndex} />;
+  }
+
   if (isHashRun(run)) {
     return <HashStage run={run} stepIndex={stepIndex} />;
   }
@@ -1243,6 +1295,48 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
               </span>
             ))
           )}
+        </div>
+      </>
+    );
+  }
+
+  if (isTwoPointersRun(run)) {
+    const step = getRunStep(run, stepIndex);
+
+    return (
+      <>
+        <div className="search-summary-grid">
+          <div className="distance-row">
+            <span>Active pair</span>
+            <strong>
+              {step.state.left !== null && step.state.right !== null
+                ? `${step.state.left}-${step.state.right}`
+                : "Complete"}
+            </strong>
+          </div>
+          <div className="distance-row">
+            <span>Current area</span>
+            <strong>{step.state.currentArea !== null ? step.state.currentArea : "Waiting"}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Best area</span>
+            <strong>{step.state.bestArea}</strong>
+          </div>
+          <div className="distance-row">
+            <span>Best pair</span>
+            <strong>
+              {step.state.bestLeft !== null && step.state.bestRight !== null
+                ? `${step.state.bestLeft}-${step.state.bestRight}`
+                : "Pending"}
+            </strong>
+          </div>
+        </div>
+        <div className="number-grid">
+          {step.state.heights.map((value, index) => (
+            <span className="number-pill" key={`two-pointers-pill-${index}`}>
+              {index}:{value}
+            </span>
+          ))}
         </div>
       </>
     );

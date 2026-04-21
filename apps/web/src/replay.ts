@@ -6,10 +6,12 @@ import {
   buildSearchTrace,
   buildStackTrace,
   buildSortingTrace,
+  buildTwoPointersTrace,
   buildWindowTrace,
   defaultLongestCommonSubsequenceInput,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
+  defaultContainerWithMostWaterInput,
   defaultDijkstraInput,
   defaultTwoSumInput,
   defaultMergeIntervalsInput,
@@ -23,6 +25,7 @@ import {
   parseIntervalInputText,
   parseSearchInputText,
   parseStackInputText,
+  parseTwoPointersInputText,
   parseWindowInputText,
   serializeDynamicProgrammingInput,
   serializeGraphInput,
@@ -30,6 +33,7 @@ import {
   serializeIntervalInput,
   serializeSearchInput,
   serializeStackInput,
+  serializeTwoPointersInput,
   serializeWindowInput,
   type DynamicProgrammingAlgorithmId,
   type DynamicProgrammingExecutionState,
@@ -49,6 +53,9 @@ import {
   type StackAlgorithmId,
   type StackExecutionState,
   type StackInput,
+  type TwoPointersAlgorithmId,
+  type TwoPointersExecutionState,
+  type TwoPointersInput,
   type WindowAlgorithmId,
   type WindowExecutionState,
   type WindowInput,
@@ -89,6 +96,11 @@ export type SearchAlgorithm = ReplayAlgorithmBase & {
   domain: "search";
 };
 
+export type TwoPointersAlgorithm = ReplayAlgorithmBase & {
+  id: TwoPointersAlgorithmId;
+  domain: "two-pointers";
+};
+
 export type WindowAlgorithm = ReplayAlgorithmBase & {
   id: WindowAlgorithmId;
   domain: "window";
@@ -118,6 +130,7 @@ export type ReplayAlgorithm =
   | SortingAlgorithm
   | GraphAlgorithm
   | SearchAlgorithm
+  | TwoPointersAlgorithm
   | WindowAlgorithm
   | HashAlgorithm
   | IntervalAlgorithm
@@ -127,6 +140,7 @@ export type ReplayAlgorithm =
 export type SortingReplayState = SortingExecutionState;
 export type GraphReplayState = GraphExecutionState;
 export type SearchReplayState = SearchExecutionState;
+export type TwoPointersReplayState = TwoPointersExecutionState;
 export type DynamicProgrammingReplayState = DynamicProgrammingExecutionState;
 export type StackReplayState = StackExecutionState;
 export type IntervalReplayState = IntervalExecutionState;
@@ -151,6 +165,13 @@ export type SearchRun = {
   input: SearchInput;
   normalizedInputText: string;
   trace: TraceEnvelope<SearchReplayState>;
+};
+
+export type TwoPointersRun = {
+  algorithm: TwoPointersAlgorithm;
+  input: TwoPointersInput;
+  normalizedInputText: string;
+  trace: TraceEnvelope<TwoPointersReplayState>;
 };
 
 export type WindowRun = {
@@ -192,6 +213,7 @@ export type ReplayRun =
   | SortingRun
   | GraphRun
   | SearchRun
+  | TwoPointersRun
   | WindowRun
   | HashRun
   | IntervalRun
@@ -200,6 +222,10 @@ export type ReplayRun =
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
   return run.algorithm.domain === "search";
+}
+
+function isTwoPointersRun(run: ReplayRun): run is TwoPointersRun {
+  return run.algorithm.domain === "two-pointers";
 }
 
 function isWindowRun(run: ReplayRun): run is WindowRun {
@@ -320,6 +346,18 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: "JSON with a rotated distinct integer array and a target value.",
     defaultInput: serializeSearchInput(defaultRotatedSearchInput),
     domain: "search"
+  },
+  {
+    id: "container-with-most-water",
+    name: "Container With Most Water",
+    badge: "Two pointers",
+    accent: "teal",
+    description:
+      "Dual-pointer replay records active walls, area evaluations, and the pruning move that keeps the sweep deterministic.",
+    inputLabel: "Two-pointer Input",
+    inputHint: "JSON with a positive integer heights array.",
+    defaultInput: serializeTwoPointersInput(defaultContainerWithMostWaterInput),
+    domain: "two-pointers"
   },
   {
     id: "minimum-size-subarray-sum",
@@ -480,6 +518,19 @@ function buildWindowRunFromInput(
   };
 }
 
+function buildTwoPointersRunFromInput(
+  algorithm: TwoPointersAlgorithm,
+  input: TwoPointersInput,
+  normalizedInputText = serializeTwoPointersInput(input)
+): TwoPointersRun {
+  return {
+    algorithm,
+    input,
+    normalizedInputText,
+    trace: buildTwoPointersTrace(algorithm.id, input)
+  };
+}
+
 function buildHashRunFromInput(
   algorithm: HashAlgorithm,
   input: HashInput,
@@ -554,6 +605,11 @@ export function buildRun(algorithmId: string, inputText: string): ReplayRun {
     return buildSearchRunFromInput(algorithm, input);
   }
 
+  if (algorithm.domain === "two-pointers") {
+    const input = parseTwoPointersInputText(inputText);
+    return buildTwoPointersRunFromInput(algorithm, input);
+  }
+
   if (algorithm.domain === "window") {
     const input = parseWindowInputText(inputText);
     return buildWindowRunFromInput(algorithm, input);
@@ -594,6 +650,10 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   if (isWindowRun(run)) {
     return `${run.input.array.length} lanes / target ${run.input.target}`;
+  }
+
+  if (isTwoPointersRun(run)) {
+    return `${run.input.heights.length} heights`;
   }
 
   if (isHashRun(run)) {

@@ -15,6 +15,7 @@ import type {
   StackInputPayload,
   SupportedAlgorithmDescriptor,
   SupportedAlgorithmId,
+  TwoPointersInputPayload,
   ValidateCustomInputInput,
   ValidatedCustomInput,
   WindowInputPayload
@@ -50,6 +51,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "search-in-rotated-sorted-array",
     label: "Search in Rotated Sorted Array",
     domain: "search"
+  },
+  "container-with-most-water": {
+    id: "container-with-most-water",
+    label: "Container With Most Water",
+    domain: "two-pointers"
   },
   "minimum-size-subarray-sum": {
     id: "minimum-size-subarray-sum",
@@ -98,6 +104,7 @@ const binarySearchAlgorithms = [supportedAlgorithms["binary-search"]] as const;
 const rotatedSearchAlgorithms = [
   supportedAlgorithms["search-in-rotated-sorted-array"]
 ] as const;
+const twoPointersAlgorithms = [supportedAlgorithms["container-with-most-water"]] as const;
 const windowAlgorithms = [supportedAlgorithms["minimum-size-subarray-sum"]] as const;
 const hashAlgorithms = [supportedAlgorithms["two-sum"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
@@ -112,6 +119,9 @@ const defaultSearchInput: SearchInputPayload = {
 const defaultRotatedSearchInput: SearchInputPayload = {
   array: [15, 18, 22, 1, 3, 6, 10, 12],
   target: 6
+};
+const defaultTwoPointersInput: TwoPointersInputPayload = {
+  heights: [1, 8, 6, 2, 5, 4, 8, 3, 7]
 };
 const defaultWindowInput: WindowInputPayload = {
   array: [2, 3, 1, 2, 4, 3],
@@ -469,6 +479,47 @@ function normalizeWindowInput(payload: unknown): WindowInputPayload {
   };
 }
 
+function normalizeTwoPointersInput(payload: unknown): TwoPointersInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(400, "Two-pointers input strings must contain valid JSON.");
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Two-pointers input must be an object with a heights array.");
+  }
+
+  const value = candidate as {
+    heights?: unknown;
+  };
+
+  if (!Array.isArray(value.heights) || value.heights.length < 2) {
+    throw new HttpError(400, "Two-pointers input must include at least two heights.");
+  }
+
+  if (value.heights.length > 24) {
+    throw new HttpError(400, "Two-pointers input arrays must contain 24 heights or fewer.");
+  }
+
+  const heights = value.heights.map((entry, index) => {
+    if (typeof entry !== "number" || !Number.isInteger(entry) || entry <= 0) {
+      throw new HttpError(400, `heights[${index}] must be a positive integer.`);
+    }
+
+    return entry;
+  });
+
+  return {
+    heights
+  };
+}
+
 function normalizeIntervalInput(payload: unknown): IntervalInputPayload {
   const candidate =
     typeof payload === "string"
@@ -544,6 +595,16 @@ function serializeWindowInput(input: WindowInputPayload) {
     {
       array: input.array,
       target: input.target
+    },
+    null,
+    2
+  );
+}
+
+function serializeTwoPointersInput(input: TwoPointersInputPayload) {
+  return JSON.stringify(
+    {
+      heights: input.heights
     },
     null,
     2
@@ -917,6 +978,16 @@ function normalizeAlgorithmInput(
     };
   }
 
+  if (algorithm.domain === "two-pointers") {
+    const twoPointers = normalizeTwoPointersInput(payload);
+
+    return {
+      input: twoPointers,
+      normalizedInputText: serializeTwoPointersInput(twoPointers),
+      footprint: `${twoPointers.heights.length} heights`
+    };
+  }
+
   if (algorithm.domain === "hash") {
     const hash = normalizeHashInput(payload);
 
@@ -1269,6 +1340,42 @@ const presetDefinitions: InputPresetDefinition[] = [
       input: {
         array: [30, 34, 41, 5, 9, 12, 18, 24],
         target: 17
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "two-pointers.reference-basin",
+      label: "Reference wide basin",
+      description:
+        "Use the canonical Container With Most Water heights so replay shows the early best area and later pointer pruning clearly.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "two-pointers",
+      algorithms: twoPointersAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultTwoPointersInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "two-pointers.inner-peak",
+      label: "Inner peak basin",
+      description:
+        "Keep the tallest wall away from the edge so replay has to prune inward before the best container is discovered.",
+      scenario: "inner-peak",
+      kind: "curated",
+      domain: "two-pointers",
+      algorithms: twoPointersAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        heights: [2, 3, 10, 5, 7, 8, 9]
       },
       options: {}
     })

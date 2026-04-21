@@ -46,7 +46,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 
 - Route choices, recent activity, and persistence state are visible in the overview index.
 - API availability is surfaced directly so local development failures are obvious.
-- Single-run replay exposes domain-aware sorting, search, sliding-window, hash, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
+- Single-run replay exposes domain-aware sorting, search, two-pointer, sliding-window, hash, interval, dynamic-programming, stack, and graph stages, transport controls, structured step narratives, and explicit change-path chips.
 - The top-level navigation band should let users move between overview, replay, library, history, and compare without collapsing the interface into one long page.
 - The current art direction uses warm paper tones, ink-heavy control surfaces, flatter navigation tabs, calmer borders, and route-specific composition so each page reads like part of one toolset rather than a disconnected card stack.
 - The library should feel like one coherent browsing tool, not a flattened appendix: a calm filter rail, progression-path shortcuts, and dense result rows should help users understand breadth before they open a replay.
@@ -59,6 +59,7 @@ Today the web app is a multi-route local interface: it validates API connectivit
 - Live playback now adds subtle emphasis to the transport panel, play control, and progress bar so active runs read as active even when the stage viewport itself is visually dense.
 - Sorting replay now ships through a reusable stage module that adds an operation summary, live trace metrics, and a per-lane ledger so the same component can serve the main interface and future page-level layouts.
 - The search stage renders interval cuts, midpoint probes, ordered-half signals for rotated-array search, and explicit found-versus-exhausted outcomes from the shared execution-engine snapshots.
+- The two-pointer stage renders the active walls, current container area, last-pruned pointer, and best container directly from the shared execution-engine snapshots.
 - The sliding-window stage renders active bounds, current sum, candidate hits, and best-window overlays directly from the shared execution-engine snapshots.
 - The hash stage renders the active array slot, requested complement, insertion-ordered lookup table, and final matched pair directly from the shared execution-engine snapshots.
 - The interval stage renders sorted ranges, the live merge span, overlap checks, and committed outputs directly from the shared execution-engine snapshots.

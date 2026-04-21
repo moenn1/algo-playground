@@ -14,6 +14,7 @@ import {
   type SearchRun,
   type StackRun,
   type SortingRun,
+  type TwoPointersRun,
   type WindowRun
 } from "./replay.js";
 
@@ -181,6 +182,35 @@ describe("buildRun", () => {
     expect(finalStep.state.bestLength).toBe(2);
     expect(
       windowRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.bestLength"))
+    ).toBe(true);
+  });
+
+  it("builds two-pointer replay runs from the shared two-pointer engine", () => {
+    const run = buildRun(
+      "container-with-most-water",
+      JSON.stringify(
+        {
+          heights: [1, 8, 6, 2, 5, 4, 8, 3, 7]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "two-pointers") {
+      throw new Error("Expected a two-pointer run.");
+    }
+
+    const twoPointersRun = run as TwoPointersRun;
+    const finalStep = twoPointersRun.trace.steps[twoPointersRun.trace.steps.length - 1]!;
+
+    expect(twoPointersRun.algorithm.id).toBe("container-with-most-water");
+    expect(finalStep.phase).toBe("Done");
+    expect(finalStep.state.bestArea).toBe(49);
+    expect(finalStep.state.bestLeft).toBe(1);
+    expect(finalStep.state.bestRight).toBe(8);
+    expect(
+      twoPointersRun.trace.steps.some((step) => getTraceStepPaths(step).includes("state.bestArea"))
     ).toBe(true);
   });
 

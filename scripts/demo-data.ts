@@ -81,6 +81,20 @@ const demoRunPlans: DemoRunPlan[] = [
     tags: ["seeded-demo", "search", "rotated-missing-target"]
   },
   {
+    key: "two-pointers-reference-basin",
+    algorithmId: "container-with-most-water",
+    presetId: "two-pointers.reference-basin",
+    recordedAt: "2026-04-20T09:07:42.000Z",
+    tags: ["seeded-demo", "two-pointers", "reference-basin"]
+  },
+  {
+    key: "two-pointers-inner-peak",
+    algorithmId: "container-with-most-water",
+    presetId: "two-pointers.inner-peak",
+    recordedAt: "2026-04-20T09:07:43.000Z",
+    tags: ["seeded-demo", "two-pointers", "inner-peak"]
+  },
+  {
     key: "window-reference-target",
     algorithmId: "minimum-size-subarray-sum",
     presetId: "window.reference-target",

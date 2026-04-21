@@ -11,6 +11,7 @@ export type AlgorithmDomain =
   | "sorting"
   | "graph"
   | "search"
+  | "two-pointers"
   | "window"
   | "hash"
   | "dynamic-programming"
