@@ -2,8 +2,10 @@ import { useEffect, useState } from "react"
 
 import {
   getProblemReferenceById,
+  getProblemReferencesByPatternGroup,
   getProblemReferencesForAlgorithm,
   getRelatedProblemReferences,
+  problemPatternGroups,
   problemReferences,
   type ProblemReference
 } from "./problemReferences.js"
@@ -36,6 +38,29 @@ function getProblemAccentClass(problem: ProblemReference): string {
 
 function getDomainLabel(domain: AlgorithmReference["algorithm"]["domain"]): string {
   return domain === "sorting" ? "Sorting systems" : "Graph pathfinding"
+}
+
+function getPatternGroupCopy(patternGroup: ProblemReference["patternGroup"]): string {
+  switch (patternGroup) {
+    case "Array & Hashing":
+      return "Fast lookup and constraint-tracking problems where the right auxiliary state turns brute force into a linear pass."
+    case "Intervals":
+      return "Range-overlap and schedule-canonicalization problems that reward ordering first and sweeping once."
+    case "Selection & Heaps":
+      return "Rank and top-k questions where you avoid full sorting by keeping only the candidates that matter."
+    case "Stack":
+      return "Delimiter and monotonic-structure problems where LIFO state preserves the right local context."
+    case "Sliding Window":
+      return "Substring and subarray prompts where a moving boundary maintains a valid invariant in one pass."
+    case "Binary Search":
+      return "Ordered-search questions that keep discarding half the state by preserving a target-location invariant."
+    case "Graph Traversal":
+      return "Grid and graph reachability problems that expand through neighbors while marking stable progress."
+    case "Shortest Paths":
+      return "Weighted routing questions where frontier order and distance relaxation define the solution."
+    case "Dynamic Programming":
+      return "Optimization prompts where smaller solved states compose into the final answer."
+  }
 }
 
 function ImplementationDeck({
@@ -109,6 +134,7 @@ function ProblemCard({
   onOpenReplay: (algorithmId: string) => void
 }) {
   const primaryAlgorithm = getAlgorithmReferenceById(problem.primaryAlgorithmIds[0] ?? "")
+  const studyAlgorithm = getAlgorithmReferenceById(problem.relatedAlgorithmIds[0] ?? "")
 
   return (
     <article className={`reference-card ${getProblemAccentClass(problem)}`}>
@@ -137,8 +163,12 @@ function ProblemCard({
           <strong>{problem.implementations.length}</strong>
         </div>
         <div className="mini-card">
-          <span>Anchor</span>
-          <strong>{primaryAlgorithm?.algorithm.name ?? "Study page"}</strong>
+          <span>Pattern</span>
+          <strong>{problem.patternGroup}</strong>
+        </div>
+        <div className="mini-card">
+          <span>Replay</span>
+          <strong>{primaryAlgorithm?.algorithm.name ?? "Study-first"}</strong>
         </div>
       </div>
       <div className="reference-action-row">
@@ -161,16 +191,18 @@ function ProblemCard({
           >
             Launch replay
           </button>
-        ) : (
+        ) : studyAlgorithm ? (
           <button
             className="segmented"
             onClick={() => {
-              onOpenReference(problem.primaryAlgorithmIds[0] ?? "")
+              onOpenReference(studyAlgorithm.algorithm.id)
             }}
             type="button"
           >
             Study algorithm
           </button>
+        ) : (
+          <span className="number-pill">Study-first page</span>
         )}
       </div>
     </article>
@@ -217,8 +249,12 @@ function ReferenceCatalog({
             <h3>{algorithmReferences.length}</h3>
           </article>
           <article className="summary-card">
-            <p className="card-kicker">Named Problems</p>
+            <p className="card-kicker">Problem Pages</p>
             <h3>{problemReferences.length}</h3>
+          </article>
+          <article className="summary-card">
+            <p className="card-kicker">Pattern Families</p>
+            <h3>{problemPatternGroups.length}</h3>
           </article>
           <article className="summary-card">
             <p className="card-kicker">Languages</p>
@@ -304,23 +340,48 @@ function ReferenceCatalog({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Named Problems</p>
-            <h2>Interview-style reference pages</h2>
+            <h2>Pattern-grouped study library</h2>
           </div>
           <p className="panel-copy">
-            These entries focus on pattern recognition, problem framing, and implementation
-            variants rather than only generic algorithm descriptions.
+            These entries organize well-known interview and LeetCode-style problems by pattern
+            family, with multi-language implementations, related practice, and study-first pages
+            where replay coverage does not exist yet.
           </p>
         </div>
-        <div className="reference-card-grid">
-          {problemReferences.map((problem) => (
-            <ProblemCard
-              key={problem.id}
-              onOpenProblem={onOpenProblem}
-              onOpenReference={onOpenReference}
-              onOpenReplay={onOpenReplay}
-              problem={problem}
-            />
-          ))}
+        <div className="reference-stack">
+          {problemPatternGroups.map((patternGroup) => {
+            const problems = getProblemReferencesByPatternGroup(patternGroup)
+
+            if (problems.length === 0) {
+              return null
+            }
+
+            return (
+              <section className="panel summary-panel" key={patternGroup}>
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Pattern Family</p>
+                    <h2>{patternGroup}</h2>
+                  </div>
+                  <p className="panel-copy">
+                    {getPatternGroupCopy(patternGroup)} {problems.length} problem
+                    {problems.length === 1 ? "" : "s"} currently live in this family.
+                  </p>
+                </div>
+                <div className="reference-card-grid">
+                  {problems.map((problem) => (
+                    <ProblemCard
+                      key={problem.id}
+                      onOpenProblem={onOpenProblem}
+                      onOpenReference={onOpenReference}
+                      onOpenReplay={onOpenReplay}
+                      problem={problem}
+                    />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       </section>
     </div>
@@ -587,6 +648,17 @@ function ProblemDetail({
   const primaryAlgorithms = problem.primaryAlgorithmIds
     .map((algorithmId) => getAlgorithmReferenceById(algorithmId))
     .filter((reference): reference is AlgorithmReference => reference !== null)
+  const relatedAlgorithms = problem.relatedAlgorithmIds
+    .map((algorithmId) => getAlgorithmReferenceById(algorithmId))
+    .filter((reference): reference is AlgorithmReference => reference !== null)
+  const linkedAlgorithms = Array.from(
+    new Map(
+      [...primaryAlgorithms, ...relatedAlgorithms].map((reference) => [
+        reference.algorithm.id,
+        reference
+      ])
+    ).values()
+  )
   const relatedProblems = getRelatedProblemReferences(problem.id)
 
   return (
@@ -594,7 +666,7 @@ function ProblemDetail({
       <section className={`panel summary-panel reference-problem-hero ${getProblemAccentClass(problem)}`}>
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Named Problem</p>
+            <p className="eyebrow">{problem.patternGroup}</p>
             <h2>{problem.title}</h2>
           </div>
           <span className={`algorithm-badge algorithm-badge-${problem.accent}`}>
@@ -626,9 +698,9 @@ function ProblemDetail({
             <p className="metric-caption">Interview expectation</p>
           </article>
           <article className="metric-card">
-            <span>Patterns</span>
-            <strong>{problem.patternTags.length}</strong>
-            <p className="metric-caption">Named tags on this page</p>
+            <span>Pattern Family</span>
+            <strong>{problem.patternGroup}</strong>
+            <p className="metric-caption">Primary recognition bucket</p>
           </article>
           <article className="metric-card">
             <span>Variants</span>
@@ -636,9 +708,9 @@ function ProblemDetail({
             <p className="metric-caption">Alternative solution shapes</p>
           </article>
           <article className="metric-card">
-            <span>Algorithms</span>
-            <strong>{primaryAlgorithms.length}</strong>
-            <p className="metric-caption">Reference pages linked from this problem</p>
+            <span>Languages</span>
+            <strong>{problem.implementations.length}</strong>
+            <p className="metric-caption">Solution implementations on this page</p>
           </article>
         </div>
       </section>
@@ -705,7 +777,7 @@ function ProblemDetail({
             </div>
           </section>
 
-          {primaryAlgorithms.length > 0 ? (
+          {linkedAlgorithms.length > 0 ? (
             <section className="panel summary-panel">
               <div className="panel-heading">
                 <div>
@@ -714,7 +786,7 @@ function ProblemDetail({
                 </div>
               </div>
               <div className="algorithm-list">
-                {primaryAlgorithms.map((algorithm) => (
+                {linkedAlgorithms.map((algorithm) => (
                   <button
                     className="algorithm-card"
                     key={algorithm.algorithm.id}
@@ -734,7 +806,20 @@ function ProblemDetail({
                 ))}
               </div>
             </section>
-          ) : null}
+          ) : (
+            <section className="panel summary-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">Study-first page</p>
+                  <h2>Pattern-first coverage</h2>
+                </div>
+              </div>
+              <p className="panel-copy">
+                This reference page stands on its own as a study guide, even without a matching
+                replay-backed algorithm page yet.
+              </p>
+            </section>
+          )}
 
           {relatedProblems.length > 0 ? (
             <section className="panel summary-panel">

@@ -2,6 +2,7 @@
 
 ## 2026-04-21
 
+- Expanded the named-problem study library with ten interview-style problem pages organized by pattern family, plus related-problem context, study-first coverage for non-replay techniques, and TypeScript/Python/Java/C++ solution implementations for each page.
 - Expanded the reference library in `apps/web` so it now covers both replay-backed algorithms and named problem pages, including problem routes, pattern tags, related problems, implementation variants, replay handoff, and TypeScript/Python/Java/C++ starter implementations.
 - Added shared graph execution-engine builders for Breadth-First Search and Dijkstra, and fixed the workspace-integrity guard so root-linked validation still works when package lifecycle hooks invoke it from nested workspaces.
 - Elevated the replay shell with a hero command surface that exposes live playback telemetry, product priorities, and current replay context.
