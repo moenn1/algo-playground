@@ -123,6 +123,8 @@ Every sorting preset can be resolved for Bubble Sort, Selection Sort, Quick Sort
 - `graph.isolated-fresh`: curated infection grid where one fresh orange remains unreachable
 - `graph.reference-islands`: curated archipelago grid with three deterministic connected components
 - `graph.diagonal-islands`: curated diagonal land pattern that stays disconnected under four-directional adjacency
+- `graph.reference-gates`: curated room map where every empty room reaches a gate with a stable shortest distance
+- `graph.isolated-rooms`: curated room map where a wall barrier leaves part of the infinity ledger unreachable
 - `graph.random-network`: seeded generated network with `nodes`, `extraEdges`, and `directed`
 
 The first three graph presets plus `graph.random-network` resolve for Breadth-First Search or Dijkstra through the same `algorithmId` field. BFS ignores edge weights but preserves the shared graph input contract so pathfinding fixtures can be replayed across both algorithms.
@@ -132,6 +134,8 @@ The scheduling presets resolve for Course Schedule and use `{ "courseCount": num
 The infection presets resolve for Rotting Oranges and use `{ "grid": number[][] }` as the normalized contract, where `0` is empty, `1` is fresh, and `2` is rotten.
 
 The island-count presets resolve for Number of Islands and use `{ "grid": string[][] }` as the normalized contract, where `"0"` is water and `"1"` is land. Numeric `0` and `1` values are accepted during validation and normalized to strings.
+
+The room-fill presets resolve for Walls and Gates and use `{ "grid": number[][] }` as the normalized contract, where `-1` is a wall, `0` is a gate, and `2147483647` is an empty room waiting for a shortest gate distance.
 
 ### Search presets
 
@@ -228,6 +232,7 @@ The bracket presets resolve for Valid Parentheses. The forecast presets resolve 
 - Course Schedule payloads must define an integer `courseCount` between 2 and 16 plus `[course, prerequisite]` pairs that stay within range and never self-reference.
 - Rotting Oranges payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `0`, `1`, or `2`.
 - Number of Islands payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must normalize to `"0"` or `"1"`.
+- Walls and Gates payloads must define a rectangular `grid` between `1 x 1` and `8 x 8`, and every cell must be `-1`, `0`, or `2147483647`.
 - Preset option objects reject unknown keys so clients can treat the contract as explicit rather than best-effort.
 
 ## Design Notes

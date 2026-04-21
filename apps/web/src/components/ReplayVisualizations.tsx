@@ -20,6 +20,7 @@ import {
   isCourseScheduleInput,
   isNumberOfIslandsInput,
   isRottingOrangesInput,
+  isWallsAndGatesInput,
   type SearchRun,
   type SortingRun,
   type StackRun,
@@ -172,9 +173,11 @@ function formatGraphNodeStatus(
     step.state.kind === "course-schedule" ||
     step.state.kind === "rotting-oranges" ||
     step.state.kind === "number-of-islands" ||
+    step.state.kind === "walls-and-gates" ||
     isCourseScheduleInput(run.input) ||
     isRottingOrangesInput(run.input) ||
-    isNumberOfIslandsInput(run.input)
+    isNumberOfIslandsInput(run.input) ||
+    isWallsAndGatesInput(run.input)
   ) {
     return "Blocked";
   }
@@ -208,7 +211,11 @@ function formatGraphNodeMeta(node: string, run: GraphRun): string {
     return "Course node";
   }
 
-  if (isNumberOfIslandsInput(run.input) || isRottingOrangesInput(run.input)) {
+  if (
+    isNumberOfIslandsInput(run.input) ||
+    isRottingOrangesInput(run.input) ||
+    isWallsAndGatesInput(run.input)
+  ) {
     return "Grid cell";
   }
 
@@ -418,6 +425,91 @@ function formatIslandCellStatus(
       return "Water";
     default:
       return "Unclaimed land";
+  }
+}
+
+function formatGateCellValue(value: number): string {
+  if (value === -1) {
+    return "Wall";
+  }
+
+  if (value === 0) {
+    return "Gate";
+  }
+
+  if (value === 2147483647) {
+    return "Room";
+  }
+
+  return `Dist ${value}`;
+}
+
+function getGateCellTone(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "walls-and-gates" }>>
+):
+  | "current"
+  | "frontier"
+  | "settled"
+  | "updated"
+  | "gate"
+  | "wall"
+  | "room"
+  | "blocked" {
+  if (value === -1) {
+    return "wall";
+  }
+
+  if (step.state.current === cell) {
+    return "current";
+  }
+
+  if (step.state.frontier.includes(cell)) {
+    return "frontier";
+  }
+
+  if (value === 0) {
+    return "gate";
+  }
+
+  if (step.state.updatedRooms.includes(cell)) {
+    return "updated";
+  }
+
+  if (step.state.unreachableRooms.includes(cell)) {
+    return "blocked";
+  }
+
+  if (step.state.settled.includes(cell)) {
+    return "settled";
+  }
+
+  return "room";
+}
+
+function formatGateCellStatus(
+  cell: string,
+  value: number,
+  step: TraceStep<Extract<GraphExecutionState, { kind: "walls-and-gates" }>>
+): string {
+  switch (getGateCellTone(cell, value, step)) {
+    case "current":
+      return value === 0 ? "Active gate" : "Fill source";
+    case "frontier":
+      return value === 0 ? "Queued gate" : "Queued room";
+    case "updated":
+      return `Distance ${value}`;
+    case "settled":
+      return value === 0 ? "Processed gate" : `Settled ${value}`;
+    case "gate":
+      return "Gate";
+    case "wall":
+      return "Wall";
+    case "blocked":
+      return "Unreachable room";
+    default:
+      return "Infinity room";
   }
 }
 
@@ -994,6 +1086,189 @@ export function TwoPointersStage({
 
 export function GraphStage({ run, stepIndex }: { run: GraphRun; stepIndex: number }) {
   const step = getStep(run.trace.steps, stepIndex);
+  if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
+    return (
+      <>
+        <div className="visual-heading">
+          <div>
+            <p className="eyebrow">Live State</p>
+            <h2>{run.algorithm.name} floorplan</h2>
+          </div>
+          <p className="visual-meta">Current phase: {step.phase}</p>
+        </div>
+        <div className="graph-legend" aria-label="Walls and Gates status legend">
+          <span className="graph-legend-pill graph-legend-pill-current">Active source</span>
+          <span className="graph-legend-pill graph-legend-pill-frontier">Frontier</span>
+          <span className="graph-legend-pill graph-legend-pill-settled">Settled room</span>
+          <span className="graph-legend-pill graph-legend-pill-path">
+            {step.state.fullyReachable === false ? "Blocked room" : "Gate or wall"}
+          </span>
+        </div>
+        <div className="graph-visual-grid">
+          <div className="graph-stage gate-stage">
+            <div className="gate-banner">
+              <span>
+                {step.state.gates.length} gate{step.state.gates.length === 1 ? "" : "s"} ·{" "}
+                {step.state.walls.length} wall{step.state.walls.length === 1 ? "" : "s"}
+              </span>
+              <strong>
+                {step.state.fullyReachable === false
+                  ? `${step.state.unreachableRooms.length} room${step.state.unreachableRooms.length === 1 ? "" : "s"} remain unreachable`
+                  : step.state.fullyReachable === true
+                    ? `Every room reaches a gate within ${step.state.maxDistance ?? 0} step${step.state.maxDistance === 1 ? "" : "s"}`
+                    : `${step.state.remainingRooms.length} room${step.state.remainingRooms.length === 1 ? "" : "s"} still unresolved`}
+              </strong>
+              <p>
+                {step.state.activeEdge.length > 0
+                  ? formatActiveEdge(step.state.activeEdge)
+                  : step.state.current
+                    ? `Expanding ${step.state.current}`
+                    : "No edge under inspection"}
+              </p>
+            </div>
+            <div
+              className="gate-stage-grid"
+              style={{
+                gridTemplateColumns: `repeat(${run.input.grid[0]!.length}, minmax(0, 1fr))`
+              }}
+            >
+              {step.state.grid.flatMap((row, rowIndex) =>
+                row.map((value, columnIndex) => {
+                  const cell = `${rowIndex},${columnIndex}`;
+                  const tone = getGateCellTone(cell, value, step);
+                  const className = ["gate-cell", `gate-cell-${tone}`].filter(Boolean).join(" ");
+
+                  return (
+                    <article className={className} key={cell}>
+                      <span className="gate-cell-index">
+                        {rowIndex},{columnIndex}
+                      </span>
+                      <strong className="gate-cell-value">{formatGateCellValue(value)}</strong>
+                      <span className="gate-cell-status">
+                        {formatGateCellStatus(cell, value, step)}
+                      </span>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          <div className="graph-state-rail">
+            <article className="mini-card graph-summary-card">
+              <span>Fill focus</span>
+              <strong>{step.state.current ?? "Pending extraction"}</strong>
+              <p>
+                {step.state.current
+                  ? `${step.state.remainingRooms.length} room${step.state.remainingRooms.length === 1 ? "" : "s"} still at inf`
+                  : `${step.state.frontier.length} cell${step.state.frontier.length === 1 ? "" : "s"} remain queued`}
+              </p>
+            </article>
+            <div className="graph-node-grid">
+              <article className="graph-node-card graph-node-card-frontier">
+                <div className="graph-node-card-header">
+                  <strong>Frontier</strong>
+                  <span className="graph-node-status">{step.state.frontier.length}</span>
+                </div>
+                <span className="graph-node-distance">Queued fill sources</span>
+                <span className="graph-node-meta">
+                  {step.state.frontier.length > 0
+                    ? step.state.frontier.join(" · ")
+                    : "No queued cells"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-settled">
+                <div className="graph-node-card-header">
+                  <strong>Processed</strong>
+                  <span className="graph-node-status">{step.state.settled.length}</span>
+                </div>
+                <span className="graph-node-distance">Settled gates and rooms</span>
+                <span className="graph-node-meta">
+                  {step.state.settled.length > 0
+                    ? step.state.settled.slice(-4).join(" · ")
+                    : "No processed cells yet"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-path">
+                <div className="graph-node-card-header">
+                  <strong>Remaining</strong>
+                  <span className="graph-node-status">{step.state.remainingRooms.length}</span>
+                </div>
+                <span className="graph-node-distance">Infinity rooms</span>
+                <span className="graph-node-meta">
+                  {step.state.remainingRooms.length > 0
+                    ? step.state.remainingRooms.join(" · ")
+                    : "All rooms resolved"}
+                </span>
+              </article>
+              <article className="graph-node-card graph-node-card-current">
+                <div className="graph-node-card-header">
+                  <strong>Outcome</strong>
+                  <span className="graph-node-status">
+                    {step.state.fullyReachable === null
+                      ? "Filling"
+                      : step.state.fullyReachable
+                        ? "Resolved"
+                        : "Stalled"}
+                  </span>
+                </div>
+                <span className="graph-node-distance">
+                  {step.state.maxDistance !== null
+                    ? `Max distance ${step.state.maxDistance}`
+                    : "No terminal distance yet"}
+                </span>
+                <span className="graph-node-meta">
+                  {step.state.unreachableRooms.length > 0
+                    ? `Blocked: ${step.state.unreachableRooms.join(" · ")}`
+                    : "No blocked rooms"}
+                </span>
+              </article>
+            </div>
+          </div>
+        </div>
+        <div className="mini-grid">
+          <div className="mini-card">
+            <span>Updated rooms</span>
+            <div className="pill-row">
+              {step.state.updatedRooms.length > 0 ? (
+                step.state.updatedRooms.map((cell) => (
+                  <span className="pill" key={cell}>
+                    {cell}
+                  </span>
+                ))
+              ) : (
+                <span className="empty-pill">No new rooms this frame</span>
+              )}
+            </div>
+          </div>
+          <div className="mini-card">
+            <span>Gate ledger</span>
+            <strong>{step.state.gates.join(" · ")}</strong>
+            <p>
+              {step.state.walls.length > 0
+                ? `${step.state.walls.length} blocking wall${step.state.walls.length === 1 ? "" : "s"} recorded`
+                : "No wall cells on this map"}
+            </p>
+          </div>
+          <div className="mini-card">
+            <span>Reachability</span>
+            <strong>
+              {step.state.fullyReachable === null
+                ? "Wave active"
+                : step.state.fullyReachable
+                  ? "All reachable"
+                  : "Blocked rooms"}
+            </strong>
+            <p>
+              {step.state.unreachableRooms.length > 0
+                ? `Infinity remains at ${step.state.unreachableRooms.join(", ")}`
+                : "Replay records every distance fill directly from the grid snapshots."}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
     return (
       <>

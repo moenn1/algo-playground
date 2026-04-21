@@ -343,6 +343,18 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     spotlight: "A strong graph follow-up because it keeps the BFS queue semantics while shifting the replay surface from abstract nodes to a changing grid.",
     nextAlgorithmIds: ["number-of-islands", "course-schedule"]
   },
+  "walls-and-gates": {
+    stage: "core",
+    focus: "pathfinding",
+    order: 13.82,
+    timeToExplore: "7 min",
+    complexity: "The frontier stays BFS-readable, but each update mutates the whole room-distance grid while blocked walls and unreachable infinity rooms remain explicit.",
+    outcome: "See exactly when multi-source gates seed the wave, which rooms lock a shortest distance next, and where walls force the terminal blocked-room ledger to remain at infinity.",
+    metricsLens: "Settled, inspections, and updates expose how much queue churn and distance-filling work happened before the map resolved or stalled.",
+    skills: ["multi-source bfs", "distance fills", "blocked room ledgers"],
+    spotlight: "A strong graph continuation because it reuses the grid BFS surface from Rotting Oranges while switching the outcome from contagion timing to stable shortest-distance fills.",
+    nextAlgorithmIds: ["number-of-islands", "course-schedule"]
+  },
   "number-of-islands": {
     stage: "core",
     focus: "state-tracking",

@@ -52,6 +52,7 @@ import {
   isCourseScheduleInput,
   isNumberOfIslandsInput,
   isRottingOrangesInput,
+  isWallsAndGatesInput,
   type AccentTone,
   type DynamicProgrammingRun,
   type GraphRun,
@@ -177,9 +178,9 @@ const domainReference: Record<
   },
   graph: {
     lens: "Show frontier churn, active inspections, settled progress, and published outcomes whether the graph is recovering a path, proving a schedule, or spreading across a grid.",
-    flow: "Graph playback now spans BFS, Dijkstra, Course Schedule, and Rotting Oranges through deterministic queue ordering plus serialization-safe union state.",
+    flow: "Graph playback now spans BFS, Dijkstra, Course Schedule, Rotting Oranges, Number of Islands, and Walls and Gates through deterministic frontier ordering plus serialization-safe union state.",
     metrics: "Graph runs surface settled progress, queue pressure, inspections, and updates directly from the trace envelope instead of browser-only state.",
-    checkpoints: "Checkpoint windows anchor around frontier shifts, unlock events, infection-wave jumps, and terminal cycle or stall reporting so graph playback stays navigable even with denser traces."
+    checkpoints: "Checkpoint windows anchor around frontier shifts, unlock events, infection-wave jumps, room-distance fills, and terminal cycle or stall reporting so graph playback stays navigable even with denser traces."
   }
 };
 
@@ -739,6 +740,26 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
   const step = getRunStep(run, stepIndex);
 
   if (isGraphRun(run)) {
+    if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
+      if (step.state.fullyReachable === false && step.state.unreachableRooms.length > 0) {
+        return `Blocked rooms ${truncateText(step.state.unreachableRooms.join(" · "), 36)}`;
+      }
+
+      if (step.state.maxDistance !== null && step.state.fullyReachable === true) {
+        return `All rooms filled by distance ${step.state.maxDistance}`;
+      }
+
+      if (step.state.current) {
+        return `Fill from ${step.state.current}`;
+      }
+
+      if (step.state.updatedRooms.length > 0) {
+        return `Update ${truncateText(step.state.updatedRooms.join(" · "), 36)}`;
+      }
+
+      return `${step.state.remainingRooms.length} room${step.state.remainingRooms.length === 1 ? "" : "s"} still at inf`;
+    }
+
     if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
       if (step.state.scan) {
         return `Scan ${step.state.scan} · ${step.state.islandCount} island${step.state.islandCount === 1 ? "" : "s"} found`;
@@ -790,7 +811,8 @@ function describeRunSnapshot(run: ReplayRun, stepIndex: number): string {
     if (
       step.state.kind !== "course-schedule" &&
       step.state.kind !== "rotting-oranges" &&
-      step.state.kind !== "number-of-islands"
+      step.state.kind !== "number-of-islands" &&
+      step.state.kind !== "walls-and-gates"
     ) {
       if (step.state.path.length > 0) {
         return truncateText(step.state.path.join(" -> "), 56);
@@ -1445,6 +1467,49 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
   if (isGraphRun(run)) {
     const step = getRunStep(run, stepIndex);
 
+    if (step.state.kind === "walls-and-gates" && isWallsAndGatesInput(run.input)) {
+      return (
+        <>
+          <div className="search-summary-grid">
+            <div className="distance-row">
+              <span>Frontier</span>
+              <strong>{step.state.frontier.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Remaining</span>
+              <strong>{step.state.remainingRooms.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Updated</span>
+              <strong>{step.state.updatedRooms.length}</strong>
+            </div>
+            <div className="distance-row">
+              <span>Outcome</span>
+              <strong>
+                {step.state.fullyReachable === null
+                  ? "Filling"
+                  : step.state.fullyReachable
+                    ? `Max ${step.state.maxDistance ?? 0}`
+                    : "Stalled"}
+              </strong>
+            </div>
+          </div>
+          <div className="number-grid">
+            {step.state.grid.map((row, rowIndex) => (
+              <span className="number-pill" key={`gate-row-${rowIndex}`}>
+                {rowIndex}:
+                {row
+                  .map((value) =>
+                    value === 2147483647 ? "inf" : value === -1 ? "wall" : value.toString()
+                  )
+                  .join(" ")}
+              </span>
+            ))}
+          </div>
+        </>
+      );
+    }
+
     if (step.state.kind === "number-of-islands" && isNumberOfIslandsInput(run.input)) {
       return (
         <>
@@ -1557,7 +1622,9 @@ function renderStateSnapshot(run: ReplayRun, stepIndex: number) {
     return (
       <div className="distance-grid">
         {Object.entries(
-          step.state.kind === "course-schedule" || step.state.kind === "number-of-islands"
+          step.state.kind === "course-schedule" ||
+            step.state.kind === "number-of-islands" ||
+            step.state.kind === "walls-and-gates"
             ? {}
             : step.state.distances
         ).map(

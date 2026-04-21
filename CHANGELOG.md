@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added a shared graph replay for Walls and Gates, including deterministic multi-source gate seeding, explicit room-distance fills, and terminal blocked-room reporting through the execution engine.
+- Wired Walls and Gates through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a fifth reusable graph story alongside pathfinding, dependency scheduling, grid infection replay, and connected-component counting.
 - Added a shared heap runtime for Kth Largest Element in an Array, including deterministic heap seeding, explicit root-replacement checkpoints, ranked top-k snapshots, and stable `inspections`, `pushes`, and `pops` metrics.
 - Wired Kth Largest Element in an Array through the input-service presets and validation, replay shell, library catalog, seeded demo data, and heap-domain documentation so TraceDeck now covers a recognizable heap-selection problem alongside the existing array, graph, stack, and DP catalog.
 - Added a shared graph replay for Number of Islands, including deterministic row-major scan checkpoints, connected-component frontier expansion, and explicit island-membership ledgers through the execution engine.

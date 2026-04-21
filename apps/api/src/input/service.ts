@@ -23,6 +23,7 @@ import type {
   TwoPointersInputPayload,
   ValidateCustomInputInput,
   ValidatedCustomInput,
+  WallsAndGatesInputPayload,
   WindowInputPayload
 } from "./types.js";
 
@@ -136,6 +137,11 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     id: "number-of-islands",
     label: "Number of Islands",
     domain: "graph"
+  },
+  "walls-and-gates": {
+    id: "walls-and-gates",
+    label: "Walls and Gates",
+    domain: "graph"
   }
 };
 
@@ -169,6 +175,7 @@ const pathfindingGraphAlgorithms = [
 const courseScheduleAlgorithms = [supportedAlgorithms["course-schedule"]] as const;
 const rottingOrangesAlgorithms = [supportedAlgorithms["rotting-oranges"]] as const;
 const numberOfIslandsAlgorithms = [supportedAlgorithms["number-of-islands"]] as const;
+const wallsAndGatesAlgorithms = [supportedAlgorithms["walls-and-gates"]] as const;
 const defaultSortingValues = [18, 7, 12, 3, 15, 4, 11];
 const defaultSearchInput: SearchInputPayload = {
   array: [2, 5, 8, 12, 16, 23, 38, 56, 72],
@@ -268,6 +275,15 @@ const defaultNumberOfIslandsInput: NumberOfIslandsInputPayload = {
     ["1", "1", "0", "0", "0"],
     ["0", "0", "1", "0", "0"],
     ["0", "0", "0", "1", "1"]
+  ]
+};
+const wallsAndGatesInfinity = 2147483647;
+const defaultWallsAndGatesInput: WallsAndGatesInputPayload = {
+  grid: [
+    [wallsAndGatesInfinity, -1, 0, wallsAndGatesInfinity],
+    [wallsAndGatesInfinity, wallsAndGatesInfinity, wallsAndGatesInfinity, -1],
+    [wallsAndGatesInfinity, -1, wallsAndGatesInfinity, -1],
+    [0, -1, wallsAndGatesInfinity, wallsAndGatesInfinity]
   ]
 };
 
@@ -1537,6 +1553,73 @@ function normalizeNumberOfIslandsInput(payload: unknown): NumberOfIslandsInputPa
   };
 }
 
+function normalizeWallsAndGatesInput(payload: unknown): WallsAndGatesInputPayload {
+  const candidate =
+    typeof payload === "string"
+      ? (() => {
+          try {
+            return JSON.parse(payload) as unknown;
+          } catch {
+            throw new HttpError(
+              400,
+              "Walls and Gates input strings must contain valid JSON."
+            );
+          }
+        })()
+      : payload;
+
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new HttpError(400, "Walls and Gates input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new HttpError(400, "Walls and Gates input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new HttpError(400, "Walls and Gates input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new HttpError(400, `grid[${rowIndex}] must be a non-empty integer array.`);
+    }
+
+    if (row.length > 8) {
+      throw new HttpError(400, `grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (
+        typeof cell !== "number" ||
+        !Number.isInteger(cell) ||
+        ![-1, 0, wallsAndGatesInfinity].includes(cell)
+      ) {
+        throw new HttpError(
+          400,
+          `grid[${rowIndex}][${columnIndex}] must be -1, 0, or ${wallsAndGatesInfinity}.`
+        );
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new HttpError(400, "Walls and Gates input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 function normalizeGraphInput(
   payload: unknown,
   algorithmId: SupportedAlgorithmId
@@ -1548,6 +1631,8 @@ function normalizeGraphInput(
       return normalizeRottingOrangesInput(payload);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(payload);
+    case "walls-and-gates":
+      return normalizeWallsAndGatesInput(payload);
     default:
       return normalizePathfindingGraphInput(payload);
   }
@@ -2628,6 +2713,47 @@ const presetDefinitions: InputPresetDefinition[] = [
           ["1", "0", "1"],
           ["0", "1", "0"],
           ["1", "0", "1"]
+        ]
+      },
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.reference-gates",
+      label: "Reference gates",
+      description:
+        "Use the canonical rooms map so replay shows multi-source gate seeding, room-distance updates, and the farthest resolved room.",
+      scenario: "baseline",
+      kind: "curated",
+      domain: "graph",
+      algorithms: wallsAndGatesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: defaultWallsAndGatesInput,
+      options: {}
+    })
+  },
+  {
+    summary: {
+      id: "graph.isolated-rooms",
+      label: "Isolated rooms",
+      description:
+        "Trap a small room cluster behind walls so replay can publish the remaining infinity rooms once the gate frontier stalls.",
+      scenario: "isolated",
+      kind: "curated",
+      domain: "graph",
+      algorithms: wallsAndGatesAlgorithms.map(cloneAlgorithmDescriptor),
+      supportsSeed: false
+    },
+    resolve: () => ({
+      input: {
+        grid: [
+          [wallsAndGatesInfinity, -1, 0, wallsAndGatesInfinity],
+          [wallsAndGatesInfinity, -1, wallsAndGatesInfinity, -1],
+          [wallsAndGatesInfinity, -1, -1, -1],
+          [0, -1, wallsAndGatesInfinity, wallsAndGatesInfinity]
         ]
       },
       options: {}

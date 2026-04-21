@@ -6,10 +6,12 @@ import {
   buildDijkstraTrace,
   buildNumberOfIslandsTrace,
   buildRottingOrangesTrace,
+  buildWallsAndGatesTrace,
   defaultBreadthFirstSearchInput,
   defaultCourseScheduleInput,
   defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
+  defaultWallsAndGatesInput,
   formatGraphDistance,
   parseGraphInputText,
   serializeGraphInput
@@ -82,6 +84,9 @@ describe("graph execution engine", () => {
     expect(
       parseGraphInputText(serializeGraphInput(defaultNumberOfIslandsInput), "number-of-islands")
     ).toEqual(defaultNumberOfIslandsInput);
+    expect(
+      parseGraphInputText(serializeGraphInput(defaultWallsAndGatesInput), "walls-and-gates")
+    ).toEqual(defaultWallsAndGatesInput);
     expect(formatGraphDistance(null)).toBe("inf");
     expect(formatGraphDistance(3)).toBe("3");
   });
@@ -194,5 +199,44 @@ describe("graph execution engine", () => {
     expect(diagonalFinalStep.state.islandCount).toBe(5);
     expect(diagonalFinalStep.state.completedIslands).toHaveLength(5);
     expect(diagonalFinalStep.state.cellIslands["1,1"]).toBe(3);
+  });
+
+  it("records deterministic room fills and blocked rooms for Walls and Gates", () => {
+    const resolvedTrace = buildWallsAndGatesTrace({
+      grid: [
+        [2147483647, -1, 0, 2147483647],
+        [2147483647, 2147483647, 2147483647, -1],
+        [2147483647, -1, 2147483647, -1],
+        [0, -1, 2147483647, 2147483647]
+      ]
+    });
+    const stalledTrace = buildWallsAndGatesTrace({
+      grid: [
+        [2147483647, -1, 0, 2147483647],
+        [2147483647, -1, 2147483647, -1],
+        [2147483647, -1, -1, -1],
+        [0, -1, 2147483647, 2147483647]
+      ]
+    });
+    const resolvedFinalStep = resolvedTrace.steps[resolvedTrace.steps.length - 1]!;
+    const stalledFinalStep = stalledTrace.steps[stalledTrace.steps.length - 1]!;
+
+    expect(resolvedFinalStep.phase).toBe("Resolution");
+    expect(resolvedFinalStep.state.kind).toBe("walls-and-gates");
+    if (resolvedFinalStep.state.kind !== "walls-and-gates") {
+      throw new Error("Expected the walls-and-gates state.");
+    }
+    expect(resolvedFinalStep.state.fullyReachable).toBe(true);
+    expect(resolvedFinalStep.state.maxDistance).toBe(4);
+    expect(resolvedFinalStep.state.unreachableRooms).toEqual([]);
+
+    expect(stalledFinalStep.phase).toBe("Stalled");
+    expect(stalledFinalStep.state.kind).toBe("walls-and-gates");
+    if (stalledFinalStep.state.kind !== "walls-and-gates") {
+      throw new Error("Expected the walls-and-gates state.");
+    }
+    expect(stalledFinalStep.state.fullyReachable).toBe(false);
+    expect(stalledFinalStep.state.unreachableRooms).toEqual(["3,2", "3,3"]);
+    expect(stalledFinalStep.state.grid[0]![0]).toBe(3);
   });
 });

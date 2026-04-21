@@ -60,10 +60,12 @@ The demo seed currently materializes:
 - Rotting Oranges on `graph.isolated-fresh`
 - Number of Islands on `graph.reference-islands`
 - Number of Islands on `graph.diagonal-islands`
+- Walls and Gates on `graph.reference-gates`
+- Walls and Gates on `graph.isolated-rooms`
 - A baseline sorting comparison between Bubble Sort and Selection Sort
 - A reverse-sorted sorting comparison between Bubble Sort and Selection Sort
 
-That seed currently produces 19 algorithms with runs, 38 runs total, and 2 saved comparisons.
+That seed currently produces 20 algorithms with runs, 40 runs total, and 2 saved comparisons.
 
 Those records are stored with `seeded-demo` tags so operators can distinguish them from ad hoc local runs.
 

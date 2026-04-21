@@ -11,14 +11,16 @@ export type GraphAlgorithmId =
   | "dijkstra"
   | "course-schedule"
   | "rotting-oranges"
-  | "number-of-islands";
+  | "number-of-islands"
+  | "walls-and-gates";
 
 export const graphAlgorithmIds: GraphAlgorithmId[] = [
   "bfs",
   "dijkstra",
   "course-schedule",
   "rotting-oranges",
-  "number-of-islands"
+  "number-of-islands",
+  "walls-and-gates"
 ];
 
 export interface PathfindingGraphInput extends JsonObject {
@@ -42,11 +44,16 @@ export interface NumberOfIslandsInput extends JsonObject {
   grid: string[][];
 }
 
+export interface WallsAndGatesInput extends JsonObject {
+  grid: number[][];
+}
+
 export type GraphInput =
   | PathfindingGraphInput
   | CourseScheduleInput
   | RottingOrangesInput
-  | NumberOfIslandsInput;
+  | NumberOfIslandsInput
+  | WallsAndGatesInput;
 
 export interface PathfindingGraphExecutionState extends JsonObject {
   kind: "bfs" | "dijkstra";
@@ -103,11 +110,28 @@ export interface NumberOfIslandsExecutionState extends JsonObject {
   remainingLand: string[];
 }
 
+export interface WallsAndGatesExecutionState extends JsonObject {
+  kind: "walls-and-gates";
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  gates: string[];
+  walls: string[];
+  updatedRooms: string[];
+  remainingRooms: string[];
+  fullyReachable: boolean | null;
+  maxDistance: number | null;
+  unreachableRooms: string[];
+}
+
 export type GraphExecutionState =
   | PathfindingGraphExecutionState
   | CourseScheduleExecutionState
   | RottingOrangesExecutionState
-  | NumberOfIslandsExecutionState;
+  | NumberOfIslandsExecutionState
+  | WallsAndGatesExecutionState;
 
 interface GraphMetricState {
   settled: number;
@@ -183,6 +207,21 @@ interface NumberOfIslandsRuntimeState {
   remainingLand: Set<string>;
 }
 
+interface WallsAndGatesRuntimeState {
+  grid: number[][];
+  settled: string[];
+  frontier: string[];
+  current: string | null;
+  activeEdge: string[];
+  gates: string[];
+  walls: string[];
+  updatedRooms: string[];
+  remainingRooms: Set<string>;
+  fullyReachable: boolean | null;
+  maxDistance: number | null;
+  unreachableRooms: string[];
+}
+
 const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefinition> = {
   bfs: {
     id: "bfs",
@@ -208,6 +247,11 @@ const graphAlgorithmDefinitions: Record<GraphAlgorithmId, GraphAlgorithmDefiniti
     id: "number-of-islands",
     label: "Number of Islands",
     implementationVersion: "graph-engine-0.4.0"
+  },
+  "walls-and-gates": {
+    id: "walls-and-gates",
+    label: "Walls and Gates",
+    implementationVersion: "graph-engine-0.5.0"
   }
 };
 
@@ -297,6 +341,17 @@ export const defaultNumberOfIslandsInput: NumberOfIslandsInput = {
   ]
 };
 
+export const wallsAndGatesInfinity = 2147483647;
+
+export const defaultWallsAndGatesInput: WallsAndGatesInput = {
+  grid: [
+    [wallsAndGatesInfinity, -1, 0, wallsAndGatesInfinity],
+    [wallsAndGatesInfinity, wallsAndGatesInfinity, wallsAndGatesInfinity, -1],
+    [wallsAndGatesInfinity, -1, wallsAndGatesInfinity, -1],
+    [0, -1, wallsAndGatesInfinity, wallsAndGatesInfinity]
+  ]
+};
+
 function cloneGrid<Value>(grid: Value[][]): Value[][] {
   return grid.map((row) => row.slice());
 }
@@ -354,6 +409,24 @@ function cloneGraphState(state: GraphExecutionState): GraphExecutionState {
         ...state.cellIslands
       },
       remainingLand: state.remainingLand.slice()
+    };
+  }
+
+  if (state.kind === "walls-and-gates") {
+    return {
+      kind: state.kind,
+      grid: cloneGrid(state.grid),
+      settled: state.settled.slice(),
+      frontier: state.frontier.slice(),
+      current: state.current,
+      activeEdge: state.activeEdge.slice(),
+      gates: state.gates.slice(),
+      walls: state.walls.slice(),
+      updatedRooms: state.updatedRooms.slice(),
+      remainingRooms: state.remainingRooms.slice(),
+      fullyReachable: state.fullyReachable,
+      maxDistance: state.maxDistance,
+      unreachableRooms: state.unreachableRooms.slice()
     };
   }
 
@@ -623,6 +696,58 @@ function normalizeNumberOfIslandsInput(candidate: unknown): NumberOfIslandsInput
   };
 }
 
+function normalizeWallsAndGatesInput(candidate: unknown): WallsAndGatesInput {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Walls and Gates input must be an object with a grid field.");
+  }
+
+  const value = candidate as {
+    grid?: unknown;
+  };
+
+  if (!Array.isArray(value.grid) || value.grid.length === 0) {
+    throw new Error("Walls and Gates input must include a non-empty grid.");
+  }
+
+  if (value.grid.length > 8) {
+    throw new Error("Walls and Gates input must use 8 rows or fewer.");
+  }
+
+  const grid = value.grid.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length === 0) {
+      throw new Error(`grid[${rowIndex}] must be a non-empty integer array.`);
+    }
+
+    if (row.length > 8) {
+      throw new Error(`grid[${rowIndex}] must use 8 columns or fewer.`);
+    }
+
+    return row.map((cell, columnIndex) => {
+      if (
+        typeof cell !== "number" ||
+        !Number.isInteger(cell) ||
+        ![-1, 0, wallsAndGatesInfinity].includes(cell)
+      ) {
+        throw new Error(
+          `grid[${rowIndex}][${columnIndex}] must be -1, 0, or ${wallsAndGatesInfinity}.`
+        );
+      }
+
+      return cell;
+    });
+  });
+
+  const columnCount = grid[0]!.length;
+
+  if (grid.some((row) => row.length !== columnCount)) {
+    throw new Error("Walls and Gates input rows must all be the same length.");
+  }
+
+  return {
+    grid
+  };
+}
+
 export function parseGraphInputText(
   inputText: string,
   algorithmId: GraphAlgorithmId = "dijkstra"
@@ -642,6 +767,8 @@ export function parseGraphInputText(
       return normalizeRottingOrangesInput(parsed);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(parsed);
+    case "walls-and-gates":
+      return normalizeWallsAndGatesInput(parsed);
     default:
       return normalizeParsedPathfindingGraph(parsed);
   }
@@ -658,6 +785,8 @@ export function normalizeGraphInput(
       return normalizeRottingOrangesInput(input);
     case "number-of-islands":
       return normalizeNumberOfIslandsInput(input);
+    case "walls-and-gates":
+      return normalizeWallsAndGatesInput(input);
     default:
       return normalizeParsedPathfindingGraph(input);
   }
@@ -938,6 +1067,34 @@ function createNumberOfIslandsRecorder() {
   });
 }
 
+function createWallsAndGatesRecorder() {
+  return createTraceRecorder<
+    WallsAndGatesRuntimeState,
+    GraphExecutionState,
+    GraphMetricState
+  >({
+    algorithmId: "walls-and-gates",
+    projectState(runtimeState) {
+      return cloneGraphState({
+        kind: "walls-and-gates",
+        grid: cloneGrid(runtimeState.grid),
+        settled: runtimeState.settled.slice(),
+        frontier: runtimeState.frontier.slice(),
+        current: runtimeState.current,
+        activeEdge: runtimeState.activeEdge.slice(),
+        gates: runtimeState.gates.slice(),
+        walls: runtimeState.walls.slice(),
+        updatedRooms: runtimeState.updatedRooms.slice(),
+        remainingRooms: Array.from(runtimeState.remainingRooms).sort(compareCellIds),
+        fullyReachable: runtimeState.fullyReachable,
+        maxDistance: runtimeState.maxDistance,
+        unreachableRooms: runtimeState.unreachableRooms.slice()
+      });
+    },
+    projectMetrics: projectGraphMetrics
+  });
+}
+
 function buildGraphEnvelope(
   definition: GraphAlgorithmDefinition,
   input: GraphInput,
@@ -947,6 +1104,7 @@ function buildGraphEnvelope(
     | ReturnType<typeof createCourseScheduleRecorder>
     | ReturnType<typeof createRottingOrangesRecorder>
     | ReturnType<typeof createNumberOfIslandsRecorder>
+    | ReturnType<typeof createWallsAndGatesRecorder>
 ): TraceEnvelope<GraphExecutionState> {
   return createTraceEnvelope({
     algorithm: {
@@ -2387,6 +2545,307 @@ export function buildNumberOfIslandsTrace(
   return buildGraphEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildWallsAndGatesTrace(
+  input: WallsAndGatesInput
+): TraceEnvelope<GraphExecutionState> {
+  const definition = graphAlgorithmDefinitions["walls-and-gates"];
+  const normalizedInput = normalizeWallsAndGatesInput(input);
+  const grid = cloneGrid(normalizedInput.grid);
+  const rowCount = grid.length;
+  const columnCount = grid[0]!.length;
+  const settled: string[] = [];
+  const frontier: string[] = [];
+  const gates: string[] = [];
+  const walls: string[] = [];
+  const remainingRooms = new Set<string>();
+  const recorder = createWallsAndGatesRecorder();
+  const metrics: GraphMetricState = {
+    settled: 0,
+    frontier: 0,
+    inspections: 0,
+    updates: 0
+  };
+  let current: string | null = null;
+  let activeEdge: string[] = [];
+  let updatedRooms: string[] = [];
+  let fullyReachable: boolean | null = null;
+  let maxDistance: number | null = null;
+  let unreachableRooms: string[] = [];
+
+  for (let row = 0; row < rowCount; row += 1) {
+    for (let column = 0; column < columnCount; column += 1) {
+      const value = grid[row]![column]!;
+      const cell = makeCellId(row, column);
+
+      if (value === 0) {
+        gates.push(cell);
+        frontier.push(cell);
+      } else if (value === -1) {
+        walls.push(cell);
+      } else {
+        remainingRooms.add(cell);
+      }
+    }
+  }
+
+  metrics.frontier = frontier.length;
+
+  const createRuntimeState = (): WallsAndGatesRuntimeState => ({
+    grid,
+    settled,
+    frontier,
+    current,
+    activeEdge,
+    gates,
+    walls,
+    updatedRooms,
+    remainingRooms,
+    fullyReachable,
+    maxDistance,
+    unreachableRooms
+  });
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The multi-source BFS records gates, walls, and unresolved rooms before the first queue extraction so replay can restore the map without rebuilding frontier state.",
+    explanation: {
+      summary: "Seed the gate frontier and the unresolved-room ledger before distance filling begins.",
+      details:
+        "The opening frame stores the entire grid, the ordered gate queue, and every remaining room directly so replay never reconstructs the initial map from hidden BFS state.",
+      tags: ["snapshot", "frontier"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "walls-and-gates-initial",
+        path: frontier.length > 0 ? "state.frontier" : "state.remainingRooms",
+        kind: "collection",
+        intent: "focus",
+        label:
+          frontier.length > 0
+            ? `${frontier.length} gate${frontier.length === 1 ? "" : "s"} queued`
+            : `${remainingRooms.size} room${remainingRooms.size === 1 ? "" : "s"} waiting for a gate`
+      }
+    ]
+  });
+
+  if (remainingRooms.size === 0) {
+    fullyReachable = true;
+    maxDistance = 0;
+
+    recorder.push({
+      phase: "Resolution",
+      description: "No empty rooms remain, so the map resolves immediately without any distance updates.",
+      explanation: {
+        summary: "Publish the terminal map immediately when every cell is already a gate or a wall.",
+        details:
+          "The terminal frame still records the gate and wall ledgers directly so replay can explain why no BFS expansion was required.",
+        tags: ["result", "graph"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: "walls-and-gates-final-immediate",
+          path: "state.maxDistance",
+          kind: "node",
+          intent: "result",
+          label: "All cells already fixed"
+        }
+      ]
+    });
+
+    return buildGraphEnvelope(definition, normalizedInput, recorder);
+  }
+
+  while (frontier.length > 0) {
+    const currentCell = frontier.shift();
+
+    if (!currentCell) {
+      break;
+    }
+
+    current = currentCell;
+    updatedRooms = [];
+    activeEdge = [];
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Extract",
+      description: `Cell ${formatCellLabel(currentCell)} becomes the active BFS source for room filling.`,
+      explanation: {
+        summary: "Expand the next gate or resolved room from the ordered frontier.",
+        details:
+          "Replay records the active source before neighbor checks begin so the distance wave stays readable without recomputing queue order.",
+        tags: ["frontier", "focus"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `walls-and-gates-current-${currentCell}`,
+          path: "state.current",
+          kind: "node",
+          intent: "active",
+          label: `Fill from ${formatCellLabel(currentCell)}`
+        }
+      ]
+    });
+
+    const { row, column } = parseCellId(currentCell);
+    const currentDistance = grid[row]![column]!;
+
+    for (const neighbor of getNeighborCellIds(row, column, rowCount, columnCount)) {
+      const { row: neighborRow, column: neighborColumn } = parseCellId(neighbor);
+      const neighborValue = grid[neighborRow]![neighborColumn]!;
+      activeEdge = [currentCell, neighbor];
+      metrics.inspections += 1;
+
+      if (neighborValue === -1 || neighborValue === 0 || neighborValue !== wallsAndGatesInfinity) {
+        recorder.push({
+          phase: "Inspect",
+          description:
+            neighborValue === -1
+              ? `Inspect ${formatCellLabel(neighbor)} and stop because a wall blocks the current distance wave.`
+              : neighborValue === 0
+                ? `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that cell is already a gate.`
+                : `Inspect ${formatCellLabel(neighbor)} and keep the frontier stable because that room already holds distance ${neighborValue}.`,
+          explanation: {
+            summary:
+              neighborValue === -1
+                ? "Inspect a wall without extending the frontier."
+                : neighborValue === 0
+                  ? "Inspect a gate without re-enqueuing it."
+                  : "Inspect an already resolved room without replacing its shorter distance.",
+            details:
+              neighborValue === -1
+                ? "Walls stay explicit in the trace so replay can explain why the BFS wave stopped at that boundary."
+                : neighborValue === 0
+                  ? "Gate cells remain fixed at distance 0, so replay preserves the original multi-source seed without duplicate queue work."
+                  : "Previously resolved rooms keep their first recorded distance, which prevents replay from inferring shortest-distance stability from hidden comparisons.",
+            tags: ["edge", "focus"]
+          },
+          runtimeState: createRuntimeState(),
+          metrics,
+          highlights: [
+            {
+              key: `walls-and-gates-inspect-${currentCell}-${neighbor}-${metrics.inspections}`,
+              path: `state.grid.${neighborRow}.${neighborColumn}`,
+              kind: "node",
+              intent: "candidate",
+              label:
+                neighborValue === -1
+                  ? `Wall ${formatCellLabel(neighbor)}`
+                  : neighborValue === 0
+                    ? `Gate ${formatCellLabel(neighbor)}`
+                    : `Distance ${neighborValue} at ${formatCellLabel(neighbor)}`
+            }
+          ]
+        });
+        continue;
+      }
+
+      const nextDistance = currentDistance + 1;
+      grid[neighborRow]![neighborColumn] = nextDistance;
+      frontier.push(neighbor);
+      updatedRooms.push(neighbor);
+      remainingRooms.delete(neighbor);
+      maxDistance = maxDistance === null ? nextDistance : Math.max(maxDistance, nextDistance);
+      metrics.updates += 1;
+      metrics.frontier = frontier.length;
+
+      recorder.push({
+        phase: "Update",
+        description: `Room ${formatCellLabel(neighbor)} receives distance ${nextDistance} and joins the frontier.`,
+        explanation: {
+          summary: "Publish one newly resolved room and enqueue it for the next BFS expansion steps.",
+          details:
+            "The updated grid and frontier are recorded immediately so replay can jump to any room-distance assignment without replay-time recomputation.",
+          tags: ["edge", "frontier"]
+        },
+        runtimeState: createRuntimeState(),
+        metrics,
+        highlights: [
+          {
+            key: `walls-and-gates-update-${currentCell}-${neighbor}-${metrics.updates}`,
+            path: `state.grid.${neighborRow}.${neighborColumn}`,
+            kind: "node",
+            intent: "frontier",
+            label: `Distance ${nextDistance}`
+          }
+        ]
+      });
+    }
+
+    settled.push(currentCell);
+    activeEdge = [];
+    metrics.settled = settled.length;
+    metrics.frontier = frontier.length;
+
+    recorder.push({
+      phase: "Checkpoint",
+      description: `${formatCellLabel(currentCell)} is fully processed for room-filling replay.`,
+      explanation: {
+        summary: "Seal one BFS source after all of its neighboring cells are recorded.",
+        details:
+          "This checkpoint captures the updated distance grid, remaining rooms, and queue state directly so replay can jump between frontier boundaries safely.",
+        tags: ["checkpoint", "visited"]
+      },
+      runtimeState: createRuntimeState(),
+      metrics,
+      highlights: [
+        {
+          key: `walls-and-gates-settled-${currentCell}`,
+          path: "state.settled",
+          kind: "collection",
+          intent: "visited",
+          label: `${formatCellLabel(currentCell)} processed`
+        }
+      ]
+    });
+  }
+
+  current = null;
+  activeEdge = [];
+  updatedRooms = [];
+  unreachableRooms = Array.from(remainingRooms).sort(compareCellIds);
+  fullyReachable = unreachableRooms.length === 0;
+  metrics.frontier = frontier.length;
+
+  recorder.push({
+    phase: fullyReachable ? "Resolution" : "Stalled",
+    description: fullyReachable
+      ? `Every room reaches a gate with a maximum recorded distance of ${maxDistance ?? 0}.`
+      : `Rooms ${unreachableRooms.map(formatCellLabel).join(", ")} remain unreachable after the frontier empties.`,
+    explanation: {
+      summary: fullyReachable
+        ? "Publish the terminal map once every room has a gate distance."
+        : "Publish the unreachable rooms once the BFS frontier can no longer expand.",
+      details: fullyReachable
+        ? "The terminal frame stores the fully resolved distance grid and the farthest assigned room directly so replay never recomputes the fill depth."
+        : "The remaining infinity rooms stay explicit in the terminal frame so replay can explain the blocked layout without rerunning the BFS wave.",
+      tags: ["result", "graph"]
+    },
+    runtimeState: createRuntimeState(),
+    metrics,
+    highlights: [
+      {
+        key: "walls-and-gates-final",
+        path: fullyReachable ? "state.maxDistance" : "state.unreachableRooms",
+        kind: fullyReachable ? "node" : "collection",
+        intent: "result",
+        label: fullyReachable
+          ? `Max distance ${maxDistance ?? 0}`
+          : `Blocked rooms ${unreachableRooms.map(formatCellLabel).join(", ")}`
+      }
+    ]
+  });
+
+  return buildGraphEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildGraphTrace(
   algorithmId: GraphAlgorithmId,
   graph: GraphInput
@@ -2402,6 +2861,8 @@ export function buildGraphTrace(
       return buildRottingOrangesTrace(graph as RottingOrangesInput);
     case "number-of-islands":
       return buildNumberOfIslandsTrace(graph as NumberOfIslandsInput);
+    case "walls-and-gates":
+      return buildWallsAndGatesTrace(graph as WallsAndGatesInput);
   }
 }
 

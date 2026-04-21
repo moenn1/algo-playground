@@ -741,6 +741,48 @@ describe("TraceDeck API foundation", () => {
       footprint: "3 x 3 grid"
     });
 
+    const wallsAndGatesPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.reference-gates/resolve",
+      payload: {
+        algorithmId: "walls-and-gates"
+      }
+    });
+
+    expect(wallsAndGatesPreset.statusCode).toBe(200);
+    expect(wallsAndGatesPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.reference-gates"
+      },
+      algorithm: {
+        id: "walls-and-gates",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
+    const isolatedRoomsPreset = await server.inject({
+      method: "POST",
+      url: "/api/input-presets/graph.isolated-rooms/resolve",
+      payload: {
+        algorithmId: "walls-and-gates"
+      }
+    });
+
+    expect(isolatedRoomsPreset.statusCode).toBe(200);
+    expect(isolatedRoomsPreset.json()).toMatchObject({
+      source: "preset",
+      preset: {
+        id: "graph.isolated-rooms"
+      },
+      algorithm: {
+        id: "walls-and-gates",
+        domain: "graph"
+      },
+      footprint: "4 x 4 grid"
+    });
+
     const searchPreset = await server.inject({
       method: "POST",
       url: "/api/input-presets/search.reference-hit/resolve",
@@ -1382,6 +1424,40 @@ describe("TraceDeck API foundation", () => {
       },
       footprint: "3 x 3 grid"
     });
+
+    const validateWallsAndGatesInput = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "walls-and-gates",
+        payload: {
+          grid: [
+            [2147483647, -1, 0, 2147483647],
+            [2147483647, 2147483647, 2147483647, -1],
+            [2147483647, -1, 2147483647, -1],
+            [0, -1, 2147483647, 2147483647]
+          ]
+        }
+      }
+    });
+
+    expect(validateWallsAndGatesInput.statusCode).toBe(200);
+    expect(validateWallsAndGatesInput.json()).toMatchObject({
+      source: "custom",
+      algorithm: {
+        id: "walls-and-gates",
+        domain: "graph"
+      },
+      input: {
+        grid: [
+          [2147483647, -1, 0, 2147483647],
+          [2147483647, 2147483647, 2147483647, -1],
+          [2147483647, -1, 2147483647, -1],
+          [0, -1, 2147483647, 2147483647]
+        ]
+      },
+      footprint: "4 x 4 grid"
+    });
   });
 
   it("rejects custom graph payloads whose edges reference missing nodes", async () => {
@@ -1451,6 +1527,29 @@ describe("TraceDeck API foundation", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({
       error: 'grid[1][1] must be "0" or "1".'
+    });
+  });
+
+  it("rejects walls-and-gates payloads with invalid cell values", async () => {
+    const server = await createServer();
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/inputs/validate",
+      payload: {
+        algorithmId: "walls-and-gates",
+        payload: {
+          grid: [
+            [2147483647, -1, 0],
+            [2147483647, 1, -1]
+          ]
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "grid[1][1] must be -1, 0, or 2147483647."
     });
   });
 

@@ -289,6 +289,20 @@ const demoRunPlans: DemoRunPlan[] = [
     presetId: "graph.diagonal-islands",
     recordedAt: "2026-04-20T09:16:00.000Z",
     tags: ["seeded-demo", "graph", "diagonal-islands"]
+  },
+  {
+    key: "graph-reference-gates",
+    algorithmId: "walls-and-gates",
+    presetId: "graph.reference-gates",
+    recordedAt: "2026-04-20T09:17:00.000Z",
+    tags: ["seeded-demo", "graph", "reference-gates"]
+  },
+  {
+    key: "graph-isolated-rooms",
+    algorithmId: "walls-and-gates",
+    presetId: "graph.isolated-rooms",
+    recordedAt: "2026-04-20T09:18:00.000Z",
+    tags: ["seeded-demo", "graph", "isolated-rooms"]
   }
 ];
 

@@ -21,6 +21,7 @@ import {
   defaultMinStackInput,
   defaultNumberOfIslandsInput,
   defaultRottingOrangesInput,
+  defaultWallsAndGatesInput,
   defaultTwoSumInput,
   defaultTrappingRainWaterInput,
   defaultMergeIntervalsInput,
@@ -264,13 +265,32 @@ export function isPathfindingGraphInput(
 export function isRottingOrangesInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: number[][] }> {
-  return "grid" in input && input.grid.every((row) => row.every((cell) => typeof cell === "number"));
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every((cell) => typeof cell === "number" && Number.isInteger(cell) && cell >= 0 && cell <= 2)
+    )
+  );
 }
 
 export function isNumberOfIslandsInput(
   input: GraphInput
 ): input is Extract<GraphInput, { grid: string[][] }> {
   return "grid" in input && input.grid.every((row) => row.every((cell) => typeof cell === "string"));
+}
+
+export function isWallsAndGatesInput(
+  input: GraphInput
+): input is Extract<GraphInput, { grid: number[][] }> {
+  return (
+    "grid" in input &&
+    input.grid.every((row) =>
+      row.every(
+        (cell) =>
+          typeof cell === "number" && Number.isInteger(cell) && [-1, 0, 2147483647].includes(cell)
+      )
+    )
+  );
 }
 
 function isSearchRun(run: ReplayRun): run is SearchRun {
@@ -596,6 +616,19 @@ export const algorithms: ReplayAlgorithm[] = [
     inputHint: 'JSON with a grid using "0" for water and "1" for land.',
     defaultInput: serializeGraphInput(defaultNumberOfIslandsInput),
     domain: "graph"
+  },
+  {
+    id: "walls-and-gates",
+    name: "Walls and Gates",
+    badge: "Graph",
+    accent: "ember",
+    description:
+      "Multi-source gate replay records room-distance fills, blocked walls, and unreachable infinity rooms through deterministic BFS waves.",
+    inputLabel: "Graph Input",
+    inputHint:
+      "JSON with a grid using -1 for walls, 0 for gates, and 2147483647 for empty rooms.",
+    defaultInput: serializeGraphInput(defaultWallsAndGatesInput),
+    domain: "graph"
   }
 ];
 
@@ -856,7 +889,9 @@ export function describeInputFootprint(run: ReplayRun): string {
 
   return isCourseScheduleInput(run.input)
     ? `${run.input.courseCount} courses / ${run.input.prerequisites.length} prerequisites`
-    : isRottingOrangesInput(run.input) || isNumberOfIslandsInput(run.input)
+    : isRottingOrangesInput(run.input) ||
+        isNumberOfIslandsInput(run.input) ||
+        isWallsAndGatesInput(run.input)
       ? `${run.input.grid.length} x ${run.input.grid[0]!.length} grid`
     : `${run.input.nodes.length} nodes / ${run.input.edges.length} edges`;
 }

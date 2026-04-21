@@ -208,6 +208,44 @@ describe("buildRun", () => {
     ).toBe(true);
   });
 
+  it("builds walls-and-gates replay runs from the shared graph engine", () => {
+    const run = buildRun(
+      "walls-and-gates",
+      JSON.stringify(
+        {
+          grid: [
+            [2147483647, -1, 0, 2147483647],
+            [2147483647, 2147483647, 2147483647, -1],
+            [2147483647, -1, 2147483647, -1],
+            [0, -1, 2147483647, 2147483647]
+          ]
+        },
+        null,
+        2
+      )
+    );
+
+    if (run.algorithm.domain !== "graph") {
+      throw new Error("Expected a graph run.");
+    }
+
+    const finalStep = run.trace.steps[run.trace.steps.length - 1]!;
+
+    expect(run.algorithm.id).toBe("walls-and-gates");
+    expect(finalStep.state.kind).toBe("walls-and-gates");
+    if (finalStep.state.kind !== "walls-and-gates") {
+      throw new Error("Expected the walls-and-gates graph state.");
+    }
+    expect(finalStep.state.fullyReachable).toBe(true);
+    expect(finalStep.state.maxDistance).toBe(4);
+    expect(finalStep.state.unreachableRooms).toEqual([]);
+    expect(
+      run.trace.steps.some((step) =>
+        getTraceStepPaths(step).some((path) => path.startsWith("state.grid"))
+      )
+    ).toBe(true);
+  });
+
   it("builds binary-search replay runs from the shared search engine", () => {
     const run = buildRun(
       "binary-search",
