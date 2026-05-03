@@ -19,6 +19,8 @@ export const supportedAlgorithmIds = [
   "top-k-frequent-elements",
   "merge-intervals",
   "longest-common-subsequence",
+  "edit-distance",
+  "longest-common-substring",
   "valid-parentheses",
   "daily-temperatures",
   "largest-rectangle-in-histogram",

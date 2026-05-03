@@ -707,7 +707,31 @@ const libraryProfiles: Record<ReplayAlgorithm["id"], LibraryProfile> = {
     metricsLens: "Cells computed, matches, and traceback steps show both fill cost and recovery effort.",
     skills: ["table fill order", "dependency reading", "traceback recovery"],
     spotlight: "Use this when you want to study a replay that cannot be understood from one moving pointer alone.",
-    nextAlgorithmIds: ["dijkstra", "minimum-size-subarray-sum"]
+    nextAlgorithmIds: ["edit-distance", "longest-common-substring"]
+  },
+  "edit-distance": {
+    stage: "advanced",
+    focus: "dependencies",
+    order: 16.25,
+    timeToExplore: "8 min",
+    complexity: "A full cost table plus edit-script traceback makes replacement, deletion, and insertion tradeoffs explicit.",
+    outcome: "Read how each cell chooses the cheapest edit operation and how the terminal script walks back through those decisions.",
+    metricsLens: "Cells computed, matches, and traceback steps split fill cost from recovery effort.",
+    skills: ["cost tables", "edit operations", "traceback scripts"],
+    spotlight: "A strong follow-up to LCS when you want a dependency table that optimizes transformation cost instead of overlap length.",
+    nextAlgorithmIds: ["longest-common-substring", "dijkstra"]
+  },
+  "longest-common-substring": {
+    stage: "core",
+    focus: "dependencies",
+    order: 16.5,
+    timeToExplore: "7 min",
+    complexity: "The table is still dense, but mismatch resets make the contiguous-match invariant easier to compare against subsequence replay.",
+    outcome: "See diagonal suffix growth, hard resets on mismatch, and the recovered best contiguous string without deriving it from raw text.",
+    metricsLens: "Cells computed, matches, and traceback steps show how much scan work produced the best contiguous run.",
+    skills: ["contiguous suffixes", "reset states", "diagonal recovery"],
+    spotlight: "Useful for contrasting substring and subsequence behavior on the same left/right input shape.",
+    nextAlgorithmIds: ["longest-common-subsequence", "edit-distance"]
   },
   dijkstra: {
     stage: "advanced",

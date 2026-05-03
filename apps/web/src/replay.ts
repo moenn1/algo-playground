@@ -9,7 +9,9 @@ import {
   buildSortingTrace,
   buildTwoPointersTrace,
   buildWindowTrace,
+  defaultEditDistanceInput,
   defaultLongestCommonSubsequenceInput,
+  defaultLongestCommonSubstringInput,
   defaultBreadthFirstSearchInput,
   defaultBinarySearchInput,
   defaultCloneGraphInput,
@@ -754,6 +756,30 @@ export const algorithms: ReplayAlgorithm[] = [
     inputLabel: "DP Input",
     inputHint: "JSON with left and right strings up to 12 characters each.",
     defaultInput: serializeDynamicProgrammingInput(defaultLongestCommonSubsequenceInput),
+    domain: "dynamic-programming"
+  },
+  {
+    id: "edit-distance",
+    name: "Edit Distance",
+    badge: "DP",
+    accent: "gold",
+    description:
+      "Edit-cost replay records replace, delete, and insert decisions before publishing a deterministic traceback script.",
+    inputLabel: "DP Input",
+    inputHint: "JSON with source and target strings up to 12 characters each.",
+    defaultInput: serializeDynamicProgrammingInput(defaultEditDistanceInput),
+    domain: "dynamic-programming"
+  },
+  {
+    id: "longest-common-substring",
+    name: "Longest Common Substring",
+    badge: "DP",
+    accent: "ember",
+    description:
+      "Contiguous-match replay records diagonal suffix growth, mismatch resets, and the recovered best substring.",
+    inputLabel: "DP Input",
+    inputHint: "JSON with left and right strings up to 12 characters each.",
+    defaultInput: serializeDynamicProgrammingInput(defaultLongestCommonSubstringInput),
     domain: "dynamic-programming"
   },
   {

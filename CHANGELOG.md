@@ -2,6 +2,8 @@
 
 ## 2026-04-21
 
+- Added shared dynamic-programming replays for Edit Distance and Longest Common Substring, including deterministic table fills, result recovery, and replay-safe traceback state for transform-cost and contiguous-match study paths.
+- Wired the two new DP algorithms through the replay shell, input-service presets, validation types, library catalog metadata, and deterministic tests so TraceDeck now covers 51 algorithms across table, graph, stack, heap, interval, search, sorting, hash, window, and two-pointer domains.
 - Added a shared graph replay for Swim in Rising Water, including deterministic weighted-frontier ordering, explicit minimum-water relaxations, and replay-safe traceback that records the route surviving the lowest tide.
 - Wired Swim in Rising Water through the input-service presets and validation, replay shell, library catalog, seeded demo data, and graph-family documentation so TraceDeck now covers a distinct weighted elevation-grid pathfinding problem alongside minimum-removal deque replay, maze exits, obstacle-budget replay, pantry routes, nearest-zero matrices, shoreline distances, bridge expansion, dual-ocean reachability, capture, and room-distance fills.
 - Expanded the seeded demo dataset and operator docs so local verification now reflects 49 algorithms with runs, 98 total runs, and 2 saved comparisons.

@@ -44,6 +44,32 @@ describe("libraryCatalog", () => {
     expect(matches.map((algorithm) => algorithm.id)).toContain("longest-common-subsequence");
   });
 
+  it("surfaces edit-distance study paths through edit operation metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "edit operations traceback"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("edit-distance");
+  });
+
+  it("surfaces longest-common-substring study paths through contiguous reset metadata", () => {
+    const matches = resolveLibraryAlgorithms(
+      algorithms,
+      {
+        ...defaultLibraryFilters,
+        q: "contiguous suffix resets"
+      },
+      savedRunCounts
+    );
+
+    expect(matches.map((algorithm) => algorithm.id)).toContain("longest-common-substring");
+  });
+
   it("surfaces rotated-search study paths through targeting metadata", () => {
     const matches = resolveLibraryAlgorithms(
       algorithms,

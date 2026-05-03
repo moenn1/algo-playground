@@ -131,6 +131,16 @@ const supportedAlgorithms: Record<SupportedAlgorithmId, SupportedAlgorithmDescri
     label: "Longest Common Subsequence",
     domain: "dynamic-programming"
   },
+  "edit-distance": {
+    id: "edit-distance",
+    label: "Edit Distance",
+    domain: "dynamic-programming"
+  },
+  "longest-common-substring": {
+    id: "longest-common-substring",
+    label: "Longest Common Substring",
+    domain: "dynamic-programming"
+  },
   "valid-parentheses": {
     id: "valid-parentheses",
     label: "Valid Parentheses",
@@ -313,7 +323,11 @@ const kthLargestHeapAlgorithms = [
 ] as const;
 const topKFrequentHeapAlgorithms = [supportedAlgorithms["top-k-frequent-elements"]] as const;
 const intervalAlgorithms = [supportedAlgorithms["merge-intervals"]] as const;
-const dynamicProgrammingAlgorithms = [supportedAlgorithms["longest-common-subsequence"]] as const;
+const dynamicProgrammingAlgorithms = [
+  supportedAlgorithms["longest-common-subsequence"],
+  supportedAlgorithms["edit-distance"],
+  supportedAlgorithms["longest-common-substring"]
+] as const;
 const validParenthesesAlgorithms = [supportedAlgorithms["valid-parentheses"]] as const;
 const dailyTemperaturesAlgorithms = [supportedAlgorithms["daily-temperatures"]] as const;
 const largestRectangleAlgorithms = [
@@ -1942,6 +1956,8 @@ function normalizeGraphValidTreeInput(payload: unknown): GraphValidTreeInputPayl
     throw new HttpError(400, "Graph Valid Tree input nodeCount must be 12 or fewer.");
   }
 
+  const nodeCount = value.nodeCount;
+
   if (!Array.isArray(value.edges) || value.edges.length === 0) {
     throw new HttpError(400, "Graph Valid Tree input must include at least one edge.");
   }
@@ -1965,10 +1981,10 @@ function normalizeGraphValidTreeInput(payload: unknown): GraphValidTreeInputPayl
       throw new HttpError(400, `edges[${index}][1] must be an integer.`);
     }
 
-    if (from < 0 || from >= value.nodeCount || to < 0 || to >= value.nodeCount) {
+    if (from < 0 || from >= nodeCount || to < 0 || to >= nodeCount) {
       throw new HttpError(
         400,
-        `edges[${index}] must reference node ids between 0 and ${value.nodeCount - 1}.`
+        `edges[${index}] must reference node ids between 0 and ${nodeCount - 1}.`
       );
     }
 
@@ -1976,7 +1992,7 @@ function normalizeGraphValidTreeInput(payload: unknown): GraphValidTreeInputPayl
   });
 
   return {
-    nodeCount: value.nodeCount,
+    nodeCount,
     edges
   };
 }
@@ -3118,11 +3134,18 @@ function isGridGraphPayload(
   | MinimumObstacleRemovalToReachCornerInputPayload
   | SwimInRisingWaterInputPayload
   | ShortestPathToGetFoodInputPayload
+  | ZeroOneMatrixInputPayload
   | AsFarFromLandAsPossibleInputPayload
   | MapOfHighestPeakInputPayload
   | SurroundedRegionsInputPayload
   | WallsAndGatesInputPayload {
   return "grid" in graph && Array.isArray(graph.grid);
+}
+
+function isShortestPathGridWithObstaclesEliminationPayload(
+  graph: GraphInputPayload
+): graph is ShortestPathGridWithObstaclesEliminationInputPayload {
+  return "eliminations" in graph && typeof graph.eliminations === "number" && Array.isArray(graph.grid);
 }
 
 function serializeGraphInput(input: GraphInputPayload) {
@@ -3323,12 +3346,12 @@ function normalizeAlgorithmInput(
       isGraphValidTreePayload(graph)
         ? `${graph.nodeCount} nodes / ${graph.edges.length} edges`
         : isCourseScheduleGraphPayload(graph)
-        ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
-        : "eliminations" in graph
-          ? `${graph.grid.length} x ${graph.grid[0]!.length} grid / k ${graph.eliminations}`
-        : isGridGraphPayload(graph)
-          ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
-          : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
+          ? `${graph.courseCount} courses / ${graph.prerequisites.length} prerequisites`
+          : isShortestPathGridWithObstaclesEliminationPayload(graph)
+            ? `${graph.grid.length} x ${graph.grid[0]!.length} grid / k ${graph.eliminations}`
+            : isGridGraphPayload(graph)
+              ? `${graph.grid.length} x ${graph.grid[0]!.length} grid`
+              : `${graph.nodes.length} nodes / ${graph.edges.length} edges`
   };
 }
 

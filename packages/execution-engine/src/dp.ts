@@ -6,10 +6,15 @@ import {
   type TraceMetricDefinition
 } from "@tracedeck/trace-core";
 
-export type DynamicProgrammingAlgorithmId = "longest-common-subsequence";
+export type DynamicProgrammingAlgorithmId =
+  | "longest-common-subsequence"
+  | "edit-distance"
+  | "longest-common-substring";
 
 export const dynamicProgrammingAlgorithmIds: DynamicProgrammingAlgorithmId[] = [
-  "longest-common-subsequence"
+  "longest-common-subsequence",
+  "edit-distance",
+  "longest-common-substring"
 ];
 
 export interface DynamicProgrammingInput extends JsonObject {
@@ -50,6 +55,16 @@ const dynamicProgrammingAlgorithmDefinitions: Record<
     id: "longest-common-subsequence",
     label: "Longest Common Subsequence",
     implementationVersion: "dp-engine-0.1.0"
+  },
+  "edit-distance": {
+    id: "edit-distance",
+    label: "Edit Distance",
+    implementationVersion: "dp-engine-0.2.0"
+  },
+  "longest-common-substring": {
+    id: "longest-common-substring",
+    label: "Longest Common Substring",
+    implementationVersion: "dp-engine-0.2.0"
   }
 };
 
@@ -77,6 +92,16 @@ export const dynamicProgrammingMetricDefinitions: TraceMetricDefinition[] = [
 export const defaultLongestCommonSubsequenceInput: DynamicProgrammingInput = {
   left: "XMJYAUZ",
   right: "MZJAWXU"
+};
+
+export const defaultEditDistanceInput: DynamicProgrammingInput = {
+  left: "kitten",
+  right: "sitting"
+};
+
+export const defaultLongestCommonSubstringInput: DynamicProgrammingInput = {
+  left: "traceback",
+  right: "racecar"
 };
 
 function cloneTable(table: number[][]): number[][] {
@@ -501,6 +526,353 @@ export function buildLongestCommonSubsequenceTrace(
   return buildDynamicProgrammingEnvelope(definition, normalizedInput, recorder);
 }
 
+export function buildEditDistanceTrace(
+  input: DynamicProgrammingInput
+): TraceEnvelope<DynamicProgrammingExecutionState> {
+  const definition = dynamicProgrammingAlgorithmDefinitions["edit-distance"];
+  const normalizedInput = normalizeDynamicProgrammingInput(input);
+  const leftChars = normalizedInput.left.split("");
+  const rightChars = normalizedInput.right.split("");
+  const table = createTable(leftChars.length + 1, rightChars.length + 1);
+  const recorder = createDynamicProgrammingRecorder(definition.id);
+  const metrics: DynamicProgrammingMetricState = {
+    cellsComputed: 0,
+    matches: 0,
+    tracebackSteps: 0
+  };
+
+  for (let row = 0; row <= leftChars.length; row += 1) {
+    table[row]![0] = row;
+  }
+
+  for (let column = 0; column <= rightChars.length; column += 1) {
+    table[0]![column] = column;
+  }
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The replay seeds the edit-distance boundary conditions so empty-prefix insertions and deletions are explicit before interior cells are computed.",
+    explanation: {
+      summary: "Seed first row and first column with empty-prefix edit costs.",
+      details:
+        "Transforming a prefix into an empty string costs deletions; transforming an empty string into a prefix costs insertions.",
+      tags: ["snapshot", "table", "edit-distance"]
+    },
+    runtimeState: {
+      left: normalizedInput.left,
+      right: normalizedInput.right,
+      table,
+      activeCell: [],
+      dependencyCells: [],
+      currentValue: null,
+      matching: false,
+      resultLength: null,
+      resultSequence: "",
+      tracebackPath: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "edit-distance-boundaries",
+        path: "state.table",
+        kind: "collection",
+        intent: "focus",
+        label: "Seed edit-distance boundaries"
+      }
+    ]
+  });
+
+  for (let row = 1; row <= leftChars.length; row += 1) {
+    for (let column = 1; column <= rightChars.length; column += 1) {
+      const leftCharacter = leftChars[row - 1]!;
+      const rightCharacter = rightChars[column - 1]!;
+      const matching = leftCharacter === rightCharacter;
+      const substitutionCost = matching ? 0 : 1;
+      const substitution = table[row - 1]![column - 1]! + substitutionCost;
+      const deletion = table[row - 1]![column]! + 1;
+      const insertion = table[row]![column - 1]! + 1;
+      const nextCost = Math.min(substitution, deletion, insertion);
+
+      table[row]![column] = nextCost;
+      metrics.cellsComputed += 1;
+      if (matching) {
+        metrics.matches += 1;
+      }
+
+      recorder.push({
+        phase: matching ? "Carry Match" : "Choose Edit",
+        description: matching
+          ? `Characters "${leftCharacter}" and "${rightCharacter}" already match at row ${row}, column ${column}, so the diagonal cost ${nextCost} carries forward.`
+          : `Characters "${leftCharacter}" and "${rightCharacter}" differ at row ${row}, column ${column}; the replay chooses cost ${nextCost} from substitution ${substitution}, deletion ${deletion}, and insertion ${insertion}.`,
+        explanation: {
+          summary: `Finalize edit-distance cell [${row}, ${column}] as ${nextCost}.`,
+          details: matching
+            ? "A matching pair does not add edit cost, so this cell keeps the diagonal predecessor."
+            : "The recurrence takes the cheapest deterministic edit among replace, delete, and insert.",
+          tags: ["table", matching ? "match" : "recurrence"]
+        },
+        runtimeState: {
+          left: normalizedInput.left,
+          right: normalizedInput.right,
+          table,
+          activeCell: [row, column],
+          dependencyCells: [
+            [row - 1, column - 1],
+            [row - 1, column],
+            [row, column - 1]
+          ],
+          currentValue: nextCost,
+          matching,
+          resultLength: null,
+          resultSequence: "",
+          tracebackPath: []
+        },
+        metrics,
+        highlights: [
+          {
+            key: `edit-distance-cell-${row}-${column}`,
+            path: "state.activeCell",
+            kind: "index",
+            intent: matching ? "candidate" : "mutation",
+            label: `Cell [${row}, ${column}]`
+          }
+        ]
+      });
+    }
+  }
+
+  const resultLength = table[leftChars.length]![rightChars.length]!;
+  const operations: string[] = [];
+  let row = leftChars.length;
+  let column = rightChars.length;
+  let tracebackPath: number[][] = [];
+
+  while (row > 0 || column > 0) {
+    tracebackPath = [...tracebackPath, [row, column]];
+    metrics.tracebackSteps += 1;
+
+    if (
+      row > 0 &&
+      column > 0 &&
+      leftChars[row - 1] === rightChars[column - 1] &&
+      table[row]![column] === table[row - 1]![column - 1]
+    ) {
+      operations.unshift(`keep ${leftChars[row - 1]!}`);
+      row -= 1;
+      column -= 1;
+      continue;
+    }
+
+    if (
+      row > 0 &&
+      column > 0 &&
+      table[row]![column] === table[row - 1]![column - 1]! + 1
+    ) {
+      operations.unshift(`replace ${leftChars[row - 1]!}->${rightChars[column - 1]!}`);
+      row -= 1;
+      column -= 1;
+      continue;
+    }
+
+    if (row > 0 && table[row]![column] === table[row - 1]![column]! + 1) {
+      operations.unshift(`delete ${leftChars[row - 1]!}`);
+      row -= 1;
+      continue;
+    }
+
+    operations.unshift(`insert ${rightChars[column - 1]!}`);
+    column -= 1;
+  }
+
+  recorder.push({
+    phase: "Done",
+    description: `The replay resolves the minimum edit distance as ${resultLength}.`,
+    explanation: {
+      summary: "Publish the edit script and the full traceback footprint.",
+      details:
+        "Traceback walks from the terminal cell to the seeded boundary using the same deterministic tie order as the recurrence.",
+      tags: ["result", "traceback", "edit-distance"]
+    },
+    runtimeState: {
+      left: normalizedInput.left,
+      right: normalizedInput.right,
+      table,
+      activeCell: [],
+      dependencyCells: [],
+      currentValue: null,
+      matching: false,
+      resultLength,
+      resultSequence: operations.join(", "),
+      tracebackPath
+    },
+    metrics,
+    highlights: [
+      {
+        key: "edit-distance-result",
+        path: "state.resultLength",
+        kind: "value",
+        intent: "result",
+        label: `Distance ${resultLength}`
+      }
+    ]
+  });
+
+  return buildDynamicProgrammingEnvelope(definition, normalizedInput, recorder);
+}
+
+export function buildLongestCommonSubstringTrace(
+  input: DynamicProgrammingInput
+): TraceEnvelope<DynamicProgrammingExecutionState> {
+  const definition = dynamicProgrammingAlgorithmDefinitions["longest-common-substring"];
+  const normalizedInput = normalizeDynamicProgrammingInput(input);
+  const leftChars = normalizedInput.left.split("");
+  const rightChars = normalizedInput.right.split("");
+  const table = createTable(leftChars.length + 1, rightChars.length + 1);
+  const recorder = createDynamicProgrammingRecorder(definition.id);
+  const metrics: DynamicProgrammingMetricState = {
+    cellsComputed: 0,
+    matches: 0,
+    tracebackSteps: 0
+  };
+  let bestLength = 0;
+  let bestEndRow = 0;
+  let bestEndColumn = 0;
+
+  recorder.push({
+    phase: "Initialization",
+    description:
+      "The replay starts with a zero-filled suffix table for the longest common substring recurrence.",
+    explanation: {
+      summary: "Seed the table before scanning matching suffix lengths.",
+      details:
+        "Unlike subsequence replay, a mismatch resets the active suffix length to zero because substrings must stay contiguous.",
+      tags: ["snapshot", "table", "substring"]
+    },
+    runtimeState: {
+      left: normalizedInput.left,
+      right: normalizedInput.right,
+      table,
+      activeCell: [],
+      dependencyCells: [],
+      currentValue: null,
+      matching: false,
+      resultLength: null,
+      resultSequence: "",
+      tracebackPath: []
+    },
+    metrics,
+    highlights: [
+      {
+        key: "substring-table-seeded",
+        path: "state.table",
+        kind: "collection",
+        intent: "focus",
+        label: "Seed substring table"
+      }
+    ]
+  });
+
+  for (let row = 1; row <= leftChars.length; row += 1) {
+    for (let column = 1; column <= rightChars.length; column += 1) {
+      const leftCharacter = leftChars[row - 1]!;
+      const rightCharacter = rightChars[column - 1]!;
+      const matching = leftCharacter === rightCharacter;
+
+      metrics.cellsComputed += 1;
+      if (matching) {
+        table[row]![column] = table[row - 1]![column - 1]! + 1;
+        metrics.matches += 1;
+        if (table[row]![column]! > bestLength) {
+          bestLength = table[row]![column]!;
+          bestEndRow = row;
+          bestEndColumn = column;
+        }
+      } else {
+        table[row]![column] = 0;
+      }
+
+      recorder.push({
+        phase: matching ? "Extend Suffix" : "Reset Suffix",
+        description: matching
+          ? `Characters "${leftCharacter}" and "${rightCharacter}" match, extending the contiguous suffix at [${row}, ${column}] to ${table[row]![column]}.`
+          : `Characters "${leftCharacter}" and "${rightCharacter}" differ, so the contiguous suffix at [${row}, ${column}] resets to zero.`,
+        explanation: {
+          summary: `Finalize substring cell [${row}, ${column}] as ${table[row]![column]}.`,
+          details: matching
+            ? "A match extends the diagonal suffix by one and may update the best recovered substring."
+            : "A mismatch cannot preserve a contiguous substring, so this cell becomes a hard reset.",
+          tags: ["table", matching ? "match" : "reset"]
+        },
+        runtimeState: {
+          left: normalizedInput.left,
+          right: normalizedInput.right,
+          table,
+          activeCell: [row, column],
+          dependencyCells: [[row - 1, column - 1]],
+          currentValue: table[row]![column]!,
+          matching,
+          resultLength: bestLength,
+          resultSequence: normalizedInput.left.slice(bestEndRow - bestLength, bestEndRow),
+          tracebackPath: []
+        },
+        metrics,
+        highlights: [
+          {
+            key: `substring-cell-${row}-${column}`,
+            path: "state.activeCell",
+            kind: "index",
+            intent: matching ? "mutation" : "candidate",
+            label: `Cell [${row}, ${column}]`
+          }
+        ]
+      });
+    }
+  }
+
+  const tracebackPath = Array.from({ length: bestLength }, (_, offset) => [
+    bestEndRow - offset,
+    bestEndColumn - offset
+  ]).reverse();
+  const resultSequence = normalizedInput.left.slice(bestEndRow - bestLength, bestEndRow);
+  metrics.tracebackSteps = tracebackPath.length;
+
+  recorder.push({
+    phase: "Done",
+    description: `The replay resolves the longest common substring as "${resultSequence}" with length ${bestLength}.`,
+    explanation: {
+      summary: "Publish the best contiguous match and its diagonal footprint.",
+      details:
+        "The terminal frame keeps the completed suffix table and the recovered contiguous substring for direct replay.",
+      tags: ["result", "substring"]
+    },
+    runtimeState: {
+      left: normalizedInput.left,
+      right: normalizedInput.right,
+      table,
+      activeCell: [],
+      dependencyCells: [],
+      currentValue: null,
+      matching: false,
+      resultLength: bestLength,
+      resultSequence,
+      tracebackPath
+    },
+    metrics,
+    highlights: [
+      {
+        key: "substring-result",
+        path: "state.resultSequence",
+        kind: "value",
+        intent: "result",
+        label: `Substring "${resultSequence}"`
+      }
+    ]
+  });
+
+  return buildDynamicProgrammingEnvelope(definition, normalizedInput, recorder);
+}
+
 export function buildDynamicProgrammingTrace(
   algorithmId: DynamicProgrammingAlgorithmId,
   input: DynamicProgrammingInput
@@ -508,5 +880,9 @@ export function buildDynamicProgrammingTrace(
   switch (algorithmId) {
     case "longest-common-subsequence":
       return buildLongestCommonSubsequenceTrace(input);
+    case "edit-distance":
+      return buildEditDistanceTrace(input);
+    case "longest-common-substring":
+      return buildLongestCommonSubstringTrace(input);
   }
 }
