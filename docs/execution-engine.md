@@ -24,6 +24,8 @@ The current package covers shared sorting, search, two-pointers, window, hash, h
 - `top-k-frequent-elements`
 - `merge-intervals`
 - `longest-common-subsequence`
+- `edit-distance`
+- `longest-common-substring`
 - `valid-parentheses`
 - `daily-temperatures`
 - `largest-rectangle-in-histogram`
@@ -700,6 +702,8 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 - Two Sum records complement checks, lookup-table stores, and the winning pair explicitly so replay can jump between hash states without reconstructing a live `Map`.
 - Merge Intervals records sorted range order, active-span merges, and committed outputs explicitly so replay can jump between overlap checks and result commits without recomputing interval groups.
 - Longest Common Subsequence records row-major table fills, deterministic up-first traceback ties, and the recovered sequence explicitly so replay can jump between fill and traceback phases without recomputing DP state.
+- Edit Distance records seeded transformation costs, replace/delete/insert choices, and the recovered edit script explicitly so replay can explain string conversion without recomputing the cost table.
+- Longest Common Substring records diagonal suffix growth, hard resets on mismatch, and the recovered contiguous match explicitly so replay can contrast substring and subsequence behavior from the same table shape.
 - Valid Parentheses records opener pushes, closer matches, and terminal mismatch frames explicitly so replay can restore the exact stack and failure reason for any token boundary.
 - Daily Temperatures records monotonic-stack comparisons, resolved waits, and terminal zero-wait days explicitly so replay can restore the exact unresolved-day stack and final wait ledger for any frame.
 - Largest Rectangle in Histogram records stack comparisons, resolved span widths, deterministic best-rectangle updates, and final flush work explicitly so replay can restore the exact candidate stack and best-area ledger for any frame.
@@ -728,6 +732,6 @@ The frontier representation is intentionally serialized as an ordered array. BFS
 
 ## Consumers
 
-- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Count Connected Components replay, Redundant Connection replay, Course Schedule replay, Course Schedule II replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Nearest Exit from Entrance in Maze replay, Shortest Path to Get Food replay, 01 Matrix replay, As Far from Land as Possible replay, Map of Highest Peak replay, Surrounded Regions replay, and Walls and Gates replay from this package.
+- `apps/web` builds sorting replay, binary-search replay, rotated-array search replay, container-with-most-water replay, trapping-rain-water replay, sliding-window replay, two-sum replay, merge-intervals replay, longest-common-subsequence replay, edit-distance replay, longest-common-substring replay, valid-parentheses replay, daily-temperatures replay, largest-rectangle-in-histogram replay, min-stack replay, BFS replay, DFS replay, Dijkstra replay, Clone Graph replay, Graph Valid Tree replay, Count Connected Components replay, Redundant Connection replay, Course Schedule replay, Course Schedule II replay, Rotting Oranges replay, Number of Islands replay, Max Area of Island replay, Island Perimeter replay, Pacific Atlantic Water Flow replay, Shortest Bridge replay, Shortest Path in Binary Matrix replay, Nearest Exit from Entrance in Maze replay, Shortest Path to Get Food replay, 01 Matrix replay, As Far from Land as Possible replay, Map of Highest Peak replay, Surrounded Regions replay, and Walls and Gates replay from this package.
 - `apps/api` exposes the same sorting, search, two-pointers, window, hash, interval, dynamic-programming, stack, and graph algorithm identifiers through the input-service layer, including the graph-family route, clone-construction, tree-validation, schedule, dual-ocean reachability, shortest-bridge expansion, blocked-cell shortest-path search, border-capture, and grid contracts.
 - Demo and persistence workflows consume the envelopes produced by the shared runtime instead of maintaining UI-local sorting builders.

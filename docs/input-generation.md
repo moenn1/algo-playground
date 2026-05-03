@@ -13,7 +13,7 @@ The service currently covers the supported algorithms already present in the wor
 - Hash: `two-sum`
 - Heap: `kth-largest-element-in-an-array`, `top-k-frequent-elements`
 - Interval: `merge-intervals`
-- Dynamic Programming: `longest-common-subsequence`
+- Dynamic Programming: `longest-common-subsequence`, `edit-distance`, `longest-common-substring`
 - Stack: `valid-parentheses`, `daily-temperatures`, `largest-rectangle-in-histogram`, `min-stack`
 - Graph: `bfs`, `dfs`, `dijkstra`, `network-delay-time`, `clone-graph`, `graph-valid-tree`, `count-connected-components`, `redundant-connection`, `course-schedule`, `course-schedule-ii`, `rotting-oranges`, `number-of-islands`, `max-area-of-island`, `island-perimeter`, `pacific-atlantic-water-flow`, `shortest-bridge`, `shortest-path-binary-matrix`, `nearest-exit-from-entrance-in-maze`, `shortest-path-in-a-grid-with-obstacles-elimination`, `minimum-obstacle-removal-to-reach-corner`, `swim-in-rising-water`, `shortest-path-to-get-food`, `01-matrix`, `as-far-from-land-as-possible`, `map-of-highest-peak`, `surrounded-regions`, `walls-and-gates`
 
@@ -266,7 +266,7 @@ Both interval presets currently resolve for Merge Intervals through the same `al
 - `dynamic-programming.reference-overlap`: curated pair of strings with a non-trivial shared subsequence and visible traceback
 - `dynamic-programming.no-overlap`: curated pair of strings with no shared characters so the runtime still exercises table fill plus deterministic traceback
 
-Both dynamic-programming presets currently resolve for Longest Common Subsequence through the same `algorithmId` field.
+Both dynamic-programming presets currently resolve for Longest Common Subsequence, Edit Distance, and Longest Common Substring through the same `algorithmId` field and shared `{ "left": string, "right": string }` contract.
 
 ### Stack presets
 
